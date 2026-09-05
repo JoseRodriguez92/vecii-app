@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build output
+dist/
+build/
+web-build/
+*.tsbuildinfo
+
+# Expo
+FE/.expo/
+FE/expo-env.d.ts
+*.orig.*
+
+# Prisma
+BE/prisma/*.db
+BE/src/generated/
+
+# Logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Native
+FE/android/
+FE/ios/
