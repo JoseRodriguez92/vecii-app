@@ -31,6 +31,16 @@ export type CodigoRolConocido = (typeof ROL)[keyof typeof ROL];
 // reves que `codigo`, que tuvo que soltarse porque los conjuntos lo inventan.
 export { AmbitoRol as Ambito } from '../generated/prisma/enums.js';
 
+/**
+ * `ambito` y `asignable` responden preguntas distintas, y confundirlas deja
+ * pantallas vacias:
+ *
+ *   ambito     DONDE se otorga    PLATAFORMA | CONJUNTO
+ *   asignable  SI alguien lo otorga, o si se deriva de otra cosa
+ *
+ * Solo PROPIETARIO y RESIDENTE son `asignable: false`, porque salen de
+ * `usuarios_unidades` y nadie los reparte.
+ */
 export interface RolDelSistema {
   codigo: string;
   nombre: string;
@@ -52,8 +62,10 @@ export const ROLES_DEL_SISTEMA: RolDelSistema[] = [
     nombre: 'Staff Vecii',
     descripcion: 'Equipo de Vecii. Entra a cualquier conjunto para dar soporte.',
     ambito: Ambito.PLATAFORMA,
-    // No se otorga desde un conjunto: se nombra en `usuarios_plataforma`.
-    asignable: false,
+    // SI se otorga: lo nombra alguien con `roles.plataforma` en
+    // `usuarios_plataforma`. Que no se otorgue desde un conjunto ya lo dice
+    // `ambito`, no hace falta que lo diga tambien esta casilla.
+    asignable: true,
   },
   {
     codigo: ROL.ADMIN_CONJUNTO,

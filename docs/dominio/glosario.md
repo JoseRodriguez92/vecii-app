@@ -158,7 +158,7 @@ sistema. Por eso van aquí. (`DiaSemana` es la única excepción declarada, en
 | `NaturalezaParqueadero` | `PRIVADO` · `USO_EXCLUSIVO` · `ROTATIVO` · `VISITANTES` | es **naturaleza jurídica**, no cosmética: decide si tiene coeficiente y si se puede vender |
 | `OrigenAsignacion` | de dónde sale el derecho a un cupo | ver la familia de la propiedad, más arriba |
 | `RelacionUnidad` | `PROPIETARIO` · `ARRENDATARIO` · `RESIDENTE_AUTORIZADO` | de aquí se **derivan** los roles propietario y residente |
-| `AmbitoRol` | `PLATAFORMA` · `CONJUNTO` | dónde vive un rol. El default es `CONJUNTO`, el menos peligroso |
+| `AmbitoRol` | `PLATAFORMA` · `CONJUNTO` | **dónde** se otorga un rol. No confundir con `asignable`, que dice **si** alguien lo otorga. El default es `CONJUNTO`, el menos peligroso |
 | `TipoEncomienda` | `PAQUETE` · `CORRESPONDENCIA` · `CERTIFICADO` · `OTRO` | **no hay domicilios**: las porterías no reciben comida, y sin custodia no hay encomienda |
 | `EstadoEncomienda` | `RECIBIDA` → `NOTIFICADA` → `ENTREGADA` / `DEVUELTA` | solo estados que **el sistema provoca**. No existe `REPARTIDA` porque nadie verifica que llenaron los casilleros |
 | `EstadoReserva` | `SOLICITADA` · `CONFIRMADA` · `CANCELADA` · `CUMPLIDA` · `NO_ASISTIO` | `NO_ASISTIO` existe porque muchos reglamentos sancionan la inasistencia, y sin el dato no hay cómo aplicarlo |

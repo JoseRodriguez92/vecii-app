@@ -8,6 +8,7 @@ import {
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { SupabaseAdminService } from '../../auth/supabase-admin.service.js';
 import { rolVigente } from '../../common/rol-vigente.js';
+import { Ambito } from '../../common/roles.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { CerrarVinculoDto, RegistrarUsuarioDto } from './dto/usuario.dto.js';
@@ -284,9 +285,17 @@ export class UsuariosService {
     // a ser el conjunto activo. Hoy todos los roles son globales.
     const rol = await this.prisma.rol.findFirst({
       where: { codigo: dto.codigo, conjuntoId: null },
-      select: { id: true, nombre: true, asignable: true },
+      select: { id: true, nombre: true, asignable: true, ambito: true },
     });
     if (!rol) throw new NotFoundException(`No existe el rol ${dto.codigo}`);
+    // Un rol de plataforma se nombra en `usuarios_plataforma`, no desde aqui.
+    // Sin esta comprobacion, cualquiera con `usuarios.gestionar` podria nombrar
+    // staff de Vecii desde su propio conjunto.
+    if (rol.ambito !== Ambito.CONJUNTO) {
+      throw new ForbiddenException(
+        `${rol.nombre} es un rol de plataforma: se nombra desde el equipo de Vecii, no aqui.`,
+      );
+    }
     if (!rol.asignable) {
       throw new BadRequestException(
         `${rol.nombre} no se otorga a mano. Propietario y residente se derivan de las unidades; ` +
@@ -356,13 +365,29 @@ export class UsuariosService {
     return { codigo, cerrados: vigentes.length, hasta };
   }
 
-  /** Los cargos se otorgan; propietario y residente se derivan de la unidad. */
+  /**
+   * Los cargos que se pueden otorgar AL REGISTRAR a alguien en un conjunto.
+   *
+   * Dos filtros, y hacen falta los dos: `asignable` saca los derivados, y
+   * `ambito` saca los de plataforma. Antes bastaba con el primero porque
+   * STAFF_VECII estaba marcado no-asignable; ahora que si lo es —lo otorga Vecii
+   * en su propia pantalla— sin el segundo se podria nombrar staff desde aqui.
+   */
   private async validarRolesOtorgables(roles?: string[]) {
     if (!roles?.length) return [];
     const encontrados = await this.prisma.rol.findMany({
       where: { codigo: { in: roles } },
-      select: { id: true, codigo: true, asignable: true, nombre: true },
+      select: { id: true, codigo: true, asignable: true, nombre: true, ambito: true },
     });
+
+    const dePlataforma = encontrados.filter((r) => r.ambito !== Ambito.CONJUNTO);
+    if (dePlataforma.length > 0) {
+      throw new ForbiddenException(
+        `Estos son roles de plataforma y se nombran desde el equipo de Vecii: ` +
+          `${dePlataforma.map((r) => r.nombre).join(', ')}.`,
+      );
+    }
+
     const noOtorgables = encontrados.filter((r) => !r.asignable);
     if (noOtorgables.length > 0) {
       throw new BadRequestException(
