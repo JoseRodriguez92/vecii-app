@@ -61,6 +61,70 @@ migraciones definitivas:
 
 ---
 
+## 🔴 Antes de abrir reservas al público
+
+**Cupo de reservas concurrentes — esto NO se resuelve en código de aplicación**
+
+Dos personas reservan el último cupo en el mismo instante. Las dos consultas
+cuentan "hay 49 de 50 ocupados", las dos reciben que cabe, las dos insertan.
+Resultado: 51 reservas para 50 cupos.
+
+Validar en el servicio no lo arregla: entre el `count` y el `insert` hay una
+ventana, y con concurrencia siempre se cuela.
+
+Como los espacios tienen **capacidad** (el salón es 1, el pool de visitantes es
+50), una restricción `EXCLUDE` de Postgres **no sirve** — esa solo sabe impedir
+solapamientos, no contar. La forma correcta es un **advisory lock** por espacio
+alrededor del conteo y la inserción, dentro de la misma transacción:
+
+```sql
+-- dentro de la transaccion, antes de contar:
+SELECT pg_advisory_xact_lock(hashtextextended(:espacio_id, 0));
+-- ahora contar solapadas y decidir; el lock se libera al hacer commit
+```
+
+Sirve igual para capacidad 1 y para capacidad 50, así que es un solo mecanismo.
+
+**CHECK de espacio bien formado en `espacios_reservables`**
+Un espacio apunta a una zona común **o** a un pool de parqueaderos, no a ambos
+ni a ninguno:
+
+```sql
+ALTER TABLE espacios_reservables ADD CONSTRAINT espacio_apunta_a_algo
+  CHECK ((zona_comun_id IS NULL) <> (naturaleza_parqueadero IS NULL));
+```
+
+**Capacidad vs. inventario real**
+Si el pool de visitantes declara capacidad 50 pero solo hay 30 filas en
+`parqueaderos` con naturaleza `VISITANTES`, hay una incoherencia. Vale un
+chequeo de salud que la reporte (no una restricción: la capacidad puede ser
+menor a propósito, reservando cupos para uso libre).
+
+**Tarifas y depósitos** — esperan a finanzas. La reserva guarda el hecho
+(espacio, franja); el cargo lo genera finanzas leyéndolo.
+
+**Un `SORTEO` sobre un parqueadero `PRIVADO` debe rechazarse.** En los privados
+solo tienen sentido `ESCRITURA`, `PRESTAMO` y `ARRIENDO`: rifar la propiedad de
+alguien no es una opción.
+
+---
+
+## 🟡 Correos: SMTP propio, no el de Supabase
+
+Hoy `SupabaseAdminService.invitarPorCorreo` usa `inviteUserByEmail`, que hace que
+**Supabase mande el correo**. No es lo que queremos, y además su SMTP interno
+está limitado a unos pocos envíos por hora — inservible para invitar a 200
+residentes.
+
+Cambiar a: generar el enlace sin enviar (`auth.admin.generateLink`) y mandarlo
+desde nuestro propio SMTP.
+
+Y hacerlo como un **módulo de notificaciones**, no metiendo SMTP dentro de
+invitaciones: en poco tiempo van a necesitar correo la cuota generada, la reserva
+confirmada y el visitante en portería.
+
+---
+
 ## 🟡 Validaciones del servicio
 
 **Ciclos en la jerarquía de agrupaciones**
@@ -112,6 +176,5 @@ puede leer está mal diseñado aunque sea correcto.
 - Evaluar `nestjs-expert` (comunidad; ninguna de las candidatas cubre ESM)
 - Escribir la skill de dominio de Vecii: ESM con `.js`, Vitest, `conjuntoId`,
   `x-conjunto-id`
-- `CLAUDE.md` en la raíz
 - **Nada está commiteado todavía**
 - Rotar la contraseña de la base de datos (quedó expuesta en una conversación)
