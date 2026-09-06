@@ -22,7 +22,7 @@ apps/api/src/modules/
 ├── conjuntos/     el conjunto y su configuración
 ├── estructura/    agrupaciones, tipologías, unidades
 ├── usuarios/      registro de personas, ocupaciones de unidad, roles
-├── porteria/      casilleros, encomiendas, visitas, autorizaciones de salida
+├── porteria/      casilleros, encomiendas, invitados, control de ingreso
 ├── reservas/      espacios reservables, políticas, reservas
 ├── finanzas/      tarifas, cuotas de administración, pagos
 └── mercado/       perfiles de proveedor, servicios, solicitudes

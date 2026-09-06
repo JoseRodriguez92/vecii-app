@@ -224,14 +224,43 @@ Cruza tablas, así que no es un CHECK: va en el servicio.
 
 ---
 
+## 🟡 Control de ingreso: el cupo reservado que se pierde
+
+Hoy el sistema sabe cuántos cupos de visitantes están **reservados**, pero no
+cuántos están **ocupados**. El portero deja entrar a alguien sin reserva, el
+sistema ni se entera, y cuando llega el invitado que sí reservó no hay puesto.
+La reserva del pool promete "un cupo" y esa promesa solo se cumple si alguien
+respeta la cuenta en la puerta.
+
+Tres niveles, y el del medio no necesita hardware:
+
+| | qué es | qué resuelve |
+|---|---|---|
+| **0** — hoy | pantalla de porterías con las reservas vigentes; el portero cuenta con los ojos | sirve si el parqueadero rara vez se llena |
+| **1** | un botón: al entrar un carro, portería toca "asignar cupo" | ocupación real, hora de entrada, y el cupo deja de perderse |
+| **2** | lector de placas o pantalla de reconocimiento | automatiza el nivel 1, no agrega nada conceptual |
+
+El nivel 1 es una tabla chica —invitado, cupo, entrada, salida— y tres segundos
+por carro, los mismos que hoy se gastan en la minuta de papel. Desbloquea dos
+cosas que están trancadas:
+
+- **Cobrar por estadía real** y no solo por la ventana reservada.
+- **Cobrarle al que llega sin avisar**, que hoy no paga nada porque no hay de
+  dónde sacar el tiempo.
+
+Mientras no exista, el cobro del parqueadero de visitantes solo puede calcularse
+sobre la reserva: reservó de 3 a 9 → seis horas, se haya ido a las 5 o a las 11.
+
+---
+
 ## 🟢 Portería: lo que falta
 
 `casilleros` y `encomiendas` ya están modelados; falta el API. Lo demás de portería
 no se ha tocado:
 
-- **Minuta de visitantes.** Ingreso y salida: nombre, documento, a qué unidad,
-  quién autorizó, hora de entrada y de salida. Es la puerta de entrada al cobro
-  del parqueadero de visitantes por minuto.
+- **Control de ingreso.** Ver el punto amarillo de arriba. La parte de "quién
+  está autorizado" ya está resuelta en `invitados`; falta registrar cada entrada
+  y salida.
 - **Autorización de salida de enseres.** Sin visto bueno del propietario o de la
   administración no sale una nevera. Tiene su propio flujo de aprobación.
 - **El paquete que nadie retira.** No necesita estado propio —sale de

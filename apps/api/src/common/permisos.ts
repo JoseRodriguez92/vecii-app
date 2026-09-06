@@ -48,6 +48,15 @@ export const PERMISOS = {
   /// residente. Igual que al registrar usuarios, el guard solo verifica el permiso; que
   /// la unidad sea suya lo resuelve el servicio, porque es alcance de FILA.
   PORTERIA_ENCOMIENDAS_MI_UNIDAD: 'porteria.encomiendas.mi_unidad',
+
+  /// Autorizar invitados en CUALQUIER unidad. Lo tienen la administracion y el
+  /// portero, que a veces anota lo que le autorizaron por citofono.
+  PORTERIA_INVITADOS_GESTIONAR: 'porteria.invitados.gestionar',
+  /// Autorizar invitados solo en las unidades propias. Lo tiene cualquiera que
+  /// viva ahi —propietario o arrendatario, da igual: los amigos son de quien
+  /// vive, no de quien firma la escritura—. El alcance de fila lo verifica el
+  /// servicio.
+  PORTERIA_INVITADOS_MI_UNIDAD: 'porteria.invitados.mi_unidad',
 } as const;
 
 export type CodigoPermiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -93,6 +102,8 @@ export const MODULOS = [
       { codigo: PERMISOS.PORTERIA_GESTIONAR, nombre: 'Crear y editar casilleros' },
       { codigo: PERMISOS.PORTERIA_ENCOMIENDAS_REGISTRAR, nombre: 'Registrar encomiendas y retiros' },
       { codigo: PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD, nombre: 'Ver las encomiendas de mis unidades' },
+      { codigo: PERMISOS.PORTERIA_INVITADOS_GESTIONAR, nombre: 'Autorizar invitados en cualquier unidad' },
+      { codigo: PERMISOS.PORTERIA_INVITADOS_MI_UNIDAD, nombre: 'Autorizar invitados en mis unidades' },
     ],
   },
   {

@@ -28,10 +28,27 @@ dos veces la misma cosa creyendo que son distintas.
 | Cargo que alguien otorga | **rol** | `roles` + `usuario_conjunto_roles` |
 | Derecho de largo plazo sobre un cupo | **asignación** | `asignaciones_parqueadero` |
 | Uso puntual de un espacio | **reserva** | `reservas` |
+| Persona autorizada a entrar por una unidad | **invitado** | `invitados` |
 
 **Asignación vs. reserva** es la distinción que más se confunde: la asignación
 dura meses o años ("el P-101 es del 501"); la reserva dura horas ("el sábado de
 2 a 6").
+
+**Invitado vs. visitante** son dos conjuntos distintos, y no sinónimos:
+
+| | quién es | ejemplo |
+|---|---|---|
+| **invitado** | alguien a quien **una unidad** autorizó | tu mamá, tu amigo, la empleada del 501 |
+| **visitante** | cualquiera que entra sin vivir aquí | el fumigador que contrató la administración |
+
+Todo invitado es visitante, no al revés. Por eso el cupo de parqueadero es
+`VISITANTES` —que además es como se dice en cualquier conjunto— y la persona que
+autoriza un residente es un **invitado**.
+
+`invitados` tiene la misma forma que `usuarios_unidades`, a propósito: quien
+**vive** ahí y quien **puede entrar** se modelan igual, con `desde`/`hasta`. Sin
+`hasta` es permanente —la empleada—; con fecha es puntual. Un solo patrón cubre
+los dos casos sin ningún mecanismo especial.
 
 ## La familia de la propiedad
 

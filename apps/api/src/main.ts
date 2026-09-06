@@ -42,6 +42,7 @@ async function bootstrap() {
     .addTag('estructura · unidades', 'Propiedad privada: apartamentos, casas, locales')
     .addTag('porteria · casilleros', 'La casilla fisica de cada unidad')
     .addTag('porteria · encomiendas', 'Lo que llega para las unidades y quien lo retira')
+    .addTag('porteria · invitados', 'A quien autorizo cada unidad a entrar')
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
 

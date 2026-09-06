@@ -225,6 +225,7 @@ model Conjunto {
   usuarios     UsuarioConjunto[]
   casilleros   Casillero[]
   encomiendas     Encomienda[]
+  invitados       Invitado[]
 
   @@map("conjuntos")
 }
@@ -318,6 +319,7 @@ model Unidad {
   /// La casilla de esta unidad. Una sola: el casillero no rota.
   casillero     Casillero?
   encomiendas      Encomienda[]               @relation("EncomiendasUnidad")
+  invitados     Invitado[]              @relation("InvitadosUnidad")
 
   /// El identificador es unico DENTRO de su agrupacion, no del conjunto: cada
   /// torre tiene su 101. Antes estaba como [conjuntoId, identificador] y eso
@@ -722,8 +724,9 @@ model Usuario {
   rolesAsignados UsuarioConjuntoRol[] @relation("RolesAsignados")
   reservas       Reserva[]            @relation("ReservasSolicitadas")
   reservasAprobadas Reserva[]         @relation("ReservasAprobadas")
-  entregasRecibidas     Encomienda[]      @relation("EncomiendasRecibidas")
-  entregasEntregadas    Encomienda[]      @relation("EncomiendasEntregadas")
+  encomiendasRecibidas     Encomienda[]      @relation("EncomiendasRecibidas")
+  encomiendasEntregadas    Encomienda[]      @relation("EncomiendasEntregadas")
+  invitadosAutorizados  Invitado[]        @relation("InvitadosAutorizados")
 
   @@unique([tipoDocumento, numeroDocumento])
   @@map("usuarios")
@@ -1025,4 +1028,66 @@ model Encomienda {
   @@index([agrupacionId])
   @@index([casilleroId])
   @@map("encomiendas")
+}
+
+/// Alguien a quien una unidad autorizo a entrar al conjunto.
+///
+/// NO es un usuario de Vecii: no tiene cuenta, no abre la app, y la proxima vez
+/// que venga sigue siendo esta misma fila. Por eso sus datos van sueltos y no
+/// como FK a `usuarios`.
+///
+/// La vigencia resuelve los dos casos sin ningun mecanismo especial:
+///   hasta = null           -> permanente. La empleada, el profesor de la nina.
+///   hasta = sabado 23:59   -> puntual. El amigo que viene a almorzar.
+/// Es el mismo patron de `usuarios_unidades`: quien VIVE ahi y quien PUEDE
+/// ENTRAR se modelan igual, con desde/hasta, y cerrar no borra.
+///
+/// Ojo con la palabra, porque son dos conjuntos distintos:
+///   INVITADO   lo autoriza una unidad concreta.
+///   VISITANTE  cualquiera que entra sin vivir aqui.
+/// El fumigador que contrato la administracion es visitante y no es invitado de
+/// nadie. Por eso el cupo de parqueadero se llama VISITANTES —que ademas es como
+/// se dice en cualquier conjunto— y la persona que autoriza un residente es un
+/// invitado.
+///
+/// NO guarda hora de entrada ni de salida. Todavia no hay control de ingreso en
+/// porteria: sin eso el sistema conoce las reservas pero no la ocupacion real, y
+/// registrar una hora que nadie verifica seria inventarla. Cuando exista, va en
+/// su propia tabla y esta no cambia.
+model Invitado {
+  id         String @id @default(uuid()) @db.Uuid
+  conjuntoId String @db.Uuid
+  unidadId   String @db.Uuid
+
+  nombre          String
+  tipoDocumento   TipoDocumento?
+  /// Con esto el portero verifica en la puerta que sea quien dice ser.
+  numeroDocumento String?
+  telefono        String?
+  /// Si viene en carro. Texto y no una tabla de vehiculos: la misma persona
+  /// puede venir en otro carro y a porteria le sirve igual.
+  placa           String?
+
+  /// Quien lo autorizo: el residente desde la app, o el portero anotando lo que
+  /// le dijeron por citofono. En los dos casos queda alguien que responde.
+  invitadoPorId String @db.Uuid
+
+  desde DateTime  @default(now())
+  /// Null = autorizacion permanente.
+  hasta DateTime?
+
+  observacion String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  conjunto    Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  unidad      Unidad   @relation("InvitadosUnidad", fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  invitadoPor Usuario  @relation("InvitadosAutorizados", fields: [invitadoPorId], references: [id], onDelete: Restrict)
+
+  /// La consulta de porteria: quien puede entrar ahora mismo.
+  @@index([conjuntoId, hasta])
+  @@index([unidadId])
+  /// El portero teclea la cedula que le muestran en la puerta.
+  @@index([numeroDocumento])
+  @@map("invitados")
 }

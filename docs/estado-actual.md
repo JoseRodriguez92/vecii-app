@@ -48,7 +48,7 @@ conciencia — el *por qué* de cada decisión vive ahí, no aquí.
 | `conjuntos` | `conjuntos` | listo |
 | `estructura` | `estructura · agrupaciones\|tipologias\|unidades` | listo, con carga masiva y chequeo de coeficientes |
 | `usuarios` | `usuarios` | listo |
-| `porteria` | `porteria · casilleros\|encomiendas` | listo |
+| `porteria` | `porteria · casilleros\|encomiendas\|invitados` | listo |
 
 **RBAC por permisos.** Módulos → permisos → roles → asignaciones. Quién puede
 qué se edita en la base, no en el código. Al arrancar, la API verifica que todo
@@ -58,7 +58,7 @@ permiso declarado exista sembrado y se niega a levantar si falta alguno.
 horarios, espacios reservables, políticas de reserva, reservas, parqueaderos y
 asignaciones de parqueadero.
 
-**Sin modelar:** visitas (minuta de portería), tarifas, finanzas, asambleas.
+**Sin modelar:** control de ingreso (entrada/salida), tarifas, finanzas, asambleas.
 
 ---
 
