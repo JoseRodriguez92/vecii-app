@@ -129,6 +129,23 @@ enum RelacionUnidad {
   RESIDENTE_AUTORIZADO
 }
 
+/// Donde vive un rol. Es la distincion que antes se leia del `conjuntoId` nulo.
+///
+/// Se guarda aunque sea derivable —un rol de plataforma no tiene conjunto— por
+/// la misma razon que `casilleros` guarda su `conjuntoId`: la redundancia que un
+/// CHECK vuelve imposible de contradecir compra claridad gratis. Un nulo dice
+/// "no hay conjunto"; que eso signifique "es de Vecii" era una convencion que
+/// solo vivia en nuestra cabeza, y la tabla no la podia hacer cumplir.
+///
+/// El CHECK va en la linea base (ver docs/pendientes.md):
+///   CHECK ((ambito = 'PLATAFORMA') = (conjunto_id IS NULL))
+enum AmbitoRol {
+  /// De Vecii. Sin conjunto, y aplica en todos.
+  PLATAFORMA
+  /// De un conjunto concreto.
+  CONJUNTO
+}
+
 enum EstadoConjunto {
   ACTIVO
   SUSPENDIDO
@@ -788,6 +805,9 @@ model Rol {
   /// "Comite de Deportes" inventado por un conjunto no cabria. Los pocos codigos
   /// que el sistema conoce por nombre viven en src/common/roles.ts.
   codigo      String
+  /// Donde vive. El default es el valor MENOS peligroso: si alguien olvida
+  /// ponerlo, el rol queda acotado a un conjunto y no con alcance global.
+  ambito      AmbitoRol @default(CONJUNTO)
   nombre      String
   descripcion String?
   /// Si el administrador de un conjunto puede otorgarlo. STAFF_VECII no: ese es

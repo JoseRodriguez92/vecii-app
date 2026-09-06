@@ -24,6 +24,13 @@ const leer = (r) => readFileSync(join(RAIZ, r), 'utf8');
 const TAGS_DE_INFRA = new Set(['health', 'auth']);
 
 /**
+ * Enums que no necesitan entrada en el glosario porque no son vocabulario del
+ * dominio: cualquiera sabe que es un dia de la semana. Todo lo demas si, porque
+ * un enum ES una lista cerrada de palabras que usa todo el sistema.
+ */
+const ENUMS_OBVIOS = new Set(['DiaSemana']);
+
+/**
  * Abreviaturas aceptadas a proposito dentro de un modulo, donde repetir el
  * sufijo seria redundante: en el modulo `reservas`, `espacios_reservables` se
  * abrevia `espacios` porque el modulo ya dice de que son.
@@ -40,6 +47,7 @@ const main = leer('src/main.ts');
 const permisos = leer('src/common/permisos.ts');
 
 const tablas = new Set([...schema.matchAll(/@@map\("([a-z_]+)"\)/g)].map((m) => m[1]));
+const enums = [...schema.matchAll(/^enum (\w+) \{/gm)].map((m) => m[1]);
 const tags = [...main.matchAll(/\.addTag\('([^']+)'/g)].map((m) => m[1]);
 const modulos = readdirSync(join(RAIZ, 'src/modules'), { withFileTypes: true })
   .filter((d) => d.isDirectory())
@@ -54,6 +62,14 @@ const avisos = [];
 for (const tabla of [...tablas].sort()) {
   if (!glosario.includes(tabla)) {
     errores.push(`la tabla \`${tabla}\` no aparece en el glosario`);
+  }
+}
+
+// 1b. Todo enum tiene su palabra en el glosario.
+for (const nombre of enums) {
+  if (ENUMS_OBVIOS.has(nombre)) continue;
+  if (!glosario.includes(nombre)) {
+    errores.push(`el enum \`${nombre}\` no aparece en el glosario`);
   }
 }
 
@@ -90,7 +106,7 @@ for (const [, palabra] of glosario.matchAll(/`([a-z][a-z0-9_]*)`/g)) {
   }
 }
 
-console.log(`Tablas: ${tablas.size} · tags: ${tags.length} · modulos: ${modulos.length} · permisos: ${codigosPermiso.length}\n`);
+console.log(`Tablas: ${tablas.size} · enums: ${enums.length} · tags: ${tags.length} · modulos: ${modulos.length} · permisos: ${codigosPermiso.length}\n`);
 if (avisos.length) {
   console.log(
     `Posibles fosiles (${[...new Set(avisos)].length}) — revisar a ojo: una palabra puede`,

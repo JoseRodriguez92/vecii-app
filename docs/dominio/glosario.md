@@ -11,7 +11,7 @@ dos veces la misma cosa creyendo que son distintas.
 
 | Concepto | Palabra | Tabla | Qué NO es |
 |---|---|---|---|
-| La copropiedad completa, con su NIT | **conjunto** | `conjuntos` | no "edificio", no "propiedad", no "condominio" |
+| La copropiedad completa, con su NIT. **Es el tenant** | **conjunto** | `conjuntos` | no "edificio", no "propiedad", no "condominio" |
 | Cómo se subdivide el conjunto | **agrupación** | `agrupaciones` | no "torre" — torre es solo un *tipo* de agrupación |
 | Propiedad privada con coeficiente | **unidad** | `unidades` | no "apartamento" — apartamento es un *tipo* de unidad |
 | Planta repetida (65 m², 2 hab) | **tipología** | `tipologias` | no "modelo", no "molde" |
@@ -26,6 +26,15 @@ dos veces la misma cosa creyendo que son distintas.
 
 Toda tabla tiene que aparecer en alguna de estas listas. Lo verifica
 `apps/api/scripts/verificar-vocabulario.mjs`.
+
+**El conjunto es el tenant.** Casi toda tabla lleva `conjuntoId`, toda consulta
+arranca por él, y el guard lo saca de la cabecera `x-conjunto-id`. Las FK
+compuestas `[xId, conjuntoId] → [id, conjuntoId]` existen para que **Postgres
+rechace** una fila de un conjunto apuntando a algo de otro: la incoherencia no es
+que esté prohibida, es que no se puede escribir.
+
+`roles` es la única tabla donde `conjuntoId` es opcional, y por eso lleva
+`ambito` — ver más abajo.
 
 ## Las relaciones entre personas y cosas
 
@@ -134,6 +143,28 @@ Antes el tercero se llamaba `ESCRITURA`, que rompía la familia sin ganar nada.
 
 Lo contrario de `PRIVADO` es **bien común**, y sus formas son `USO_EXCLUSIVO`,
 `ROTATIVO` y `VISITANTES`.
+
+## Los estados y los tipos
+
+Un enum **es** vocabulario: una lista cerrada de palabras que usa todo el
+sistema. Por eso van aquí. (`DiaSemana` es la única excepción declarada, en
+`verificar-vocabulario.mjs`.)
+
+| enum | qué decide | la trampa |
+|---|---|---|
+| `TipoUnidad` | apartamento, casa, local, parqueadero, depósito… | el código **no ramifica sobre esto**: usa la categoría derivada, así agregar un tipo no obliga a revisar cada `if` |
+| `TipoAgrupacion` | torre, manzana, etapa, bloque, interior | "torre" es un *valor*, nunca el nombre de la tabla |
+| `TipoZonaComun` | salón, BBQ, piscina, gimnasio… | **no incluye parqueadero de visitantes**: eso vive en `parqueaderos` con naturaleza `VISITANTES`. Tenerlo en dos lados obligaría a preguntarse cuál es el bueno |
+| `NaturalezaParqueadero` | `PRIVADO` · `USO_EXCLUSIVO` · `ROTATIVO` · `VISITANTES` | es **naturaleza jurídica**, no cosmética: decide si tiene coeficiente y si se puede vender |
+| `OrigenAsignacion` | de dónde sale el derecho a un cupo | ver la familia de la propiedad, más arriba |
+| `RelacionUnidad` | `PROPIETARIO` · `ARRENDATARIO` · `RESIDENTE_AUTORIZADO` | de aquí se **derivan** los roles propietario y residente |
+| `AmbitoRol` | `PLATAFORMA` · `CONJUNTO` | dónde vive un rol. El default es `CONJUNTO`, el menos peligroso |
+| `TipoEncomienda` | `PAQUETE` · `CORRESPONDENCIA` · `CERTIFICADO` · `OTRO` | **no hay domicilios**: las porterías no reciben comida, y sin custodia no hay encomienda |
+| `EstadoEncomienda` | `RECIBIDA` → `NOTIFICADA` → `ENTREGADA` / `DEVUELTA` | solo estados que **el sistema provoca**. No existe `REPARTIDA` porque nadie verifica que llenaron los casilleros |
+| `EstadoReserva` | `SOLICITADA` · `CONFIRMADA` · `CANCELADA` · `CUMPLIDA` · `NO_ASISTIO` | `NO_ASISTIO` existe porque muchos reglamentos sancionan la inasistencia, y sin el dato no hay cómo aplicarlo |
+| `EstadoVinculo`… | — | *(no existe: la vigencia se dice con `desde`/`hasta`, no con un estado)* |
+| `EstadoConjunto` | `ACTIVO` · `SUSPENDIDO` | suspendido = dejó de pagar Vecii, no que el conjunto se acabó |
+| `TipoDocumento` | `CC` · `CE` · `PASAPORTE` · `PPT` · `NIT` | `NIT` porque una unidad puede ser de una empresa; `PPT` es el permiso por protección temporal |
 
 ## Reglas de nombres
 

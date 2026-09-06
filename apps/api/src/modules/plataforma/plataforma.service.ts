@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PermisosService } from '../../auth/permisos.service.js';
-import { ROLES_DE_PLATAFORMA } from '../../common/roles.js';
+import { Ambito, ROLES_DE_PLATAFORMA } from '../../common/roles.js';
 import { rolVigente } from '../../common/rol-vigente.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { NombrarStaffDto, RetirarStaffDto } from './dto/plataforma.dto.js';
@@ -36,18 +36,11 @@ export class PlataformaService {
     });
     if (!usuario) throw new NotFoundException('Ese usuario no existe');
 
-    // Un rol de plataforma vive con conjuntoId nulo por definicion.
     const rol = await this.prisma.rol.findFirst({
-      where: { codigo: dto.codigo, conjuntoId: null },
-      select: { id: true, nombre: true, conjuntoId: true },
+      where: { codigo: dto.codigo, ambito: Ambito.PLATAFORMA },
+      select: { id: true, nombre: true },
     });
     if (!rol) throw new NotFoundException(`No existe el rol ${dto.codigo}`);
-    // Un rol con conjunto es de ESE conjunto: otorgarlo aqui lo volveria global.
-    // La base no puede verlo porque cruza dos filas.
-    if (rol.conjuntoId) {
-      throw new BadRequestException(`${rol.nombre} pertenece a un conjunto, no a la plataforma`);
-    }
-
     const yaEs = await this.prisma.usuarioPlataforma.findFirst({
       where: { usuarioId: dto.usuarioId, rolId: rol.id, ...rolVigente() },
       select: { desde: true },

@@ -1,3 +1,5 @@
+import { AmbitoRol as Ambito } from '../generated/prisma/enums.js';
+
 /**
  * Los codigos de rol, en el codigo y no en la base.
  *
@@ -24,14 +26,16 @@ export const ROL = {
 
 export type CodigoRolConocido = (typeof ROL)[keyof typeof ROL];
 
-/** Donde vive un rol. Es lo que decide si `roles.conjuntoId` va nulo. */
-export type AmbitoRol = 'plataforma' | 'conjunto';
+// El ambito vive en la base como enum: la distincion la define el sistema y un
+// conjunto nunca va a inventar un tercero. Es el caso donde un enum si sirve —al
+// reves que `codigo`, que tuvo que soltarse porque los conjuntos lo inventan.
+export { AmbitoRol as Ambito } from '../generated/prisma/enums.js';
 
 export interface RolDelSistema {
   codigo: string;
   nombre: string;
   descripcion: string;
-  ambito: AmbitoRol;
+  ambito: Ambito;
   /** Si un administrador puede otorgarlo a mano. */
   asignable: boolean;
 }
@@ -47,7 +51,7 @@ export const ROLES_DEL_SISTEMA: RolDelSistema[] = [
     codigo: ROL.STAFF_VECII,
     nombre: 'Staff Vecii',
     descripcion: 'Equipo de Vecii. Entra a cualquier conjunto para dar soporte.',
-    ambito: 'plataforma',
+    ambito: Ambito.PLATAFORMA,
     // No se otorga desde un conjunto: se nombra en `usuarios_plataforma`.
     asignable: false,
   },
@@ -55,60 +59,60 @@ export const ROLES_DEL_SISTEMA: RolDelSistema[] = [
     codigo: ROL.ADMIN_CONJUNTO,
     nombre: 'Administrador',
     descripcion: 'Administra el conjunto: presupuesto, cuotas, unidades y usuarios.',
-    ambito: 'conjunto',
+    ambito: Ambito.CONJUNTO,
     asignable: true,
   },
   {
     codigo: 'CONSEJO',
     nombre: 'Consejo de Administracion',
     descripcion: 'Obligatorio con mas de 30 unidades privadas (Ley 675).',
-    ambito: 'conjunto',
+    ambito: Ambito.CONJUNTO,
     asignable: true,
   },
   {
     codigo: 'REVISOR_FISCAL',
     nombre: 'Revisor Fiscal',
     descripcion: 'Obligatorio en conjuntos de uso comercial o mixto (Ley 675, arts. 56-57).',
-    ambito: 'conjunto',
+    ambito: Ambito.CONJUNTO,
     asignable: true,
   },
   {
     codigo: 'COMITE_CONVIVENCIA',
     nombre: 'Comite de Convivencia',
     descripcion: 'Opcional en residenciales (Ley 675, art. 58).',
-    ambito: 'conjunto',
+    ambito: Ambito.CONJUNTO,
     asignable: true,
   },
   {
     codigo: 'PORTERIA',
     nombre: 'Porteria',
     descripcion: 'Vigilancia: encomiendas, invitados, ingreso.',
-    ambito: 'conjunto',
+    ambito: Ambito.CONJUNTO,
     asignable: true,
   },
   {
     codigo: ROL.PROPIETARIO,
     nombre: 'Propietario',
     descripcion: 'Derivado: aparece en la escritura de una unidad.',
-    ambito: 'conjunto',
+    ambito: Ambito.CONJUNTO,
     asignable: false,
   },
   {
     codigo: ROL.RESIDENTE,
     nombre: 'Residente',
     descripcion: 'Derivado: vive en una unidad como arrendatario o autorizado.',
-    ambito: 'conjunto',
+    ambito: Ambito.CONJUNTO,
     asignable: false,
   },
 ];
 
 /** Los que se pueden otorgar como rol de PLATAFORMA. */
-export const ROLES_DE_PLATAFORMA = ROLES_DEL_SISTEMA.filter((r) => r.ambito === 'plataforma').map(
+export const ROLES_DE_PLATAFORMA = ROLES_DEL_SISTEMA.filter((r) => r.ambito === Ambito.PLATAFORMA).map(
   (r) => r.codigo,
 );
 
 /** Los que recibe cada conjunto en copia. */
-export const ROLES_DE_CONJUNTO = ROLES_DEL_SISTEMA.filter((r) => r.ambito === 'conjunto');
+export const ROLES_DE_CONJUNTO = ROLES_DEL_SISTEMA.filter((r) => r.ambito === Ambito.CONJUNTO);
 
 /** Codigos reservados: un conjunto no puede inventar uno que se llame asi. */
 export const CODIGOS_RESERVADOS = new Set(ROLES_DEL_SISTEMA.map((r) => r.codigo));

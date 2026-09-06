@@ -92,7 +92,12 @@ export async function sembrarRoles(prisma: PrismaClient) {
       where: { codigo: rol.codigo, conjuntoId: null },
       select: { id: true },
     });
-    const datos = { nombre: rol.nombre, descripcion: rol.descripcion, asignable: rol.asignable };
+    const datos = {
+      nombre: rol.nombre,
+      descripcion: rol.descripcion,
+      asignable: rol.asignable,
+      ambito: rol.ambito,
+    };
     if (existente) {
       await prisma.rol.update({ where: { id: existente.id }, data: datos });
     } else {
