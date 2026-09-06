@@ -3,7 +3,8 @@ import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { diaYMinutos, formatearHora } from '../../common/hora-minutos.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { rolVigente } from '../../common/rol-vigente.js';
-import { EstadoReserva } from '../../generated/prisma/enums.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import { EstadoReserva, type NaturalezaParqueadero } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type {
   AsignarCupoDto,
@@ -472,9 +473,14 @@ export class ReservasService {
    * candado del espacio, por la misma razon que la cuenta de capacidad.
    */
   private async validarCupoLibre(
-    tx: { parqueadero: { findFirst: (a: unknown) => Promise<Record<string, unknown> | null> }; reserva: { findFirst: (a: unknown) => Promise<Record<string, unknown> | null> } },
+    tx: Prisma.TransactionClient,
     conjuntoId: string,
-    espacio: { id: string; nombre: string; naturalezaParqueadero: string | null; agrupacionId: string | null },
+    espacio: {
+      id: string;
+      nombre: string;
+      naturalezaParqueadero: NaturalezaParqueadero | null;
+      agrupacionId: string | null;
+    },
     parqueaderoId: string,
     inicio: Date,
     fin: Date | null,
@@ -484,10 +490,10 @@ export class ReservasService {
       throw new BadRequestException(`"${espacio.nombre}" no es un pool de parqueaderos`);
     }
 
-    const cupo = (await tx.parqueadero.findFirst({
+    const cupo = await tx.parqueadero.findFirst({
       where: { id: parqueaderoId, conjuntoId },
       select: { identificador: true, naturaleza: true, agrupacionId: true, activo: true },
-    })) as { identificador: string; naturaleza: string; agrupacionId: string | null; activo: boolean } | null;
+    });
 
     if (!cupo) throw new NotFoundException('Ese cupo no existe en este conjunto');
     if (!cupo.activo) throw new BadRequestException(`El cupo ${cupo.identificador} esta fuera de servicio`);
@@ -500,7 +506,7 @@ export class ReservasService {
       throw new BadRequestException(`El cupo ${cupo.identificador} es de otra parte del conjunto`);
     }
 
-    const ocupado = (await tx.reserva.findFirst({
+    const ocupado = await tx.reserva.findFirst({
       where: {
         parqueaderoId,
         estado: { in: OCUPAN },
@@ -508,7 +514,7 @@ export class ReservasService {
         ...this.solapa(inicio, fin),
       },
       select: { id: true },
-    })) as { id: string } | null;
+    });
 
     if (ocupado) {
       throw new BadRequestException(`El cupo ${cupo.identificador} ya esta ocupado en esa franja`);
