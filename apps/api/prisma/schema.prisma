@@ -1,0 +1,332 @@
+// Vecii - Esquema de base de datos
+// Gestion de conjuntos residenciales (propiedad horizontal - Ley 675 de 2001, Colombia)
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  runtime      = "nodejs"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Las URLs de conexion se configuran en prisma.config.ts (Prisma 7+).
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum RolMembresia {
+  SUPER_ADMIN // Staff de Vecii
+  ADMIN_CONJUNTO // Administrador del conjunto
+  CONSEJO // Miembro del consejo de administracion
+  PROPIETARIO
+  RESIDENTE
+  PORTERIA // Vigilancia / porteria
+}
+
+/// Como se subdivide un conjunto. La tabla es generica; esto dice que es cada
+/// fila. Es lo unico que ve el residente: "Torre 1", "Manzana A".
+enum TipoAgrupacion {
+  TORRE
+  MANZANA
+  ETAPA
+  BLOQUE
+  INTERIOR
+}
+
+/// Tipos de bien comun. Sirve para agrupar, poner iconos y filtrar; el nombre
+/// real lo escribe el conjunto ("BBQ Terraza Norte").
+enum TipoZonaComun {
+  SALON_COMUNAL
+  BBQ
+  PISCINA
+  GIMNASIO
+  CANCHA
+  PARQUE_INFANTIL
+  ZONA_HUMEDA // sauna, turco, jacuzzi
+  COWORKING
+  SALA_CINE
+  TERRAZA
+  ZONA_MASCOTAS
+  PARQUEADERO_VISITANTES
+  PORTERIA
+  OTRA
+}
+
+/// Que es cada unidad privada. El codigo NO deberia ramificar sobre este enum
+/// directamente: para eso esta la categoria derivada (ver categoria-unidad.ts),
+/// asi agregar un tipo nuevo no obliga a revisar cada if del sistema.
+enum TipoUnidad {
+  // --- Vivienda ---
+  APARTAMENTO
+  APARTAESTUDIO
+  CASA
+  DUPLEX
+  TRIPLEX
+  PENTHOUSE
+
+  // --- Comercial ---
+  LOCAL
+  OFICINA
+  CONSULTORIO
+  BODEGA
+
+  // --- Accesorias: no se habitan, pero si son propiedad privada ---
+  PARQUEADERO
+  DEPOSITO
+}
+
+enum RelacionUnidad {
+  PROPIETARIO
+  ARRENDATARIO
+  RESIDENTE_AUTORIZADO
+}
+
+enum EstadoConjunto {
+  ACTIVO
+  SUSPENDIDO
+}
+
+// ---------------------------------------------------------------------------
+// Modelos
+// ---------------------------------------------------------------------------
+
+/// Cada conjunto residencial es un "tenant": los datos se aislan por conjuntoId.
+model Conjunto {
+  id           String         @id @default(uuid()) @db.Uuid
+  nombre       String
+  nit          String?        @unique
+  direccion    String
+  ciudad       String
+  departamento String
+  telefono     String?
+  email        String?
+  /// Coordenadas del conjunto. Se usan para busqueda por cercania en el
+  /// marketplace. Opcionales: un conjunto puede registrarse antes de geocodificarse.
+  /// 6 decimales ~ 11 cm de precision, mas que suficiente.
+  latitud      Decimal?       @db.Decimal(8, 6)
+  longitud     Decimal?       @db.Decimal(9, 6)
+  estado       EstadoConjunto @default(ACTIVO)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  agrupaciones Agrupacion[]
+  unidades     Unidad[]
+  zonasComunes ZonaComun[]
+  tipologias   Tipologia[]
+  membresias   Membresia[]
+
+  @@map("conjuntos")
+}
+
+/// Agrupa unidades dentro de un conjunto: una torre, una manzana, una etapa.
+/// NO es una propiedad: no tiene coeficiente, no paga administracion y no vota
+/// en asamblea. Eso es exclusivo de Unidad, y esa frontera es a proposito.
+///
+/// Es opcional: un edificio de 20 apartamentos no tiene ninguna, y sus unidades
+/// cuelgan directo del conjunto.
+///
+/// Se anida en si misma para los conjuntos por etapas:
+///   Etapa 2 -> Torre B -> Apto 501
+model Agrupacion {
+  id         String         @id @default(uuid()) @db.Uuid
+  conjuntoId String         @db.Uuid
+  /// Agrupacion contenedora. Null = cuelga directo del conjunto.
+  padreId    String?        @db.Uuid
+  tipo       TipoAgrupacion
+  /// Como la llama la gente: "Torre 1", "Manzana A", "Etapa 2".
+  nombre     String
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  conjunto Conjunto     @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  padre    Agrupacion?  @relation("AgrupacionJerarquia", fields: [padreId], references: [id], onDelete: SetNull)
+  hijas        Agrupacion[] @relation("AgrupacionJerarquia")
+  unidades     Unidad[]
+  zonasComunes ZonaComun[]
+
+  /// Nombre unico dentro del conjunto, incluso entre etapas distintas: dos
+  /// "Torre A" en el mismo conjunto confunden al residente, no solo a la query.
+  @@unique([conjuntoId, nombre])
+  /// No es para evitar duplicados: `id` ya es unico por si solo. Existe para que
+  /// otras tablas puedan apuntar a la PAREJA (agrupacion, conjunto) y Postgres
+  /// verifique que ambas coinciden. Ver la relacion `agrupacion` en Unidad.
+  @@unique([id, conjuntoId])
+  @@index([conjuntoId])
+  @@index([padreId])
+  @@map("agrupaciones")
+}
+
+model Unidad {
+  id            String     @id @default(uuid()) @db.Uuid
+  conjuntoId    String     @db.Uuid
+  agrupacionId  String?    @db.Uuid
+  identificador String // "301", "Casa 12", ...
+  tipo          TipoUnidad @default(APARTAMENTO)
+  /// Planta a la que pertenece. Null = unidad sin tipologia (casas viejas,
+  /// unidades unicas), y entonces sus datos viven solo en esta fila.
+  tipologiaId   String?    @db.Uuid
+  /// Coeficiente de copropiedad (porcentaje de participacion). Ej: 0.004521
+  coeficiente   Decimal    @default(0) @db.Decimal(9, 6)
+  /// SOBRESCRIBE el area de la tipologia. Null = hereda de la tipologia.
+  /// Solo se llena cuando la unidad se salio del molde.
+  areaM2        Decimal?   @db.Decimal(8, 2)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  conjunto   Conjunto          @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  /// FK compuesta a proposito: apunta a (agrupacion, conjunto), no solo a la
+  /// agrupacion. Asi Postgres rechaza una unidad del conjunto A colgada de una
+  /// agrupacion del conjunto B — la incoherencia se vuelve imposible de escribir,
+  /// venga del API, de un importador o de SQL a mano.
+  ///
+  /// Si agrupacionId es null la restriccion no se evalua (una FK compuesta con
+  /// algun nulo no se verifica), asi que un edificio sin agrupaciones sigue igual.
+  ///
+  /// NoAction en vez de SetNull: no se puede anular conjuntoId, que es obligatorio.
+  /// Consecuencia: borrar una agrupacion con unidades exige moverlas primero.
+  agrupacion Agrupacion?       @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  tipologia  Tipologia?        @relation(fields: [tipologiaId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  ocupaciones OcupacionUnidad[]
+
+  /// El identificador es unico DENTRO de su agrupacion, no del conjunto: cada
+  /// torre tiene su 101. Antes estaba como [conjuntoId, identificador] y eso
+  /// impedia cargar el segundo apartamento 101 de un conjunto de varias torres.
+  ///
+  /// Hueco conocido: Postgres trata los NULL como distintos entre si, asi que
+  /// esto NO impide dos "101" con agrupacionId nulo (un edificio sin torres).
+  /// Ahi seria un error de digitacion, y lo valida el servicio. Al pasar a
+  /// migraciones definitivas se cierra con un indice parcial:
+  ///   CREATE UNIQUE INDEX ... ON unidades (conjunto_id, identificador)
+  ///     WHERE agrupacion_id IS NULL;
+  @@unique([conjuntoId, agrupacionId, identificador])
+  @@index([conjuntoId])
+  @@index([agrupacionId])
+  @@index([tipologiaId])
+  @@map("unidades")
+}
+
+/// Planta repetida con la que se construyo el conjunto: "Tipo A", "Casa Modelo 1".
+/// Un conjunto de 200 apartamentos suele tener tres o cuatro.
+///
+/// Es una REFERENCIA VIVA, no un molde que se copia: los datos viven aqui y las
+/// unidades los heredan. Corregir un area mal cargada se hace una vez y aplica
+/// a las 67 unidades de ese tipo.
+///
+/// Una unidad puede salirse de su tipologia (tumbaron un muro, unieron dos):
+/// para eso Unidad.areaM2 sobrescribe el valor heredado.
+model Tipologia {
+  id           String   @id @default(uuid()) @db.Uuid
+  conjuntoId   String   @db.Uuid
+  /// Como la nombra el conjunto: "Tipo A", "Modelo 2", "Casa Esquinera".
+  nombre       String
+  /// Area privada construida, en metros cuadrados.
+  areaM2       Decimal  @db.Decimal(8, 2)
+  habitaciones Int
+  banos        Int
+  /// Texto libre para lo que no cabe en campos: balcon, estudio, cuarto util,
+  /// vista. Deliberadamente NO se modelan como booleanos: la lista no termina
+  /// nunca y cada conjunto tiene los suyos.
+  descripcion  String?
+  /// Imagen de la planta, si el conjunto la tiene.
+  planoUrl     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  conjunto Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  unidades Unidad[]
+
+  @@unique([conjuntoId, nombre])
+  /// Habilita la FK compuesta desde Unidad (mismo patron que Agrupacion).
+  @@unique([id, conjuntoId])
+  @@index([conjuntoId])
+  @@map("tipologias")
+}
+
+/// Bien comun: piscina, salon comunal, BBQ, gimnasio.
+///
+/// NO es una Unidad y por eso vive aparte. Un bien comun no tiene coeficiente,
+/// no se vende por separado y no paga administracion: pertenece a todos los
+/// copropietarios en proporcion a su coeficiente (Ley 675). Meterlo en
+/// `unidades` terminaria, tarde o temprano, en un recibo a nombre del gimnasio.
+///
+/// `agrupacionId` permite que sea de una parte del conjunto y no de todo:
+/// la piscina de la Etapa 1 la usan —y la pagan— solo sus unidades.
+model ZonaComun {
+  id           String        @id @default(uuid()) @db.Uuid
+  conjuntoId   String        @db.Uuid
+  /// A que parte del conjunto pertenece. Null = es de todo el conjunto.
+  agrupacionId String?       @db.Uuid
+  tipo         TipoZonaComun
+  /// Como la llama el conjunto: "Salon Social", "BBQ Terraza Norte".
+  nombre       String
+  /// Si requiere reserva. Un gimnasio suele ser de entrada libre; un salon
+  /// comunal no. Las reglas de reserva (horarios, cupos, tarifas) son del
+  /// modulo de reservas, no de aqui.
+  reservable   Boolean       @default(false)
+  activa       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  conjunto   Conjunto    @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  agrupacion Agrupacion? @relation(fields: [agrupacionId], references: [id], onDelete: SetNull)
+
+  @@unique([conjuntoId, nombre])
+  @@index([conjuntoId])
+  @@index([agrupacionId])
+  @@map("zonas_comunes")
+}
+
+/// Espejo de auth.users de Supabase. El id coincide con el sub del JWT.
+model Usuario {
+  id             String   @id @db.Uuid
+  email          String   @unique
+  nombreCompleto String?
+  telefono       String?
+  avatarUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  membresias  Membresia[]
+  ocupaciones OcupacionUnidad[]
+
+  @@map("usuarios")
+}
+
+/// Vincula un usuario con un conjunto y le asigna un rol.
+model Membresia {
+  id         String       @id @default(uuid()) @db.Uuid
+  usuarioId  String       @db.Uuid
+  conjuntoId String       @db.Uuid
+  rol        RolMembresia
+  activo     Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  usuario  Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  conjunto Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, conjuntoId])
+  @@index([conjuntoId])
+  @@map("membresias")
+}
+
+/// Relacion usuario <-> unidad (propietario, arrendatario, residente).
+model OcupacionUnidad {
+  id        String         @id @default(uuid()) @db.Uuid
+  usuarioId String         @db.Uuid
+  unidadId  String         @db.Uuid
+  relacion  RelacionUnidad
+  principal Boolean        @default(false)
+  desde     DateTime       @default(now())
+  hasta     DateTime?
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  unidad  Unidad  @relation(fields: [unidadId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, unidadId, relacion])
+  @@index([unidadId])
+  @@map("ocupaciones_unidad")
+}

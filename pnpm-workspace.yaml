@@ -1,0 +1,16 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm bloquea por defecto los scripts de instalacion (proteccion de cadena de
+# suministro). Aqui se declara, para todo el equipo, cuales SI pueden correr.
+allowBuilds:
+  # Necesarios: descargan binarios sin los cuales la herramienta no funciona.
+  prisma: true              # motores de consulta
+  "@prisma/engines": true   # idem
+  esbuild: true             # binario de plataforma; lo usan Vite y Vitest
+
+  # Bloqueados a proposito.
+  "@scarf/scarf": false     # telemetria de terceros, no hace falta
+  sharp: false              # Next lo trae; no procesamos imagenes en build
+  unrs-resolver: false      # idem

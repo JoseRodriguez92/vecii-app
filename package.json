@@ -1,0 +1,23 @@
+{
+  "name": "vecii",
+  "private": true,
+  "description": "Vecii - plataforma de gestion de conjuntos residenciales (Colombia)",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter vecii-backend start:dev",
+    "dev:app": "pnpm --filter vecii-frontend start",
+    "dev:landing": "pnpm --filter landing dev",
+    "build:api": "pnpm --filter vecii-backend build",
+    "build:landing": "pnpm --filter landing build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "prisma:migrate": "pnpm --filter vecii-backend prisma:migrate",
+    "prisma:studio": "pnpm --filter vecii-backend prisma:studio",
+    "db:push": "pnpm --filter vecii-backend db:push",
+    "db:reset": "pnpm --filter vecii-backend db:reset",
+    "db:studio": "pnpm --filter vecii-backend prisma:studio"
+  }
+}

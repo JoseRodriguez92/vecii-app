@@ -12,16 +12,17 @@ node_modules/
 dist/
 build/
 web-build/
+.next/
 *.tsbuildinfo
 
 # Expo
-FE/.expo/
-FE/expo-env.d.ts
+apps/vecii/.expo/
+apps/vecii/expo-env.d.ts
 *.orig.*
 
 # Prisma
-BE/prisma/*.db
-BE/src/generated/
+apps/api/prisma/*.db
+apps/api/src/generated/
 
 # Logs
 *.log
@@ -37,5 +38,5 @@ Thumbs.db
 !.vscode/extensions.json
 
 # Native
-FE/android/
-FE/ios/
+apps/vecii/android/
+apps/vecii/ios/
