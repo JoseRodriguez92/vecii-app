@@ -78,7 +78,7 @@ enum OrigenAsignacion {
   ARRIENDO   // otro residente se lo arrienda
 }
 
-enum EstadoInvitacion {
+enum EstadoVinculacion {
   PENDIENTE
   ACEPTADA
   CANCELADA
@@ -231,7 +231,7 @@ model Conjunto {
   politicas    PoliticaReserva[]
   tipologias   Tipologia[]
   usuarios     UsuarioConjunto[]
-  invitaciones Invitacion[]
+  vinculaciones Vinculacion[]
   casilleros   Casillero[]
   encomiendas     Encomienda[]
 
@@ -324,7 +324,7 @@ model Unidad {
   /// Cupos que esta unidad tiene derecho a usar.
   parqueaderos  AsignacionParqueadero[] @relation("UnidadUsaParqueadero")
   reservas      Reserva[]               @relation("UnidadReserva")
-  invitaciones  Invitacion[]            @relation("InvitacionesUnidad")
+  vinculaciones  Vinculacion[]            @relation("VinculacionesUnidad")
   /// La casilla de esta unidad. Una sola: el casillero no rota.
   casillero     Casillero?
   encomiendas      Encomienda[]               @relation("EncomiendasUnidad")
@@ -570,11 +570,11 @@ model PoliticaReserva {
   @@map("politicas_reserva")
 }
 
-/// Invitacion a entrar al conjunto.
+/// Vinculacion a entrar al conjunto.
 ///
-/// El flujo: alguien invita por correo -> Supabase manda el correo y la persona
+/// El flujo: alguien crea la vinculacion con un correo -> Supabase manda el correo y la persona
 /// pone su contrasena -> al entrar por primera vez, `/auth/me` encuentra las
-/// invitaciones pendientes para su correo y las aplica.
+/// vinculaciones pendientes para su correo y las aplica.
 ///
 /// NO se usa un token en el enlace: el correo YA es la prueba de identidad,
 /// porque Supabase lo verifico al hacerla clickear. Un token adicional seria una
@@ -582,12 +582,12 @@ model PoliticaReserva {
 ///
 /// La fila se conserva despues de aceptada: sirve de auditoria de quien metio a
 /// quien, que en propiedad horizontal se pregunta.
-model Invitacion {
+model Vinculacion {
   id         String            @id @default(uuid()) @db.Uuid
   conjuntoId String            @db.Uuid
   /// En minuscula y sin espacios. Es la llave con la que se cruza al entrar.
   email      String
-  estado     EstadoInvitacion  @default(PENDIENTE)
+  estado     EstadoVinculacion  @default(PENDIENTE)
 
   /// A que unidad queda vinculada la persona. Null para quien no vive en el
   /// conjunto: un portero, un administrador externo.
@@ -595,11 +595,11 @@ model Invitacion {
   relacion RelacionUnidad?
 
   /// Cargos que se otorgan al aceptar. Solo roles `asignable`, y solo un
-  /// ADMIN_CONJUNTO puede repartirlos: un propietario invita a su arrendatario,
+  /// ADMIN_CONJUNTO puede repartirlos: un propietario vincula a su arrendatario,
   /// no nombra administradores.
   roles CodigoRol[]
 
-  invitadaPorId String   @db.Uuid
+  creadaPorId String   @db.Uuid
   expiraEn      DateTime
   aceptadaEn    DateTime?
   /// Quien la acepto. Se llena al aplicarla.
@@ -609,16 +609,16 @@ model Invitacion {
   updatedAt DateTime @updatedAt
 
   conjunto    Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
-  unidad      Unidad?  @relation("InvitacionesUnidad", fields: [unidadId], references: [id], onDelete: Cascade)
-  invitadaPor Usuario  @relation("InvitacionesEnviadas", fields: [invitadaPorId], references: [id], onDelete: Restrict)
-  usuario     Usuario? @relation("InvitacionesAceptadas", fields: [usuarioId], references: [id], onDelete: SetNull)
+  unidad      Unidad?  @relation("VinculacionesUnidad", fields: [unidadId], references: [id], onDelete: Cascade)
+  creadaPor Usuario  @relation("VinculacionesEnviadas", fields: [creadaPorId], references: [id], onDelete: Restrict)
+  usuario     Usuario? @relation("VinculacionesAceptadas", fields: [usuarioId], references: [id], onDelete: SetNull)
 
-  /// Una sola invitacion pendiente por correo y unidad. Reinvitar reutiliza la
+  /// Una sola vinculacion pendiente por correo y unidad. Reenviar reutiliza la
   /// fila en vez de acumular duplicados.
   @@unique([conjuntoId, email, unidadId, estado])
   @@index([email, estado])
   @@index([conjuntoId])
-  @@map("invitaciones")
+  @@map("vinculaciones")
 }
 
 /// Apartar un espacio del conjunto en una franja de tiempo.
@@ -784,8 +784,8 @@ model Usuario {
   rolesAsignados UsuarioConjuntoRol[] @relation("RolesAsignados")
   reservas       Reserva[]            @relation("ReservasSolicitadas")
   reservasAprobadas Reserva[]         @relation("ReservasAprobadas")
-  invitacionesEnviadas Invitacion[]   @relation("InvitacionesEnviadas")
-  invitacionesAceptadas Invitacion[]  @relation("InvitacionesAceptadas")
+  vinculacionesEnviadas Vinculacion[]   @relation("VinculacionesEnviadas")
+  vinculacionesAceptadas Vinculacion[]  @relation("VinculacionesAceptadas")
   entregasRecibidas     Encomienda[]      @relation("EncomiendasRecibidas")
   entregasEntregadas    Encomienda[]      @relation("EncomiendasEntregadas")
 

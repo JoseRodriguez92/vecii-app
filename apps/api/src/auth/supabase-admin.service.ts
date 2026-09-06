@@ -8,6 +8,10 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  *
  * Se usa unicamente para lo que el usuario no puede hacer por si mismo —hoy,
  * invitar por correo—. Todo lo demas pasa por el JWT del usuario.
+ *
+ * OJO: aqui SI se dice "invitar", porque es el nombre de la operacion de
+ * Supabase (`auth.admin.inviteUserByEmail`) y este servicio es el adaptador a
+ * su vocabulario. Hacia adentro de Vecii la palabra es "vincular".
  */
 @Injectable()
 export class SupabaseAdminService {
@@ -20,7 +24,7 @@ export class SupabaseAdminService {
 
     if (!secreto) {
       this.logger.warn(
-        'SUPABASE_SECRET_KEY sin definir: no se podran enviar invitaciones por correo.',
+        'SUPABASE_SECRET_KEY sin definir: no se podran enviar vinculaciones por correo.',
       );
       this.cliente = null;
       return;
@@ -32,17 +36,17 @@ export class SupabaseAdminService {
   }
 
   /**
-   * Manda el correo de invitacion. Supabase crea el usuario en estado pendiente
+   * Manda el correo de vinculacion. Supabase crea el usuario en estado pendiente
    * y le pide contrasena al hacer clic.
    *
    * Si el correo YA tiene cuenta, Supabase responde error. No es un fallo: esa
-   * persona simplemente entra con su cuenta y la invitacion se le aplica sola al
+   * persona simplemente entra con su cuenta y la vinculacion se le aplica sola al
    * entrar. Por eso se traga ese caso y se sigue.
    */
   async invitarPorCorreo(email: string, redirectTo?: string): Promise<{ yaExistia: boolean }> {
     if (!this.cliente) {
       throw new InternalServerErrorException(
-        'El servidor no tiene configurada SUPABASE_SECRET_KEY; no puede enviar invitaciones.',
+        'El servidor no tiene configurada SUPABASE_SECRET_KEY; no puede enviar vinculaciones.',
       );
     }
 
@@ -54,11 +58,11 @@ export class SupabaseAdminService {
       error.status === 422 || /already|registered|exists/i.test(error.message ?? '');
 
     if (yaRegistrado) {
-      this.logger.log(`${email} ya tiene cuenta: la invitacion se aplicara al iniciar sesion.`);
+      this.logger.log(`${email} ya tiene cuenta: la vinculacion se aplicara al iniciar sesion.`);
       return { yaExistia: true };
     }
 
     this.logger.error(`No se pudo invitar a ${email}: ${error.message}`);
-    throw new InternalServerErrorException('No se pudo enviar la invitacion por correo');
+    throw new InternalServerErrorException('No se pudo enviar la vinculacion por correo');
   }
 }

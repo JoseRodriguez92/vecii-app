@@ -3,11 +3,11 @@ import { Transform } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsEmail, IsEnum, IsOptional, IsUUID } from 'class-validator';
 import { CodigoRol, RelacionUnidad } from '../../../generated/prisma/enums.js';
 
-export class CrearInvitacionDto {
+export class CrearVinculacionDto {
   @ApiProperty({ example: 'residente@ejemplo.com' })
   @IsEmail()
   // Se normaliza aqui porque es la llave con la que se cruza al iniciar sesion:
-  // "Jose@X.com" y "jose@x.com" tienen que encontrar la misma invitacion.
+  // "Jose@X.com" y "jose@x.com" tienen que encontrar la misma vinculacion.
   @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
   email!: string;
 
@@ -33,7 +33,7 @@ export class CrearInvitacionDto {
     isArray: true,
     description:
       'Cargos que se otorgan al aceptar. Solo roles otorgables, y solo quien tiene ' +
-      'usuarios.invitar puede asignarlos. Un propietario invitando a su unidad no puede.',
+      'usuarios.vincular puede asignarlos. Un propietario vinculando gente a su unidad no puede.',
     example: [CodigoRol.PORTERIA],
   })
   @IsOptional()

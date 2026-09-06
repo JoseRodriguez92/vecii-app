@@ -78,14 +78,14 @@ datos la tabla es `usuarios`, entonces:
 | tabla | `usuarios` |
 | carpeta | `src/modules/usuarios/` |
 | ruta | `/api/usuarios` |
-| permisos | `usuarios.leer`, `usuarios.invitar` |
+| permisos | `usuarios.leer`, `usuarios.vincular` |
 | tag de Swagger | `usuarios` |
 
 **El tag de Swagger siempre termina en un nombre de tabla**, y cuando hay
 submódulos usa `modulo · tabla`:
 
 - `estructura · unidades` ✓
-- `usuarios · invitaciones` ✓
+- `usuarios · vinculaciones` ✓
 - `personas` ✗ — no existe ninguna tabla `personas`
 
 Esto se descubrió al revés: el módulo se llamó `personas` porque sonaba humano,

@@ -1,5 +1,8 @@
 # Vecii
 
+> **Empezá por [`docs/estado-actual.md`](docs/estado-actual.md).** Dice dónde quedó
+> el proyecto, qué comandos correr antes de tocar nada, y cuál es el hilo abierto.
+
 Plataforma de gestión de conjuntos residenciales (propiedad horizontal) para
 Colombia. Monorepo pnpm.
 

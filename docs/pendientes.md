@@ -144,7 +144,7 @@ Cambiar a: generar el enlace sin enviar (`auth.admin.generateLink`) y mandarlo
 desde nuestro propio SMTP.
 
 Y hacerlo como un **módulo de notificaciones**, no metiendo SMTP dentro de
-invitaciones: en poco tiempo van a necesitar correo la cuota generada, la reserva
+vinculaciones: en poco tiempo van a necesitar correo la cuota generada, la reserva
 confirmada y el visitante en portería.
 
 ---
