@@ -8,6 +8,7 @@ import { validateEnv } from './config/env.validation.js';
 import { HealthController } from './health/health.controller.js';
 import { ConjuntosModule } from './modules/conjuntos/conjuntos.module.js';
 import { EstructuraModule } from './modules/estructura/estructura.module.js';
+import { PorteriaModule } from './modules/porteria/porteria.module.js';
 import { UsuariosModule } from './modules/usuarios/usuarios.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 
@@ -24,6 +25,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
     ConjuntosModule,
     EstructuraModule,
     UsuariosModule,
+    PorteriaModule,
   ],
   controllers: [HealthController],
   providers: [

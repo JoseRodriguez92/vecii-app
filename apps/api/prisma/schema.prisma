@@ -160,6 +160,45 @@ enum EstadoConjunto {
   SUSPENDIDO
 }
 
+/// Que llego a porteria. Solo cosas que porteria CUSTODIA o anuncia.
+///
+/// No hay DOMICILIO ni MERCADO: las porterias no reciben comida. El domiciliario
+/// espera en la reja o sube, asi que no hay custodia, no hay fila — eso es
+/// minuta de visitantes, no una entrega.
+enum TipoEntrega {
+  /// Mensajeria, compras en linea, flores, regalos.
+  PAQUETE
+  /// Recibos, extractos, cartas. Es el que normalmente llega masivo.
+  CORRESPONDENCIA
+  /// Correo certificado, notificaciones judiciales. Se firma y tiene peso legal.
+  CERTIFICADO
+  OTRO
+}
+
+/// Ciclo de vida de una entrega.
+///
+/// La regla que decidio estos nombres: el sistema solo guarda estados que EL
+/// MISMO provoca. No puede verificar que porteria metio los recibos a los
+/// casilleros, asi que no existe un estado "REPARTIDA" — seria una afirmacion
+/// sobre el mundo fisico que nadie confirma. Si sabe, en cambio, que mando la
+/// notificacion.
+enum EstadoEntrega {
+  /// Llego y quedo anotada, pero todavia no se le aviso a nadie.
+  ///
+  /// No es un estado de milisegundos: si la unidad no tiene usuarios registrados
+  /// —lo normal al arrancar un conjunto— no hay a quien avisarle y la entrega se
+  /// queda aqui. Distinguirlo importa, porque un paquete sin avisar y uno
+  /// avisado que nadie recoge son problemas distintos.
+  RECIBIDA
+  /// Se les aviso a los residentes de la unidad. Los repartos masivos NACEN aqui
+  /// y aqui se quedan: no hay nada que entregar en mano.
+  NOTIFICADA
+  /// Alguien la retiro. Queda quien y cuando.
+  ENTREGADA
+  /// Se devolvio al mensajero o al remitente.
+  DEVUELTA
+}
+
 // ---------------------------------------------------------------------------
 // Modelos
 // ---------------------------------------------------------------------------
@@ -193,6 +232,8 @@ model Conjunto {
   tipologias   Tipologia[]
   usuarios     UsuarioConjunto[]
   invitaciones Invitacion[]
+  casilleros   Casillero[]
+  entregas     Entrega[]
 
   @@map("conjuntos")
 }
@@ -224,6 +265,8 @@ model Agrupacion {
   zonasComunes ZonaComun[]
   parqueaderos Parqueadero[]
   espacios     EspacioReservable[]
+  casilleros   Casillero[]
+  entregas     Entrega[]
 
   /// Nombre unico dentro del conjunto, incluso entre etapas distintas: dos
   /// "Torre A" en el mismo conjunto confunden al residente, no solo a la query.
@@ -282,6 +325,9 @@ model Unidad {
   parqueaderos  AsignacionParqueadero[] @relation("UnidadUsaParqueadero")
   reservas      Reserva[]               @relation("UnidadReserva")
   invitaciones  Invitacion[]            @relation("InvitacionesUnidad")
+  /// La casilla de esta unidad. Una sola: el casillero no rota.
+  casillero     Casillero?
+  entregas      Entrega[]               @relation("EntregasUnidad")
 
   /// El identificador es unico DENTRO de su agrupacion, no del conjunto: cada
   /// torre tiene su 101. Antes estaba como [conjuntoId, identificador] y eso
@@ -294,6 +340,9 @@ model Unidad {
   ///   CREATE UNIQUE INDEX ... ON unidades (conjunto_id, identificador)
   ///     WHERE agrupacion_id IS NULL;
   @@unique([conjuntoId, agrupacionId, identificador])
+  /// Habilita las FK compuestas desde Casillero y Entrega (mismo patron que
+  /// Agrupacion): apuntan a la PAREJA (unidad, conjunto), no solo a la unidad.
+  @@unique([id, conjuntoId])
   @@index([conjuntoId])
   @@index([agrupacionId])
   @@index([tipologiaId])
@@ -731,6 +780,8 @@ model Usuario {
   reservasAprobadas Reserva[]         @relation("ReservasAprobadas")
   invitacionesEnviadas Invitacion[]   @relation("InvitacionesEnviadas")
   invitacionesAceptadas Invitacion[]  @relation("InvitacionesAceptadas")
+  entregasRecibidas     Entrega[]      @relation("EntregasRecibidas")
+  entregasEntregadas    Entrega[]      @relation("EntregasEntregadas")
 
   @@unique([tipoDocumento, numeroDocumento])
   @@map("usuarios")
@@ -910,4 +961,126 @@ model UsuarioUnidad {
   @@index([unidadId])
   @@index([usuarioId])
   @@map("usuarios_unidades")
+}
+
+/// La casilla fisica donde porteria deja la correspondencia de una unidad.
+///
+/// En Colombia son casillas ABIERTAS detras del mostrador, no buzones con llave
+/// como en Estados Unidos. Esa diferencia decide el modelo entero: dejar algo en
+/// la casilla NO es entregarlo — porteria sigue respondiendo por el paquete
+/// hasta que se lo pasa a alguien. Por eso `Entrega` rastrea quien retiro.
+///
+/// NO lleva tabla de asignaciones con vigencia, a diferencia de `Parqueadero`.
+/// Un cupo de parqueadero rota —sorteo anual, prestamo, arriendo— y hay que
+/// poder decir de quien era el ano pasado. El casillero 501 es del apto 501 y no
+/// rota nunca; historial que nadie va a consultar es maquinaria que solo estorba.
+model Casillero {
+  id            String  @id @default(uuid()) @db.Uuid
+  conjuntoId    String  @db.Uuid
+  /// A que porteria pertenece. Null = el conjunto tiene una sola.
+  agrupacionId  String? @db.Uuid
+  /// Como esta marcada: "C-501", "12".
+  identificador String
+  /// De quien es. NULL a proposito: la administracion y el consejo tambien
+  /// tienen casilla, y esas no son de ninguna unidad.
+  unidadId      String? @db.Uuid
+
+  /// Falso = se dano la chapa, se tapio. No se borra: las entregas viejas que
+  /// apuntan a ella tienen que seguir teniendo sentido.
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conjunto   Conjunto    @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  agrupacion Agrupacion? @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  unidad     Unidad?     @relation(fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  entregas   Entrega[]
+
+  @@unique([conjuntoId, identificador])
+  /// Una unidad, un casillero. Si algun dia aparece un conjunto donde el 501
+  /// tiene dos, se quita; mientras tanto la base impide el error de digitacion.
+  @@unique([unidadId, conjuntoId])
+  /// Habilita la FK compuesta desde Entrega.
+  @@unique([id, conjuntoId])
+  @@index([conjuntoId])
+  @@index([agrupacionId])
+  @@map("casilleros")
+}
+
+/// Algo que llego a porteria para alguien del conjunto.
+///
+/// El destino es UNA de tres cosas, y por eso los dos campos son opcionales:
+///
+///   unidadId lleno      -> el paquete de un apartamento
+///   agrupacionId lleno  -> llego para toda una torre (los recibos del agua)
+///   los dos nulos       -> para todo el conjunto
+///
+/// Lo del medio es lo que evita 120 filas identicas cada vez que llega el recibo
+/// del agua. El hecho es "llego el recibo del agua para la Torre 1": UNA fila.
+/// Abrirlo en una fila por unidad seria guardar la conclusion en vez del hecho,
+/// y serian miles de filas al ano que ademas nunca cambian de estado.
+///
+/// Consecuencia para las consultas: "que le ha llegado al 501" son sus entregas
+/// propias MAS las de su agrupacion (y las de las agrupaciones padre) MAS las
+/// del conjunto entero.
+///
+/// Lo que NO entra: la correspondencia ordinaria que se mete a las casillas y
+/// ya. Ningun portero va a digitar 120 recibos uno por uno, y una app que se lo
+/// exija termina sin que registren nada — ni siquiera los paquetes.
+model Entrega {
+  id         String @id @default(uuid()) @db.Uuid
+  conjuntoId String @db.Uuid
+
+  unidadId     String? @db.Uuid
+  agrupacionId String? @db.Uuid
+
+  /// El nombre escrito en el paquete, tal cual. Texto y no una FK a Usuario:
+  /// puede ser la empleada, un hijo, o alguien que no tiene usuario en la app.
+  destinatario String?
+
+  tipo      TipoEntrega
+  /// Quien lo manda: "Mercado Libre", "Acueducto", "Juzgado 12".
+  remitente String?
+
+  /// Donde quedo guardada. Null = no cupo en la casilla y esta detras del
+  /// mostrador, o es un reparto masivo (va a todas).
+  casilleroId String? @db.Uuid
+
+  estado EstadoEntrega @default(RECIBIDA)
+
+  recibidaPorId String   @db.Uuid
+  recibidaEn    DateTime @default(now())
+
+  /// Cuando se le aviso al residente. Se guarda aparte del estado porque el
+  /// estado dice donde esta AHORA, no por donde paso: al llegar a ENTREGADA se
+  /// perderia el dato, y "le avisamos hace tres semanas y no bajo" es
+  /// exactamente lo que porteria necesita poder mostrar.
+  notificadaEn DateTime?
+
+  /// Quien se la llevo, tal como lo anoto porteria. Texto por la misma razon que
+  /// `destinatario`: casi nunca es alguien con usuario en la app.
+  retiradaPorNombre String?
+  entregadaPorId    String?   @db.Uuid
+  entregadaEn       DateTime?
+
+  observacion String?
+  /// Foto de la guia o del paquete. Es la prueba cuando alguien reclama.
+  fotoUrl     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conjunto     Conjunto    @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  unidad       Unidad?     @relation("EntregasUnidad", fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  agrupacion   Agrupacion? @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  casillero    Casillero?  @relation(fields: [casilleroId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  recibidaPor  Usuario     @relation("EntregasRecibidas", fields: [recibidaPorId], references: [id], onDelete: Restrict)
+  entregadaPor Usuario?    @relation("EntregasEntregadas", fields: [entregadaPorId], references: [id], onDelete: SetNull)
+
+  /// La bandeja de porteria: lo que sigue en custodia.
+  @@index([conjuntoId, estado])
+  @@index([unidadId])
+  @@index([agrupacionId])
+  @@index([casilleroId])
+  @@map("entregas")
 }

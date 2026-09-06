@@ -72,14 +72,23 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
   [CodigoRol.CONSEJO]: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER],
   [CodigoRol.REVISOR_FISCAL]: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER],
   [CodigoRol.COMITE_CONVIVENCIA]: [PERMISOS.CONJUNTOS_LEER],
-  [CodigoRol.PORTERIA]: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER],
+  // El portero registra lo que llega y lo que se retira, pero no toca casilleros:
+  // eso es infraestructura y la define la administracion.
+  [CodigoRol.PORTERIA]: [
+    PERMISOS.CONJUNTOS_LEER,
+    PERMISOS.USUARIOS_LEER,
+    PERMISOS.ESTRUCTURA_LEER,
+    PERMISOS.PORTERIA_LEER,
+    PERMISOS.PORTERIA_ENTREGAS_REGISTRAR,
+  ],
   // El propietario puede meter a su arrendatario y a su familia en SUS unidades.
   [CodigoRol.PROPIETARIO]: [
     PERMISOS.CONJUNTOS_LEER,
     PERMISOS.ESTRUCTURA_LEER,
     PERMISOS.USUARIOS_INVITAR_MI_UNIDAD,
+    PERMISOS.PORTERIA_ENTREGAS_MI_UNIDAD,
   ],
-  [CodigoRol.RESIDENTE]: [PERMISOS.CONJUNTOS_LEER],
+  [CodigoRol.RESIDENTE]: [PERMISOS.CONJUNTOS_LEER, PERMISOS.PORTERIA_ENTREGAS_MI_UNIDAD],
 };
 
 export async function sembrarRoles(prisma: PrismaClient) {

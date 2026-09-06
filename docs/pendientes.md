@@ -183,41 +183,40 @@ petición. Es la tarea 1 del [ADR-0001](adr/0001-autenticacion-supabase.md).
 
 ---
 
-## 🟢 Portería: sin modelar
+## 🟡 Entregas: restricciones que Prisma no expresa
 
-Módulo entero pendiente. Lo que ya se sabe que va adentro:
+**Una entrega no puede ir a una unidad Y a una agrupación al mismo tiempo.**
+Los dos campos son opcionales para permitir los tres destinos (unidad / torre /
+conjunto entero), pero llenar los dos es incoherente y hoy nada lo impide. Va en
+el `.sql` de la línea base, junto a las otras:
 
-**Casilleros.** Cada unidad tiene su casillero y ahí llegan recibos, paquetes y
-compras. Ojo con la trampa: *el casillero y lo que llega adentro son dos cosas
-distintas.*
+```sql
+ALTER TABLE entregas ADD CONSTRAINT entrega_destino_unico
+  CHECK (NOT (unidad_id IS NOT NULL AND agrupacion_id IS NOT NULL));
+```
 
-| | qué es | cada cuánto cambia |
-|---|---|---|
-| **casillero** | el mueble, la casilla física con su número | casi nunca |
-| **entrega** | el paquete que llegó hoy para el 501 | todo el día |
+**El casillero tiene que ser de la misma unidad a la que va la entrega.** Hoy se
+puede guardar el paquete del 501 en el casillero del 302 sin que nada chille.
+Cruza tablas, así que no es un CHECK: va en el servicio.
 
-El casillero tiene la misma forma que un parqueadero de uso exclusivo: cosa
-física + asignación a una unidad con vigencia. Se puede copiar ese patrón.
+---
 
-La entrega es lo que de verdad opera portería, y es la que tiene el ciclo:
-llegó → quién la recibió → para qué unidad → avisar al residente → quién la
-retiró y cuándo. Ese último dato es el que zanja el "yo nunca recibí nada".
+## 🟢 Portería: lo que falta
 
-**No todo conjunto tiene casilleros.** En muchos, portería guarda el paquete
-detrás del mostrador y ya. Entonces el casillero es infraestructura OPCIONAL y
-la entrega es lo universal: una entrega puede existir sin casillero, pero no al
-revés.
+`casilleros` y `entregas` ya están modelados; falta el API. Lo demás de portería
+no se ha tocado:
 
-Preguntas abiertas para cuando se arranque:
-- ¿La entrega se registra contra la unidad o contra la persona? (La minuta de
-  portería dice "apto 501", no un nombre — probablemente la unidad, igual que la
-  deuda y las reservas.)
-- ¿Hay casilleros que no sean de una unidad? (Correspondencia de la
-  administración, del consejo.)
-- ¿Qué pasa con un paquete que nadie retira en un mes?
-- Visitantes, minuta de entradas y salidas, y el parqueadero de visitantes por
-  minuto que ya se habló — todo eso también es portería y hay que ver si comparte
-  tablas con las entregas o no.
+- **Minuta de visitantes.** Ingreso y salida: nombre, documento, a qué unidad,
+  quién autorizó, hora de entrada y de salida. Es la puerta de entrada al cobro
+  del parqueadero de visitantes por minuto.
+- **Autorización de salida de enseres.** Sin visto bueno del propietario o de la
+  administración no sale una nevera. Tiene su propio flujo de aprobación.
+- **El paquete que nadie retira.** No necesita estado propio —sale de
+  `recibidaEn` + `estado`— pero sí una decisión: ¿a las cuántas semanas se
+  devuelve, y quién decide? Eso es política del conjunto, no del código.
+- **Domicilios de comida.** No generan entrega: portería no los recibe. Cuando se
+  modele la minuta hay que ver si el domiciliario entra ahí o no entra a ningún
+  lado.
 
 ---
 

@@ -35,6 +35,19 @@ export const PERMISOS = {
   /// comprueba el servicio, porque es un alcance de FILA y el guard razona a
   /// nivel de conjunto.
   USUARIOS_INVITAR_MI_UNIDAD: 'usuarios.invitar.mi_unidad',
+
+  // --- modulo: porteria ---
+  PORTERIA_LEER: 'porteria.leer',
+  /// Crear y editar casilleros. Es del administrador, no de porteria: el portero
+  /// registra lo que llega, no rediseña el mueble.
+  PORTERIA_GESTIONAR: 'porteria.gestionar',
+  /// Registrar lo que llega, avisar, y anotar quien retiro. Es el trabajo diario
+  /// del portero.
+  PORTERIA_ENTREGAS_REGISTRAR: 'porteria.entregas.registrar',
+  /// Ver solo las entregas de las unidades propias. Lo tienen el propietario y el
+  /// residente. Igual que con invitaciones, el guard solo verifica el permiso; que
+  /// la unidad sea suya lo resuelve el servicio, porque es alcance de FILA.
+  PORTERIA_ENTREGAS_MI_UNIDAD: 'porteria.entregas.mi_unidad',
 } as const;
 
 export type CodigoPermiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -68,6 +81,18 @@ export const MODULOS = [
       { codigo: PERMISOS.USUARIOS_GESTIONAR, nombre: 'Asignar roles y ocupaciones' },
       { codigo: PERMISOS.USUARIOS_INVITAR, nombre: 'Invitar a cualquier unidad' },
       { codigo: PERMISOS.USUARIOS_INVITAR_MI_UNIDAD, nombre: 'Invitar a mis propias unidades' },
+    ],
+  },
+  {
+    codigo: 'porteria',
+    nombre: 'Porteria',
+    descripcion: 'Casilleros y lo que llega para las unidades.',
+    orden: 30,
+    permisos: [
+      { codigo: PERMISOS.PORTERIA_LEER, nombre: 'Ver casilleros y entregas del conjunto' },
+      { codigo: PERMISOS.PORTERIA_GESTIONAR, nombre: 'Crear y editar casilleros' },
+      { codigo: PERMISOS.PORTERIA_ENTREGAS_REGISTRAR, nombre: 'Registrar entregas y retiros' },
+      { codigo: PERMISOS.PORTERIA_ENTREGAS_MI_UNIDAD, nombre: 'Ver las entregas de mis unidades' },
     ],
   },
   {
