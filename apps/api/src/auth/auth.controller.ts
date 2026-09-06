@@ -11,7 +11,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Get('me')
-  @ApiOperation({ summary: 'Perfil del usuario autenticado y sus membresias' })
+  @ApiOperation({ summary: 'Perfil del usuario autenticado y sus conjuntos' })
   me(@CurrentUser() user: AuthUser) {
     return this.authService.syncAndGetProfile(user);
   }

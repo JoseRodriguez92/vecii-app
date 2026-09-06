@@ -30,6 +30,17 @@ async function bootstrap() {
     .setDescription('API de gestion de conjuntos residenciales')
     .setVersion('0.1.0')
     .addBearerAuth()
+    // El orden de los tags es el orden en que Swagger los muestra. Los de un
+    // mismo modulo comparten prefijo para que se lean como una familia: OpenAPI
+    // no tiene subtitulos, y esto es lo mas cerca que se puede estar.
+    .addTag('health', 'Estado del servicio')
+    .addTag('auth', 'Sesion del usuario')
+    .addTag('conjuntos', 'La copropiedad')
+    .addTag('usuarios', 'Quien esta en el conjunto, con que rol y en que unidad')
+    .addTag('usuarios · invitaciones', 'Invitaciones por correo para entrar al conjunto')
+    .addTag('estructura · agrupaciones', 'Torres, manzanas, etapas: como se subdivide')
+    .addTag('estructura · tipologias', 'Plantas repetidas con las que se construyo')
+    .addTag('estructura · unidades', 'Propiedad privada: apartamentos, casas, locales')
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
 

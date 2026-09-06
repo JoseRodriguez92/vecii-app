@@ -17,10 +17,29 @@ datasource db {
 // Enums
 // ---------------------------------------------------------------------------
 
-enum RolMembresia {
+/// Documentos de identidad validos en Colombia. NIT porque una unidad puede
+/// pertenecer a una empresa, no solo a una persona.
+enum TipoDocumento {
+  CC        // cedula de ciudadania
+  CE        // cedula de extranjeria
+  PASAPORTE
+  PPT       // permiso por proteccion temporal
+  NIT       // persona juridica
+}
+
+/// Vocabulario de permisos: todo lo que `@Roles()` puede exigir.
+///
+/// OJO, no todos se OTORGAN. La tabla `roles` solo contiene los que alguien
+/// asigna (cargos). PROPIETARIO y RESIDENTE no estan ahi: se DERIVAN de las
+/// filas de `usuarios_unidades`, porque ser dueno no es un cargo que te den,
+/// es una consecuencia de aparecer en la escritura. El guard suma los dos
+/// origenes y produce los "roles efectivos".
+enum CodigoRol {
   SUPER_ADMIN // Staff de Vecii
   ADMIN_CONJUNTO // Administrador del conjunto
-  CONSEJO // Miembro del consejo de administracion
+  CONSEJO // Consejo de administracion (obligatorio con mas de 30 unidades privadas)
+  REVISOR_FISCAL // Obligatorio en conjuntos de uso comercial o mixto (Ley 675, arts. 56-57)
+  COMITE_CONVIVENCIA // Opcional en residenciales (Ley 675, art. 58)
   PROPIETARIO
   RESIDENTE
   PORTERIA // Vigilancia / porteria
@@ -36,8 +55,61 @@ enum TipoAgrupacion {
   INTERIOR
 }
 
+/// Naturaleza JURIDICA del cupo. No es cosmetica: define si tiene coeficiente,
+/// si paga administracion y si se puede vender.
+enum NaturalezaParqueadero {
+  /// Bien privado: tiene matricula y coeficiente. Existe ademas como `Unidad`.
+  PRIVADO
+  /// Bien comun asignado en exclusiva a una unidad. Sin matricula ni coeficiente:
+  /// no se vende, y la asamblea puede reasignarlo.
+  USO_EXCLUSIVO
+  /// Bien comun que se reparte entre las unidades, normalmente por sorteo anual.
+  ROTATIVO
+  /// Bien comun de uso general. Lo gestiona porteria.
+  VISITANTES
+}
+
+/// De donde sale el derecho a usar un cupo.
+enum OrigenAsignacion {
+  PROPIEDAD  // es suyo, lo compro (bien privado)
+  REGLAMENTO // el reglamento se lo asigno
+  SORTEO     // le toco en el sorteo del periodo
+  PRESTAMO   // otro residente se lo presto
+  ARRIENDO   // otro residente se lo arrienda
+}
+
+enum EstadoInvitacion {
+  PENDIENTE
+  ACEPTADA
+  CANCELADA
+  VENCIDA
+}
+
+enum EstadoReserva {
+  SOLICITADA // esperando aprobacion del administrador
+  CONFIRMADA
+  CANCELADA
+  CUMPLIDA
+  /// Reservo y no aparecio. Se guarda porque muchos reglamentos sancionan la
+  /// inasistencia reiterada, y sin el dato no hay como aplicarlo.
+  NO_ASISTIO
+}
+
+enum DiaSemana {
+  LUNES
+  MARTES
+  MIERCOLES
+  JUEVES
+  VIERNES
+  SABADO
+  DOMINGO
+}
+
 /// Tipos de bien comun. Sirve para agrupar, poner iconos y filtrar; el nombre
 /// real lo escribe el conjunto ("BBQ Terraza Norte").
+/// NO incluye parqueadero de visitantes: eso vive en `parqueaderos` con
+/// naturaleza VISITANTES. Tenerlo en los dos lados obligaria a preguntarse cual
+/// es el bueno.
 enum TipoZonaComun {
   SALON_COMUNAL
   BBQ
@@ -50,7 +122,6 @@ enum TipoZonaComun {
   SALA_CINE
   TERRAZA
   ZONA_MASCOTAS
-  PARQUEADERO_VISITANTES
   PORTERIA
   OTRA
 }
@@ -115,8 +186,13 @@ model Conjunto {
   agrupaciones Agrupacion[]
   unidades     Unidad[]
   zonasComunes ZonaComun[]
+  parqueaderos Parqueadero[]
+  espacios     EspacioReservable[]
+  reservas     Reserva[]
+  politicas    PoliticaReserva[]
   tipologias   Tipologia[]
-  membresias   Membresia[]
+  usuarios     UsuarioConjunto[]
+  invitaciones Invitacion[]
 
   @@map("conjuntos")
 }
@@ -146,6 +222,8 @@ model Agrupacion {
   hijas        Agrupacion[] @relation("AgrupacionJerarquia")
   unidades     Unidad[]
   zonasComunes ZonaComun[]
+  parqueaderos Parqueadero[]
+  espacios     EspacioReservable[]
 
   /// Nombre unico dentro del conjunto, incluso entre etapas distintas: dos
   /// "Torre A" en el mismo conjunto confunden al residente, no solo a la query.
@@ -168,8 +246,16 @@ model Unidad {
   /// Planta a la que pertenece. Null = unidad sin tipologia (casas viejas,
   /// unidades unicas), y entonces sus datos viven solo en esta fila.
   tipologiaId   String?    @db.Uuid
-  /// Coeficiente de copropiedad (porcentaje de participacion). Ej: 0.004521
-  coeficiente   Decimal    @default(0) @db.Decimal(9, 6)
+  /// Coeficiente de copropiedad: la participacion de esta unidad en el conjunto.
+  /// Ej: 0.004521 = 0.4521%. Sale del reglamento de propiedad horizontal, no se
+  /// calcula. Define cuanto paga, cuanto pesa su voto y cuanto le pertenece de
+  /// los bienes comunes. Ver docs/dominio/expensas-y-coeficientes.md
+  ///
+  /// NULLABLE A PROPOSITO. Antes era `@default(0)`, y ahi `0` significaba dos
+  /// cosas: "todavia no se cargo" y "es cero". Un cargue a medias producia
+  /// recibos en cero sin que nadie se enterara hasta que no llegaba la plata.
+  /// Ahora null = desconocido, y el sistema debe negarse a facturar.
+  coeficiente   Decimal?   @db.Decimal(9, 6)
   /// SOBRESCRIBE el area de la tipologia. Null = hereda de la tipologia.
   /// Solo se llena cuando la unidad se salio del molde.
   areaM2        Decimal?   @db.Decimal(8, 2)
@@ -189,7 +275,13 @@ model Unidad {
   /// Consecuencia: borrar una agrupacion con unidades exige moverlas primero.
   agrupacion Agrupacion?       @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   tipologia  Tipologia?        @relation(fields: [tipologiaId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
-  ocupaciones OcupacionUnidad[]
+  usuarios   UsuarioUnidad[]
+  /// Si esta Unidad ES un parqueadero privado, aqui esta su cupo fisico.
+  esParqueadero Parqueadero[] @relation("ParqueaderoEsUnidad")
+  /// Cupos que esta unidad tiene derecho a usar.
+  parqueaderos  AsignacionParqueadero[] @relation("UnidadUsaParqueadero")
+  reservas      Reserva[]               @relation("UnidadReserva")
+  invitaciones  Invitacion[]            @relation("InvitacionesUnidad")
 
   /// El identificador es unico DENTRO de su agrupacion, no del conjunto: cada
   /// torre tiene su 101. Antes estaba como [conjuntoId, identificador] y eso
@@ -206,6 +298,318 @@ model Unidad {
   @@index([agrupacionId])
   @@index([tipologiaId])
   @@map("unidades")
+}
+
+/// Franja de apertura de una zona comun en un dia de la semana.
+///
+/// Una fila por dia que abre. Un dia SIN fila = cerrado ese dia. Y varias filas
+/// del mismo dia permiten horarios partidos (abre en la manana, cierra al
+/// mediodia, reabre en la tarde).
+///
+/// Las horas se guardan como MINUTOS DESDE MEDIANOCHE, no como `time`:
+///   300 = 05:00     1320 = 22:00
+/// El tipo `time` de Postgres llega a JavaScript como un Date con fecha
+/// 1970-01-01 en UTC, y al formatearlo en America/Bogota se corre cinco horas.
+/// Es un bug que aparece en produccion y cuesta una tarde encontrarlo. Un
+/// entero no tiene zona horaria y se compara directo.
+model HorarioZonaComun {
+  id          String    @id @default(uuid()) @db.Uuid
+  zonaComunId String    @db.Uuid
+  dia         DiaSemana
+  /// Minutos desde medianoche. 0 = 00:00, 1439 = 23:59.
+  apertura    Int
+  /// Idem. 1440 = medianoche del dia siguiente. Debe ser mayor que `apertura`:
+  /// un evento que pasa de medianoche es asunto de la reserva, no del horario.
+  cierre      Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  zonaComun ZonaComun @relation(fields: [zonaComunId], references: [id], onDelete: Cascade)
+
+  @@unique([zonaComunId, dia, apertura])
+  @@index([zonaComunId])
+  @@map("horarios_zona_comun")
+}
+
+/// Un cupo de parqueadero, como cosa fisica.
+///
+/// Los tres tipos que existen en Colombia son juridicamente distintos y esa
+/// diferencia importa: en el PRIVADO eres dueno —tiene matricula y coeficiente,
+/// y por eso existe ademas como `Unidad`—; en el de USO_EXCLUSIVO solo te lo
+/// asignaron en exclusiva, no es tuyo y la asamblea puede reasignarlo.
+///
+/// Aqui vive lo FISICO (numero, ubicacion, que cabe). Quien lo usa vive en
+/// `AsignacionParqueadero`, porque cambia con el tiempo.
+model Parqueadero {
+  id           String                @id @default(uuid()) @db.Uuid
+  conjuntoId   String                @db.Uuid
+  /// A que torre o etapa pertenece. Null = del conjunto entero.
+  agrupacionId String?               @db.Uuid
+  naturaleza   NaturalezaParqueadero
+  /// Como esta marcado en el piso: "P-101", "V-04", "S2-33".
+  identificador String
+  /// Solo para PRIVADO: la Unidad que ES este cupo, la que tiene el coeficiente.
+  /// Ojo, esto NO es el apartamento al que sirve — eso es una asignacion.
+  unidadId     String?               @db.Uuid
+
+  /// Que cabe. Un cupo no es "de carro" o "de moto": en muchos conjuntos en el
+  /// mismo espacio se guarda el carro Y la moto, y eso hay que poder decirlo.
+  /// (Los bicicleteros no son cupos individuales: van como ZonaComun.)
+  admiteCarro Boolean @default(true)
+  admiteMoto  Boolean @default(false)
+
+  cubierto  Boolean  @default(false)
+  /// Texto libre: "Sotano 1", "Exterior norte".
+  ubicacion String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conjunto    Conjunto                 @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  agrupacion  Agrupacion?              @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  unidad      Unidad?                  @relation("ParqueaderoEsUnidad", fields: [unidadId], references: [id], onDelete: SetNull)
+  asignaciones AsignacionParqueadero[]
+
+  @@unique([conjuntoId, identificador])
+  /// Habilita la FK compuesta desde Reserva.
+  @@unique([id, conjuntoId])
+  @@index([conjuntoId])
+  @@index([agrupacionId])
+  @@map("parqueaderos")
+}
+
+/// Quien tiene derecho a usar un cupo, y desde cuando.
+///
+/// Es una tabla aparte y no una columna porque el derecho CAMBIA: el sorteo
+/// anual reparte de nuevo, un dueno le presta su cupo al vecino, alguien se
+/// muda. Cerrar con `hasta` en vez de borrar deja el historial —util cuando
+/// alguien reclama que ese cupo era suyo el ano pasado—.
+///
+/// Aplica tambien a los PRIVADOS: el dueno puede prestarlo o arrendarlo, y
+/// entonces quien lo usa no es quien lo tiene.
+model AsignacionParqueadero {
+  id            String           @id @default(uuid()) @db.Uuid
+  parqueaderoId String           @db.Uuid
+  /// La unidad que lo usa. Para un cupo de VISITANTES esto queda null: no se
+  /// asigna a nadie.
+  unidadId      String           @db.Uuid
+  origen        OrigenAsignacion
+  desde         DateTime         @default(now())
+  /// Null = vigente.
+  hasta         DateTime?
+  observacion   String?
+  createdAt     DateTime         @default(now())
+
+  parqueadero Parqueadero @relation(fields: [parqueaderoId], references: [id], onDelete: Cascade)
+  unidad      Unidad      @relation("UnidadUsaParqueadero", fields: [unidadId], references: [id], onDelete: Cascade)
+
+  @@unique([parqueaderoId, unidadId, desde])
+  @@index([parqueaderoId])
+  @@index([unidadId])
+  @@map("asignaciones_parqueadero")
+}
+
+/// LA COSA QUE SE APARTA. Puede ser unica o un conjunto de cosas intercambiables.
+///
+/// Esta capa existe por la capacidad. El salon comunal es uno: reservarlo lo
+/// bloquea. Los 50 cupos de visitantes son intercambiables: nadie aparta el
+/// V-04, aparta "un espacio", y porteria asigna cual al llegar. Sin este
+/// concepto tocaria crear 50 politicas identicas y la validacion de choque
+/// ("no puede haber otra que se solape") seria falsa.
+///
+/// Con capacidad, la regla es UNA sola para todos los casos:
+///   reservas solapadas < capacidad
+/// El salon es simplemente capacidad 1. Y un gimnasio con aforo 15 encaja gratis.
+///
+/// Los `parqueaderos` no desaparecen: siguen siendo el inventario fisico. Lo que
+/// se reserva es el pool; el cupo concreto lo asigna porteria.
+model EspacioReservable {
+  id         String @id @default(uuid()) @db.Uuid
+  conjuntoId String @db.Uuid
+  /// Como lo ve el residente: "Salon Social", "Parqueadero de visitantes".
+  nombre     String
+  /// Cuantas reservas simultaneas admite. 1 = exclusivo.
+  capacidad  Int    @default(1)
+
+  /// A que apunta en el mundo fisico. Un espacio es UNA de estas dos cosas:
+  ///  - una zona comun concreta
+  ///  - el pool de parqueaderos de cierta naturaleza (normalmente VISITANTES)
+  zonaComunId           String?                @unique @db.Uuid
+  naturalezaParqueadero NaturalezaParqueadero?
+  /// Acota el pool a una parte del conjunto: la Etapa 1 puede tener sus 20 cupos
+  /// de visitantes y la Etapa 2 otros 30, y no son intercambiables entre si.
+  agrupacionId          String?                @db.Uuid
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conjunto   Conjunto         @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  zonaComun  ZonaComun?       @relation(fields: [zonaComunId], references: [id], onDelete: Cascade)
+  agrupacion Agrupacion?      @relation(fields: [agrupacionId], references: [id], onDelete: SetNull)
+  politica   PoliticaReserva?
+  reservas   Reserva[]
+
+  @@unique([conjuntoId, nombre])
+  /// Habilita la FK compuesta desde Reserva y PoliticaReserva.
+  @@unique([id, conjuntoId])
+  @@index([conjuntoId])
+  @@map("espacios_reservables")
+}
+
+/// Reglas para reservar un espacio. Una por espacio.
+///
+/// Cuelga del RECURSO, no del objeto fisico: una sola politica cubre los 50
+/// cupos de visitantes, porque se reserva el pool y no cada cupo.
+///
+/// NO incluye tarifas ni depositos: esos terminan en el estado de cuenta y
+/// esperan a finanzas. Aqui solo vive lo que se puede validar sin saber de plata.
+model PoliticaReserva {
+  id         String @id @default(uuid()) @db.Uuid
+  conjuntoId String @db.Uuid
+
+  espacioId String @unique @db.Uuid
+
+  /// El salon comunal casi siempre la pide; el gimnasio nunca.
+  requiereAprobacion Boolean @default(false)
+
+  /// Con cuanta antelacion MINIMA se puede reservar. Le da tiempo al
+  /// administrador de preparar el espacio y avisarle a porteria.
+  anticipacionMinimaHoras Int?
+  /// Con cuanta antelacion MAXIMA. Sin esto, alguien reserva el salon todos los
+  /// sabados del ano en enero y nadie mas lo usa.
+  anticipacionMaximaDias Int?
+
+  duracionMinimaMinutos Int?
+  duracionMaximaMinutos Int?
+
+  /// Cuantas reservas activas puede tener una unidad a la vez.
+  maxSimultaneasPorUnidad Int?
+  /// Cuantas al mes. Impide que el mismo apartamento monopolice el espacio.
+  maxMensualesPorUnidad Int?
+
+  /// Si solo pueden reservar propietarios. Algunos reglamentos excluyen a los
+  /// arrendatarios de ciertos espacios.
+  soloPropietarios Boolean @default(false)
+
+  /// Si una unidad en mora queda bloqueada. La Ley 675 no lo impone: lo decide
+  /// cada reglamento, por eso es configuracion y no regla del codigo.
+  /// La consulta de mora la resolvera finanzas.
+  bloqueaConMora Boolean @default(false)
+
+  /// Con cuanta antelacion se puede cancelar. Cancelar despues puede acarrear
+  /// sancion — cuanto, lo define finanzas.
+  cancelacionMinimaHoras Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conjunto Conjunto          @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  espacio  EspacioReservable @relation(fields: [espacioId, conjuntoId], references: [id, conjuntoId], onDelete: Cascade, onUpdate: NoAction)
+
+  /// Redundante para la unicidad —`espacioId` ya es unico por si solo— pero
+  /// Prisma lo exige: en una relacion 1:1 los campos de la FK tienen que ser
+  /// unicos como CONJUNTO, no por separado.
+  @@unique([espacioId, conjuntoId])
+  @@index([conjuntoId])
+  @@map("politicas_reserva")
+}
+
+/// Invitacion a entrar al conjunto.
+///
+/// El flujo: alguien invita por correo -> Supabase manda el correo y la persona
+/// pone su contrasena -> al entrar por primera vez, `/auth/me` encuentra las
+/// invitaciones pendientes para su correo y las aplica.
+///
+/// NO se usa un token en el enlace: el correo YA es la prueba de identidad,
+/// porque Supabase lo verifico al hacerla clickear. Un token adicional seria una
+/// cosa mas que se puede perder, reenviar por WhatsApp o filtrar.
+///
+/// La fila se conserva despues de aceptada: sirve de auditoria de quien metio a
+/// quien, que en propiedad horizontal se pregunta.
+model Invitacion {
+  id         String            @id @default(uuid()) @db.Uuid
+  conjuntoId String            @db.Uuid
+  /// En minuscula y sin espacios. Es la llave con la que se cruza al entrar.
+  email      String
+  estado     EstadoInvitacion  @default(PENDIENTE)
+
+  /// A que unidad queda vinculada la persona. Null para quien no vive en el
+  /// conjunto: un portero, un administrador externo.
+  unidadId String?         @db.Uuid
+  relacion RelacionUnidad?
+
+  /// Cargos que se otorgan al aceptar. Solo roles `asignable`, y solo un
+  /// ADMIN_CONJUNTO puede repartirlos: un propietario invita a su arrendatario,
+  /// no nombra administradores.
+  roles CodigoRol[]
+
+  invitadaPorId String   @db.Uuid
+  expiraEn      DateTime
+  aceptadaEn    DateTime?
+  /// Quien la acepto. Se llena al aplicarla.
+  usuarioId     String?  @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conjunto    Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  unidad      Unidad?  @relation("InvitacionesUnidad", fields: [unidadId], references: [id], onDelete: Cascade)
+  invitadaPor Usuario  @relation("InvitacionesEnviadas", fields: [invitadaPorId], references: [id], onDelete: Restrict)
+  usuario     Usuario? @relation("InvitacionesAceptadas", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  /// Una sola invitacion pendiente por correo y unidad. Reinvitar reutiliza la
+  /// fila en vez de acumular duplicados.
+  @@unique([conjuntoId, email, unidadId, estado])
+  @@index([email, estado])
+  @@index([conjuntoId])
+  @@map("invitaciones")
+}
+
+/// Apartar un espacio del conjunto en una franja de tiempo.
+///
+/// Apunta a un EspacioReservable, no a una zona comun ni a un cupo concreto.
+/// Asi el salon comunal y el pool de visitantes se reservan con el mismo
+/// mecanismo, y la validacion de choque es una sola: reservas solapadas <
+/// capacidad del espacio.
+///
+/// NO guarda el valor cobrado. Guarda el HECHO (que espacio, cuando, cuanto
+/// tiempo); el cargo lo genera finanzas leyendo esto. Un valor congelado aqui no
+/// se podria recalcular ni corregir cuando alguien reclame.
+model Reserva {
+  id         String @id @default(uuid()) @db.Uuid
+  conjuntoId String @db.Uuid
+
+  espacioId String @db.Uuid
+
+  /// La unidad que responde por la reserva. Es la unidad y no la persona porque
+  /// los cargos y las sanciones van a la unidad (misma logica que la deuda).
+  unidadId        String @db.Uuid
+  /// Quien la pidio, para saber a quien escribirle.
+  solicitadaPorId String @db.Uuid
+
+  inicio DateTime
+  fin    DateTime
+  estado EstadoReserva @default(SOLICITADA)
+
+  aprobadaPorId String?   @db.Uuid
+  aprobadaEn    DateTime?
+  motivoRechazo String?
+  observacion   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conjunto      Conjunto          @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  espacio       EspacioReservable @relation(fields: [espacioId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  unidad        Unidad            @relation("UnidadReserva", fields: [unidadId], references: [id], onDelete: Cascade)
+  solicitadaPor Usuario      @relation("ReservasSolicitadas", fields: [solicitadaPorId], references: [id], onDelete: Restrict)
+  aprobadaPor   Usuario?     @relation("ReservasAprobadas", fields: [aprobadaPorId], references: [id], onDelete: SetNull)
+
+  @@index([conjuntoId])
+  @@index([espacioId, inicio])
+  @@index([unidadId])
+  @@map("reservas")
 }
 
 /// Planta repetida con la que se construyo el conjunto: "Tipo A", "Casa Modelo 1".
@@ -263,17 +667,28 @@ model ZonaComun {
   /// Como la llama el conjunto: "Salon Social", "BBQ Terraza Norte".
   nombre       String
   /// Si requiere reserva. Un gimnasio suele ser de entrada libre; un salon
-  /// comunal no. Las reglas de reserva (horarios, cupos, tarifas) son del
-  /// modulo de reservas, no de aqui.
+  /// comunal no. Las REGLAS de reserva —tarifas, depositos, anticipacion, cupos
+  /// por unidad, y la consulta de mora— son del modulo de reservas. Aqui solo
+  /// vive lo que la zona ES, no como se reparte.
   reservable   Boolean       @default(false)
-  activa       Boolean       @default(true)
+  /// Capacidad maxima de personas. Null = sin limite declarado.
+  aforo        Int?
+  /// Reglas de uso en texto libre, tal como las redacto el conjunto.
+  reglasUso    String?
+  /// Falso = fuera de servicio (en mantenimiento). No se borra: las reservas
+  /// historicas que apuntan a ella tienen que seguir teniendo sentido.
+  activo       Boolean       @default(true)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  conjunto   Conjunto    @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
-  agrupacion Agrupacion? @relation(fields: [agrupacionId], references: [id], onDelete: SetNull)
+  conjunto   Conjunto           @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  agrupacion Agrupacion?        @relation(fields: [agrupacionId], references: [id], onDelete: SetNull)
+  horarios   HorarioZonaComun[]
+  espacio    EspacioReservable?
 
   @@unique([conjuntoId, nombre])
+  /// Habilita la FK compuesta desde Reserva (mismo patron que Agrupacion).
+  @@unique([id, conjuntoId])
   @@index([conjuntoId])
   @@index([agrupacionId])
   @@map("zonas_comunes")
@@ -281,52 +696,218 @@ model ZonaComun {
 
 /// Espejo de auth.users de Supabase. El id coincide con el sub del JWT.
 model Usuario {
-  id             String   @id @db.Uuid
-  email          String   @unique
-  nombreCompleto String?
-  telefono       String?
-  avatarUrl      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id String @id @db.Uuid
 
-  membresias  Membresia[]
-  ocupaciones OcupacionUnidad[]
+  /// Opcional porque Supabase permite registrarse solo con telefono. Antes era
+  /// obligatorio y el codigo inventaba correos falsos (`uuid@sin-email.local`)
+  /// para poder guardar la fila. Nullable + unique convive bien: Postgres
+  /// considera los NULL distintos entre si.
+  email     String? @unique
+  /// Como en la cedula: NOMBRES y APELLIDOS. Dos campos y no cuatro: partirlo en
+  /// mas se rompe con quien tiene un solo nombre, un solo apellido, o con
+  /// extranjeros.
+  nombres   String?
+  apellidos String?
 
+  /// Necesarios para emitir paz y salvos, cruzar contra la escritura e
+  /// identificar sin ambiguedad en un acta. Dos personas se llaman igual; dos
+  /// documentos no.
+  tipoDocumento   TipoDocumento?
+  numeroDocumento String?
+
+  /// telefono = fijo del apartamento (el que marca porteria).
+  /// celular  = movil personal (por ahi va el WhatsApp).
+  telefono String?
+  celular  String?
+
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conjuntos      UsuarioConjunto[]
+  unidades       UsuarioUnidad[]
+  rolesAsignados UsuarioConjuntoRol[] @relation("RolesAsignados")
+  reservas       Reserva[]            @relation("ReservasSolicitadas")
+  reservasAprobadas Reserva[]         @relation("ReservasAprobadas")
+  invitacionesEnviadas Invitacion[]   @relation("InvitacionesEnviadas")
+  invitacionesAceptadas Invitacion[]  @relation("InvitacionesAceptadas")
+
+  @@unique([tipoDocumento, numeroDocumento])
   @@map("usuarios")
 }
 
-/// Vincula un usuario con un conjunto y le asigna un rol.
-model Membresia {
-  id         String       @id @default(uuid()) @db.Uuid
-  usuarioId  String       @db.Uuid
-  conjuntoId String       @db.Uuid
-  rol        RolMembresia
-  activo     Boolean      @default(true)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+/// Conecta una persona con un conjunto y dice que es ahi adentro.
+///
+/// El nombre anterior sugeria un plan de suscripcion (VIP, estandar) en vez de
+/// lo que la tabla realmente hace.
+///
+/// Los roles NO viven aqui: cuelgan de `UsuarioConjuntoRol`, porque una
+/// asignacion de rol tiene vigencia y autor. Una persona puede tener varios a la
+/// vez —un miembro del consejo es tambien propietario, legalmente tiene que
+/// serlo—.
+model UsuarioConjunto {
+  id         String        @id @default(uuid()) @db.Uuid
+  usuarioId  String        @db.Uuid
+  conjuntoId String        @db.Uuid
+  activo     Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
-  usuario  Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  conjunto Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  usuario  Usuario              @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  conjunto Conjunto             @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  roles    UsuarioConjuntoRol[]
 
   @@unique([usuarioId, conjuntoId])
   @@index([conjuntoId])
-  @@map("membresias")
+  @@map("usuarios_conjuntos")
 }
 
-/// Relacion usuario <-> unidad (propietario, arrendatario, residente).
-model OcupacionUnidad {
+/// Catalogo de roles. Global, no por conjunto: los seis roles son los mismos en
+/// toda Colombia.
+///
+/// `codigo` es lo que el codigo entiende y con lo que el guard decide permisos.
+/// `nombre` y `descripcion` son editables sin desplegar: un conjunto puede
+/// preferir "Consejo de Administracion" o "Junta".
+model Rol {
+  id          String    @id @default(uuid()) @db.Uuid
+  /// Null = rol del sistema, igual en todos los conjuntos. Hoy TODOS lo son.
+  /// La columna existe para el dia que un conjunto quiera roles propios; ese dia
+  /// tambien habra que pasar `codigo` de enum a texto, porque un rol inventado
+  /// no puede tener un valor del enum. Una migracion pequena sobre pocas filas.
+  conjuntoId  String?   @db.Uuid
+  codigo      CodigoRol @unique
+  nombre      String
+  descripcion String?
+  /// Si el administrador de un conjunto puede otorgarlo. SUPER_ADMIN no: ese es
+  /// staff de Vecii y no se reparte desde adentro.
+  asignable   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  asignaciones UsuarioConjuntoRol[]
+  permisos     RolPermiso[]
+
+  @@index([conjuntoId])
+  @@map("roles")
+}
+
+/// Area funcional de Vecii. Sirve para agrupar permisos en la interfaz de
+/// administracion, para que no sea una lista plana de doscientas casillas.
+model Modulo {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// "unidades", "finanzas", "reservas". Estable: los permisos lo usan de prefijo.
+  codigo      String   @unique
+  nombre      String
+  descripcion String?
+  /// Orden en que se muestra en la interfaz.
+  orden       Int      @default(0)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permisos Permiso[]
+
+  @@map("modulos")
+}
+
+/// Una accion concreta que se puede permitir o negar.
+///
+/// El `codigo` es lo que declara el endpoint con `@RequierePermiso(...)`, y es
+/// el contrato entre el codigo y los datos. Cada modulo siembra los suyos cuando
+/// se construye: inventarlos antes de que el modulo exista es adivinar.
+///
+/// Al arrancar, la app verifica que TODO permiso declarado en un decorador
+/// exista aqui, y se niega a levantar si falta alguno. Sin esa verificacion, un
+/// permiso mal escrito se descubre en produccion cuando alguien no puede entrar.
+model Permiso {
+  id          String   @id @default(uuid()) @db.Uuid
+  moduloId    String   @db.Uuid
+  /// Formato `modulo.espacio.accion`, ej: "finanzas.presupuesto.crear".
+  codigo      String   @unique
+  nombre      String
+  descripcion String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  modulo Modulo       @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+  roles  RolPermiso[]
+
+  @@index([moduloId])
+  @@map("permisos")
+}
+
+/// Que permisos tiene cada rol. Esta es la tabla que se edita desde la interfaz:
+/// cambiar quien puede hacer que ya no exige desplegar codigo.
+model RolPermiso {
+  rolId     String   @db.Uuid
+  permisoId String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  rol     Rol     @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  permiso Permiso @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@id([rolId, permisoId])
+  @@index([permisoId])
+  @@map("roles_permisos")
+}
+
+/// Un rol concreto otorgado a una persona en un conjunto.
+///
+/// Tiene VIGENCIA a proposito: al consejo se entra por periodo, y cuando termina
+/// no se borra la fila —se cierra con `hasta`—. Asi queda el historial de quien
+/// fue consejero cuando, que es justo lo que se pregunta en una asamblea.
+model UsuarioConjuntoRol {
+  id                String    @id @default(uuid()) @db.Uuid
+  usuarioConjuntoId String    @db.Uuid
+  rolId             String    @db.Uuid
+  desde             DateTime  @default(now())
+  /// Null = vigente. Con fecha = ya termino, pero queda el registro.
+  hasta             DateTime?
+  /// Quien lo otorgo. Auditoria: en propiedad horizontal esto se reclama.
+  asignadoPorId     String?   @db.Uuid
+  createdAt         DateTime  @default(now())
+
+  usuarioConjunto UsuarioConjunto @relation(fields: [usuarioConjuntoId], references: [id], onDelete: Cascade)
+  rol             Rol             @relation(fields: [rolId], references: [id], onDelete: Restrict)
+  asignadoPor     Usuario?        @relation("RolesAsignados", fields: [asignadoPorId], references: [id], onDelete: SetNull)
+
+  /// Un mismo rol no se otorga dos veces al mismo vinculo en el mismo periodo.
+  /// El historial se distingue por `desde`.
+  @@unique([usuarioConjuntoId, rolId, desde])
+  @@index([usuarioConjuntoId])
+  @@index([rolId])
+  @@map("usuario_conjunto_roles")
+}
+
+/// Relacion de una persona con una unidad concreta. N:N en las dos direcciones:
+/// el 501 puede tener dueno, arrendatario e hijos; y una persona puede tener el
+/// 501 y el parqueadero 34.
+///
+/// De aqui se DERIVAN los roles PROPIETARIO y RESIDENTE. No se asignan a mano:
+/// si se pudiera, el dia que alguien vende su apartamento le quedaria el rol
+/// colgado y seguiria votando en un conjunto donde ya no tiene nada.
+model UsuarioUnidad {
   id        String         @id @default(uuid()) @db.Uuid
   usuarioId String         @db.Uuid
   unidadId  String         @db.Uuid
   relacion  RelacionUnidad
+  /// Contacto principal de la unidad. Con dos duenos —una pareja, por ejemplo—
+  /// marca a quien se le escribe primero. No cambia quien debe la plata: la
+  /// deuda es de la unidad, no de la persona.
   principal Boolean        @default(false)
   desde     DateTime       @default(now())
+  /// Null = vigente. Con fecha = termino, pero la fila se queda: hace falta
+  /// saber quien vivia ahi cuando se genero una cuota vieja.
   hasta     DateTime?
+  createdAt DateTime       @default(now())
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   unidad  Unidad  @relation(fields: [unidadId], references: [id], onDelete: Cascade)
 
-  @@unique([usuarioId, unidadId, relacion])
+  /// `desde` entra en la clave para permitir historial: alguien pudo arrendar
+  /// el mismo apartamento en 2020, irse, y volver en 2024.
+  @@unique([usuarioId, unidadId, relacion, desde])
   @@index([unidadId])
-  @@map("ocupaciones_unidad")
+  @@index([usuarioId])
+  @@map("usuarios_unidades")
 }
