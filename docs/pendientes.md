@@ -8,6 +8,30 @@ no tienen ADR propio.
 
 ---
 
+## 🔴 Las migraciones no reflejan la base
+
+`prisma/migrations/` tiene dos migraciones del 6 de septiembre a las 02:37 y
+02:49. Describen `torres`, `membresias` y `ocupaciones_unidad` — nombres que ya
+no existen — y ninguna de las 14 tablas que se agregaron después.
+
+Todo el rediseño posterior se aplicó con `prisma db push`, que modifica la base
+para que coincida con el schema **sin dejar archivo**. Fue lo correcto mientras
+el modelo cambiaba cada media hora: cada `migrate dev` habría generado un `.sql`
+que a los diez minutos era mentira. Pero el modelo ya está estable, y hoy quien
+clone el repo y corra `prisma migrate deploy` levanta el esquema de las 02:49.
+
+→ **Rehacer la línea base.** Borrar las dos migraciones, generar una sola con
+`migrate diff` desde vacío contra el schema actual, y marcarla como aplicada con
+`migrate resolve` (no ejecutarla: la base ya tiene esas tablas). Desde ahí, cada
+cambio va por `migrate dev` y `db push` no se usa más.
+
+Es también el único lugar donde pueden vivir las restricciones que Prisma no
+sabe expresar y que están más abajo en este archivo: el `CHECK` de
+`espacio_apunta_a_algo` y el índice único parcial de `unidades`. Hay que
+agregarlas a mano al `.sql` de la línea base.
+
+---
+
 ## 🔴 Antes de facturar a alguien de verdad
 
 **`Unidad.coeficiente` tiene `@default(0)`**
