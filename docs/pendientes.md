@@ -183,11 +183,41 @@ petición. Es la tarea 1 del [ADR-0001](adr/0001-autenticacion-supabase.md).
 
 ---
 
-## 🟢 Modelo: tablas sin revisar
+## 🟢 Portería: sin modelar
 
-`usuarios`, `membresias` y `ocupaciones_unidad` no se han tocado. Los nombres
-resultaron ilegibles para quien no las escribió — y un schema que su dueño no
-puede leer está mal diseñado aunque sea correcto.
+Módulo entero pendiente. Lo que ya se sabe que va adentro:
+
+**Casilleros.** Cada unidad tiene su casillero y ahí llegan recibos, paquetes y
+compras. Ojo con la trampa: *el casillero y lo que llega adentro son dos cosas
+distintas.*
+
+| | qué es | cada cuánto cambia |
+|---|---|---|
+| **casillero** | el mueble, la casilla física con su número | casi nunca |
+| **entrega** | el paquete que llegó hoy para el 501 | todo el día |
+
+El casillero tiene la misma forma que un parqueadero de uso exclusivo: cosa
+física + asignación a una unidad con vigencia. Se puede copiar ese patrón.
+
+La entrega es lo que de verdad opera portería, y es la que tiene el ciclo:
+llegó → quién la recibió → para qué unidad → avisar al residente → quién la
+retiró y cuándo. Ese último dato es el que zanja el "yo nunca recibí nada".
+
+**No todo conjunto tiene casilleros.** En muchos, portería guarda el paquete
+detrás del mostrador y ya. Entonces el casillero es infraestructura OPCIONAL y
+la entrega es lo universal: una entrega puede existir sin casillero, pero no al
+revés.
+
+Preguntas abiertas para cuando se arranque:
+- ¿La entrega se registra contra la unidad o contra la persona? (La minuta de
+  portería dice "apto 501", no un nombre — probablemente la unidad, igual que la
+  deuda y las reservas.)
+- ¿Hay casilleros que no sean de una unidad? (Correspondencia de la
+  administración, del consejo.)
+- ¿Qué pasa con un paquete que nadie retira en un mes?
+- Visitantes, minuta de entradas y salidas, y el parqueadero de visitantes por
+  minuto que ya se habló — todo eso también es portería y hay que ver si comparte
+  tablas con las entregas o no.
 
 ---
 
