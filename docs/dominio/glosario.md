@@ -57,19 +57,25 @@ sigue ocupado y la cuenta corre; `POST /reservas/:id/salida` lo cierra.
 Con el fin abierto, **la reserva es la visita**: por eso no existe una tabla
 `visitas` aparte.
 
-**Rol de conjunto vs. rol de plataforma** son dos ejes, no dos niveles:
+**Los roles efectivos de una persona salen de TRES lugares**, y el guard los suma:
 
-| | qué es | dónde se otorga | alcance |
-|---|---|---|---|
-| **rol de conjunto** | consejo, administrador, portería, propietario | `usuario_conjunto_roles` | ese conjunto |
-| **rol de plataforma** | super admin, soporte de Vecii | `usuarios_plataforma` | todos |
+| origen | ejemplo | cómo llega |
+|---|---|---|
+| `usuarios_plataforma` | `SUPER_ADMIN` | lo otorga Vecii. Vale en **todos** los conjuntos |
+| `usuario_conjunto_roles` | `CONSEJO`, `ADMIN_CONJUNTO`, `PORTERIA` | se lo otorgaron **en ese** conjunto |
+| `usuarios_unidades` | `PROPIETARIO`, `RESIDENTE` | **derivado**, nadie lo otorga |
 
-Comparten el catálogo `roles`, y ahí `conjuntoId` los separa: **null = plataforma**.
+Mirar solo la tabla de roles y concluir "estos son sus roles" es un error: los
+derivados no tienen fila ahí. El día que alguien vende el 501 deja de ser
+propietario **solo**, sin que nadie tenga que acordarse de borrarle nada — que es
+justamente el punto de derivarlos.
 
-La misma persona tiene los dos sin conflicto: quien trabaja en Vecii también vive
-en algún lado, y allá es propietario del 501 y miembro del consejo. Meter
-`SUPER_ADMIN` en `usuario_conjunto_roles` era el error — un rol global en una
-tabla que es por conjunto, y por eso solo servía en el conjunto donde se otorgó.
+Los tres comparten el catálogo `roles`, y ahí `conjuntoId` separa los dos
+primeros: **null = de plataforma**. La misma persona tiene los tres sin conflicto:
+quien trabaja en Vecii también vive en algún lado.
+
+Meter `SUPER_ADMIN` en `usuario_conjunto_roles` era el error: un rol global en una
+tabla que es por conjunto, y por eso solo servía donde se otorgó.
 
 **Invitado vs. visitante** son dos conjuntos distintos, y no sinónimos:
 

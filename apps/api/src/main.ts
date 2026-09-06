@@ -27,7 +27,24 @@ async function bootstrap() {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Vecii API')
-    .setDescription('API de gestion de conjuntos residenciales')
+    .setDescription(
+      'API de gestion de conjuntos residenciales (propiedad horizontal, Ley 675 de 2001).\n\n' +
+        '### Como se autoriza\n\n' +
+        'Toda peticion lleva el JWT de Supabase **y** la cabecera `x-conjunto-id`, que dice en ' +
+        'que conjunto estas operando. Los endpoints no exigen roles: exigen **permisos**, y que ' +
+        'rol da cada permiso vive en la base y se edita sin desplegar.\n\n' +
+        'Los roles efectivos de una persona salen de **tres** lugares, y se suman:\n\n' +
+        '| origen | ejemplo | alcance |\n' +
+        '|---|---|---|\n' +
+        '| `usuarios_plataforma` | `SUPER_ADMIN` | todos los conjuntos. Es el equipo de Vecii |\n' +
+        '| `usuario_conjunto_roles` | `CONSEJO`, `PORTERIA` | solo ese conjunto |\n' +
+        '| `usuarios_unidades` | `PROPIETARIO`, `RESIDENTE` | **derivados**: nadie los otorga |\n\n' +
+        'Los derivados no tienen fila en ninguna tabla de roles. Por eso quien vende su ' +
+        'apartamento deja de ser propietario solo, sin que nadie borre nada.\n\n' +
+        'Varios endpoints tienen ademas **alcance de fila**: el guard razona a nivel de ' +
+        'conjunto, y que la unidad sea tuya lo comprueba el servicio. Cada uno lo dice en su ' +
+        'descripcion.',
+    )
     .setVersion('0.1.0')
     .addBearerAuth()
     // El orden de los tags es el orden en que Swagger los muestra. Los de un
