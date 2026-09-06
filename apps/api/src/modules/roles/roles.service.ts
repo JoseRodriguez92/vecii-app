@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PermisosService } from '../../auth/permisos.service.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { CodigoRol } from '../../generated/prisma/enums.js';
@@ -43,7 +44,25 @@ export class RolesService {
    * Es el punto entero de la tabla `roles_permisos`: cambiar quien puede hacer
    * que sin desplegar codigo.
    */
-  async reemplazarPermisos(codigo: CodigoRol, dto: ReemplazarPermisosDto) {
+  async reemplazarPermisos(
+    activo: ConjuntoActivo,
+    codigo: CodigoRol,
+    dto: ReemplazarPermisosDto,
+  ) {
+    // Hoy la matriz es GLOBAL: `roles` no tiene conjunto y `roles_permisos`
+    // tampoco. Sin este candado, el administrador de un conjunto cambiaria lo
+    // que puede hacer el consejo de TODOS los conjuntos del pais.
+    //
+    // Es el mismo error que PATCH /conjuntos/:id: autorizar a nivel de conjunto
+    // y escribir a nivel global. Se levanta cuando los roles sean por conjunto.
+    // Ver docs/pendientes.md.
+    if (!activo.roles.includes(CodigoRol.SUPER_ADMIN)) {
+      throw new ForbiddenException(
+        'La matriz de permisos es global y hoy solo la edita el equipo de Vecii. ' +
+          'Los roles por conjunto estan en camino.',
+      );
+    }
+
     const rol = await this.obtener(codigo);
 
     // SUPER_ADMIN es staff de Vecii, no un cargo del conjunto. Si se pudiera

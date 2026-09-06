@@ -32,6 +32,44 @@ agregarlas a mano al `.sql` de la línea base.
 
 ---
 
+## 🔴 Los roles son globales, y deberían ser por conjunto
+
+`roles` no usa su `conjuntoId` y `roles_permisos` no lo tiene. La matriz de qué
+puede hacer cada cargo es **una sola para todo el país**.
+
+Eso significa que `PUT /roles/:codigo/permisos` escribe global aunque autorice
+por conjunto — el mismo error que tuvo `PATCH /conjuntos/:id`. Está tapado con
+un candado de SUPER_ADMIN, que es la verdad de hoy, pero es un parche: bloquea
+la función en vez de arreglar el modelo.
+
+**Decidido: roles propios por conjunto.** Cada conjunto recibe su copia de los
+cargos estándar al crearse, y desde ahí los edita o inventa los suyos.
+
+Lo que hay que tocar:
+
+| | |
+|---|---|
+| `Rol.codigo` | de enum `CodigoRol` a **texto** — un cargo inventado no cabe en un enum |
+| `Rol.conjuntoId` | pasa a usarse. `null` solo para `SUPER_ADMIN`, que es staff de Vecii |
+| unicidad | `@@unique([conjuntoId, codigo])`, más un índice parcial para los `null` (Postgres los trata como distintos) |
+| `PermisosService` | el caché deja de ser un mapa global: la clave pasa a ser (conjunto, rol) |
+| crear conjunto | tiene que sembrarle sus roles; y hay que rellenar los conjuntos que ya existen |
+| `CodigoRol` | sobrevive como catálogo de los códigos estándar (los roles derivados y la plantilla del seed lo usan), pero deja de ser el tipo de una columna |
+
+Ojo con lo que **no** cambia: `PROPIETARIO` y `RESIDENTE` se siguen derivando de
+`usuarios_unidades`, y `SUPER_ADMIN` sigue sin ser un cargo del conjunto.
+
+---
+
+## 🟡 Suplantar a un usuario para ver su interfaz
+
+Que el equipo de Vecii pueda mirar la app como la ve un residente del 501, para
+soportar sin pedirle capturas. Es útil de verdad y es delicado: tiene que quedar
+auditado —quién suplantó a quién y cuándo— y probablemente limitado a
+`SUPER_ADMIN`, con la sesión marcada para que nada quede a nombre del suplantado.
+
+---
+
 ## 🔴 Antes de facturar a alguien de verdad
 
 **`Unidad.coeficiente` tiene `@default(0)`**

@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import type { ConjuntoActivo as Ctx } from '../../auth/conjunto-activo.js';
+import { ConjuntoActivo } from '../../common/decorators/conjunto-activo.decorator.js';
 import { RequierePermiso } from '../../common/decorators/requiere-permiso.decorator.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { CodigoRol } from '../../generated/prisma/enums.js';
@@ -49,9 +51,16 @@ export class RolesController {
       'Dos cosas que rechaza: editar SUPER_ADMIN (es staff de Vecii, no un cargo del ' +
       'conjunto) y dejar el sistema sin ningun rol que pueda editar esta matriz.\n\n' +
       'El cambio se ve de inmediato: invalida el cache de permisos, que si no tardaria hasta ' +
-      'cinco minutos.',
+      'cinco minutos.\n\n' +
+      '**Hoy solo lo puede hacer SUPER_ADMIN.** La matriz es global —`roles_permisos` no tiene ' +
+      'conjunto— asi que un administrador editandola cambiaria lo que puede hacer el consejo de ' +
+      'todos los conjuntos del pais. Se abre cuando los roles sean por conjunto.',
   })
-  reemplazarPermisos(@Param('codigo') codigo: CodigoRol, @Body() dto: ReemplazarPermisosDto) {
-    return this.roles.reemplazarPermisos(codigo, dto);
+  reemplazarPermisos(
+    @Param('codigo') codigo: CodigoRol,
+    @Body() dto: ReemplazarPermisosDto,
+    @ConjuntoActivo() a: Ctx,
+  ) {
+    return this.roles.reemplazarPermisos(a, codigo, dto);
   }
 }
