@@ -38,6 +38,7 @@ Toda tabla tiene que aparecer en alguna de estas listas. Lo verifica
 | Uso puntual de un espacio | **reserva** | `reservas` |
 | Persona autorizada a entrar por una unidad | **invitado** | `invitados` |
 | Cargo de Vecii, no de un conjunto | **rol de plataforma** | `usuarios_plataforma` |
+| Quien administra el conjunto (Ley 675) | **administrador** | rol `ADMIN_CONJUNTO` |
 
 **Asignación vs. reserva** es la distinción que más se confunde: la asignación
 dura meses o años ("el P-101 es del 501"); la reserva dura horas ("el sábado de
@@ -57,11 +58,24 @@ sigue ocupado y la cuenta corre; `POST /reservas/:id/salida` lo cierra.
 Con el fin abierto, **la reserva es la visita**: por eso no existe una tabla
 `visitas` aparte.
 
+**"Administrador" es una sola cosa: la figura de la Ley 675**, quien administra
+el conjunto. Nunca el equipo de Vecii — ese es `STAFF_VECII`, y antes se llamaba
+`SUPER_ADMIN`, que llevaba "admin" adentro y por eso se confundían en cada
+conversación.
+
+**`roles.codigo` es texto, no un enum.** Un enum le ponía techo a la tabla: solo
+cabían los ocho valores declarados, y un "Comité de Deportes" inventado por un
+conjunto no tenía dónde ir. Los pocos códigos que el sistema conoce por nombre
+—`STAFF_VECII`, `ADMIN_CONJUNTO`, `PROPIETARIO`, `RESIDENTE`— viven en
+`src/common/roles.ts`. Los demás son datos opacos: el código nunca los menciona,
+porque pregunta por **permisos**, no por roles. Por eso un rol inventado funciona
+sin tocar una línea.
+
 **Los roles efectivos de una persona salen de TRES lugares**, y el guard los suma:
 
 | origen | ejemplo | cómo llega |
 |---|---|---|
-| `usuarios_plataforma` | `SUPER_ADMIN` | lo otorga Vecii. Vale en **todos** los conjuntos |
+| `usuarios_plataforma` | `STAFF_VECII` | lo otorga Vecii. Vale en **todos** los conjuntos |
 | `usuario_conjunto_roles` | `CONSEJO`, `ADMIN_CONJUNTO`, `PORTERIA` | se lo otorgaron **en ese** conjunto |
 | `usuarios_unidades` | `PROPIETARIO`, `RESIDENTE` | **derivado**, nadie lo otorga |
 
@@ -74,7 +88,7 @@ Los tres comparten el catálogo `roles`, y ahí `conjuntoId` separa los dos
 primeros: **null = de plataforma**. La misma persona tiene los tres sin conflicto:
 quien trabaja en Vecii también vive en algún lado.
 
-Meter `SUPER_ADMIN` en `usuario_conjunto_roles` era el error: un rol global en una
+Meter `STAFF_VECII` en `usuario_conjunto_roles` era el error: un rol global en una
 tabla que es por conjunto, y por eso solo servía donde se otorgó.
 
 **Invitado vs. visitante** son dos conjuntos distintos, y no sinónimos:

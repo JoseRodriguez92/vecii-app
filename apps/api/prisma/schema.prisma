@@ -27,24 +27,6 @@ enum TipoDocumento {
   NIT       // persona juridica
 }
 
-/// Vocabulario de permisos: todo lo que `@Roles()` puede exigir.
-///
-/// OJO, no todos se OTORGAN. La tabla `roles` solo contiene los que alguien
-/// asigna (cargos). PROPIETARIO y RESIDENTE no estan ahi: se DERIVAN de las
-/// filas de `usuarios_unidades`, porque ser dueno no es un cargo que te den,
-/// es una consecuencia de aparecer en la escritura. El guard suma los dos
-/// origenes y produce los "roles efectivos".
-enum CodigoRol {
-  SUPER_ADMIN // Staff de Vecii
-  ADMIN_CONJUNTO // Administrador del conjunto
-  CONSEJO // Consejo de administracion (obligatorio con mas de 30 unidades privadas)
-  REVISOR_FISCAL // Obligatorio en conjuntos de uso comercial o mixto (Ley 675, arts. 56-57)
-  COMITE_CONVIVENCIA // Opcional en residenciales (Ley 675, art. 58)
-  PROPIETARIO
-  RESIDENTE
-  PORTERIA // Vigilancia / porteria
-}
-
 /// Como se subdivide un conjunto. La tabla es generica; esto dice que es cada
 /// fila. Es lo unico que ve el residente: "Torre 1", "Manzana A".
 enum TipoAgrupacion {
@@ -802,10 +784,13 @@ model Rol {
   /// tambien habra que pasar `codigo` de enum a texto, porque un rol inventado
   /// no puede tener un valor del enum. Una migracion pequena sobre pocas filas.
   conjuntoId  String?   @db.Uuid
-  codigo      CodigoRol @unique
+  /// Texto y no un enum a proposito: un enum le pondria techo a esta tabla, y un
+  /// "Comite de Deportes" inventado por un conjunto no cabria. Los pocos codigos
+  /// que el sistema conoce por nombre viven en src/common/roles.ts.
+  codigo      String
   nombre      String
   descripcion String?
-  /// Si el administrador de un conjunto puede otorgarlo. SUPER_ADMIN no: ese es
+  /// Si el administrador de un conjunto puede otorgarlo. STAFF_VECII no: ese es
   /// staff de Vecii y no se reparte desde adentro.
   asignable   Boolean   @default(true)
   createdAt   DateTime  @default(now())
@@ -815,6 +800,13 @@ model Rol {
   deplataforma UsuarioPlataforma[]
   permisos     RolPermiso[]
 
+  /// Unico DENTRO de su ambito: cada conjunto tiene su propio CONSEJO.
+  ///
+  /// Hueco conocido: Postgres trata los NULL como distintos, asi que esto no
+  /// impide dos roles de plataforma con el mismo codigo. Se cierra en la linea
+  /// base con un indice parcial:
+  ///   CREATE UNIQUE INDEX ... ON roles (codigo) WHERE conjunto_id IS NULL;
+  @@unique([conjuntoId, codigo])
   @@index([conjuntoId])
   @@map("roles")
 }
@@ -1130,12 +1122,12 @@ model Invitado {
 /// Alguien del equipo de Vecii, con su cargo en la PLATAFORMA.
 ///
 /// Existe porque `usuario_conjunto_roles` no sirve para esto: ahi el rol cuelga
-/// del vinculo con UN conjunto, asi que un SUPER_ADMIN otorgado por esa via solo
+/// del vinculo con UN conjunto, asi que un STAFF_VECII otorgado por esa via solo
 /// era super admin en el conjunto donde se lo dieron y no podia entrar al de al
 /// lado. Un rol global metido en una tabla que es por conjunto.
 ///
 /// Separarlo tambien resuelve el caso normal: quien trabaja en Vecii **tambien
-/// vive en un conjunto**. Es SUPER_ADMIN por aqui, y por alla es propietario del
+/// vive en un conjunto**. Es STAFF_VECII por aqui, y por alla es propietario del
 /// 501 y miembro del consejo. Tres filas en dos tablas, sin competir.
 ///
 /// Un rol de plataforma da dos poderes distintos:

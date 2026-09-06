@@ -81,14 +81,6 @@ export const PERMISOS = {
   ROLES_PLATAFORMA: 'roles.plataforma',
 } as const;
 
-/**
- * Los unicos roles que se pueden otorgar como roles de PLATAFORMA.
- *
- * Sin esta lista, otorgar CONSEJO por `usuarios_plataforma` convertiria a
- * alguien en consejero de todos los conjuntos del pais.
- */
-export const ROLES_DE_PLATAFORMA = ['SUPER_ADMIN'] as const;
-
 export type CodigoPermiso = (typeof PERMISOS)[keyof typeof PERMISOS];
 
 /** Todos los codigos declarados. Lo usa la verificacion de arranque. */

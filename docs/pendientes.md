@@ -39,7 +39,7 @@ puede hacer cada cargo es **una sola para todo el país**.
 
 Eso significa que `PUT /roles/:codigo/permisos` escribe global aunque autorice
 por conjunto — el mismo error que tuvo `PATCH /conjuntos/:id`. Está tapado con
-un candado de SUPER_ADMIN, que es la verdad de hoy, pero es un parche: bloquea
+un candado de STAFF_VECII, que es la verdad de hoy, pero es un parche: bloquea
 la función en vez de arreglar el modelo.
 
 **Decidido: roles propios por conjunto.** Cada conjunto recibe su copia de los
@@ -53,15 +53,15 @@ Lo que hay que tocar:
 
 | | |
 |---|---|
-| `Rol.codigo` | de enum `CodigoRol` a **texto** — un cargo inventado no cabe en un enum |
-| `Rol.conjuntoId` | pasa a usarse. `null` solo para `SUPER_ADMIN`, que es staff de Vecii |
-| unicidad | `@@unique([conjuntoId, codigo])`, más un índice parcial para los `null` (Postgres los trata como distintos) |
+| ~~`Rol.codigo` a texto~~ | ✅ hecho |
+| `Rol.conjuntoId` | pasa a usarse. `null` solo para `STAFF_VECII`, que es staff de Vecii |
+| ~~unicidad `@@unique([conjuntoId, codigo])`~~ | ✅ hecho. Falta el índice parcial para los `null`, que va en la línea base |
 | `PermisosService` | el caché deja de ser un mapa global: la clave pasa a ser (conjunto, rol) |
 | crear conjunto | tiene que sembrarle sus roles; y hay que rellenar los conjuntos que ya existen |
-| `CodigoRol` | sobrevive como catálogo de los códigos estándar (los roles derivados y la plantilla del seed lo usan), pero deja de ser el tipo de una columna |
+| ~~`CodigoRol` como catálogo en código~~ | ✅ hecho: `src/common/roles.ts` |
 
 Ojo con lo que **no** cambia: `PROPIETARIO` y `RESIDENTE` se siguen derivando de
-`usuarios_unidades`, y `SUPER_ADMIN` sigue sin ser un cargo del conjunto.
+`usuarios_unidades`, y `STAFF_VECII` sigue sin ser un cargo del conjunto.
 
 ---
 
@@ -70,7 +70,7 @@ Ojo con lo que **no** cambia: `PROPIETARIO` y `RESIDENTE` se siguen derivando de
 Que el equipo de Vecii pueda mirar la app como la ve un residente del 501, para
 soportar sin pedirle capturas. Es útil de verdad y es delicado: tiene que quedar
 auditado —quién suplantó a quién y cuándo— y probablemente limitado a
-`SUPER_ADMIN`, con la sesión marcada para que nada quede a nombre del suplantado.
+`STAFF_VECII`, con la sesión marcada para que nada quede a nombre del suplantado.
 
 ---
 
@@ -292,6 +292,21 @@ no se ha tocado:
 - **Domicilios de comida.** No generan encomienda: portería no los recibe. Cuando se
   modele la minuta hay que ver si el domiciliario entra ahí o no entra a ningún
   lado.
+
+---
+
+## 🟡 La base está mitad snake_case y mitad camelCase
+
+Las **tablas** están en snake_case porque todas llevan `@@map(...)`. A las
+**columnas** nunca les pusimos `@map`, así que quedaron con el nombre de
+TypeScript: `conjuntoId`, `numeroDocumento`, `agrupacionId`.
+
+No rompe nada —Prisma traduce solo— pero cobra en cada SQL a mano y en DBeaver:
+toda columna con mayúscula necesita comillas dobles, y sin ellas Postgres la pasa
+a minúsculas y responde que no existe.
+
+Son ~150 columnas en 23 modelos: mecánico, pero cambia la base entera. **Va junto
+con la línea base de migraciones, no suelto.**
 
 ---
 

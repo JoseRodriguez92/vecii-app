@@ -1,10 +1,11 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { CodigoRol } from '../../generated/prisma/enums.js';
+
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { AuthUser } from '../../auth/auth-user.js';
 import type { CreateConjuntoDto } from './dto/create-conjunto.dto.js';
 import type { UpdateConjuntoDto } from './dto/update-conjunto.dto.js';
+import { ROL } from '../../common/roles.js';
 
 @Injectable()
 export class ConjuntosService {
@@ -29,15 +30,27 @@ export class ConjuntosService {
     return conjunto;
   }
 
-  /** Crea un conjunto y deja al creador como administrador. */
-  create(dto: CreateConjuntoDto, user: AuthUser) {
+  /**
+   * Crea un conjunto y deja al creador como administrador.
+   *
+   * TODO (paso 2 de roles por conjunto): aqui va la siembra de los roles propios
+   * del conjunto, en esta misma transaccion. Hoy se conecta al rol global.
+   */
+  async create(dto: CreateConjuntoDto, user: AuthUser) {
+    // `connect` por codigo ya no sirve: la unicidad es (conjuntoId, codigo) y
+    // Prisma no acepta un nulo dentro de una clave unica compuesta.
+    const rolAdmin = await this.prisma.rol.findFirstOrThrow({
+      where: { codigo: ROL.ADMIN_CONJUNTO, conjuntoId: null },
+      select: { id: true },
+    });
+
     return this.prisma.conjunto.create({
       data: {
         ...dto,
         usuarios: {
           create: {
             usuarioId: user.id,
-            roles: { create: { rol: { connect: { codigo: CodigoRol.ADMIN_CONJUNTO } } } },
+            roles: { create: { rolId: rolAdmin.id } },
           },
         },
       },

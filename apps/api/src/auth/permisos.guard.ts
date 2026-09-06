@@ -55,7 +55,7 @@ export class PermisosGuard implements CanActivate {
 
     // Los roles de PLATAFORMA se leen antes que el vinculo, porque no dependen
     // de el: alguien de Vecii entra a cualquier conjunto para dar soporte sin
-    // vivir ahi. Antes SUPER_ADMIN se otorgaba dentro de un conjunto y por eso
+    // vivir ahi. Antes STAFF_VECII se otorgaba dentro de un conjunto y por eso
     // solo servia en ese, que era el bug.
     const dePlataforma = await this.prisma.usuarioPlataforma.findMany({
       where: { usuarioId: user.id, ...rolVigente() },

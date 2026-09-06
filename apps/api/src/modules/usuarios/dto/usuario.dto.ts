@@ -9,7 +9,8 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { CodigoRol, RelacionUnidad, TipoDocumento } from '../../../generated/prisma/enums.js';
+import { RelacionUnidad, TipoDocumento } from '../../../generated/prisma/enums.js';
+import { ROLES_DEL_SISTEMA } from '../../../common/roles.js';
 
 export class RegistrarUsuarioDto {
   @ApiProperty({ example: 'jose@correo.com' })
@@ -60,7 +61,7 @@ export class RegistrarUsuarioDto {
   relacion?: RelacionUnidad;
 
   @ApiPropertyOptional({
-    enum: CodigoRol,
+    enum: ROLES_DEL_SISTEMA.filter((r) => r.asignable).map((r) => r.codigo),
     isArray: true,
     description:
       'Cargos que se le otorgan. Solo la administracion puede darlos, y solo los `asignable`: ' +
@@ -68,8 +69,8 @@ export class RegistrarUsuarioDto {
   })
   @IsOptional()
   @IsArray()
-  @IsEnum(CodigoRol, { each: true })
-  roles?: CodigoRol[];
+  @IsString({ each: true })
+  roles?: string[];
 }
 
 export class CerrarVinculoDto {

@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PermisosService } from '../../auth/permisos.service.js';
 import { PERMISOS } from '../../common/permisos.js';
-import { CodigoRol } from '../../generated/prisma/enums.js';
+import { ROL } from '../../common/roles.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { ActualizarRolDto, ReemplazarPermisosDto } from './dto/rol.dto.js';
 
@@ -33,9 +33,9 @@ export class RolesService {
     }));
   }
 
-  async actualizar(codigo: CodigoRol, dto: ActualizarRolDto) {
-    await this.obtener(codigo);
-    return this.prisma.rol.update({ where: { codigo }, data: dto });
+  async actualizar(codigo: string, dto: ActualizarRolDto) {
+    const rol = await this.obtener(codigo);
+    return this.prisma.rol.update({ where: { id: rol.id }, data: dto });
   }
 
   /**
@@ -46,7 +46,7 @@ export class RolesService {
    */
   async reemplazarPermisos(
     activo: ConjuntoActivo,
-    codigo: CodigoRol,
+    codigo: string,
     dto: ReemplazarPermisosDto,
   ) {
     // Hoy la matriz es GLOBAL: `roles` no tiene conjunto y `roles_permisos`
@@ -56,7 +56,7 @@ export class RolesService {
     // Es el mismo error que PATCH /conjuntos/:id: autorizar a nivel de conjunto
     // y escribir a nivel global. Se levanta cuando los roles sean por conjunto.
     // Ver docs/pendientes.md.
-    if (!activo.roles.includes(CodigoRol.SUPER_ADMIN)) {
+    if (!activo.roles.includes(ROL.STAFF_VECII)) {
       throw new ForbiddenException(
         'La matriz de permisos es global y hoy solo la edita el equipo de Vecii. ' +
           'Los roles por conjunto estan en camino.',
@@ -68,7 +68,7 @@ export class RolesService {
     // SUPER_ADMIN es staff de Vecii, no un cargo del conjunto. Si se pudiera
     // editar desde aqui, un administrador podria quitarle el acceso al equipo
     // que sostiene la plataforma.
-    if (codigo === CodigoRol.SUPER_ADMIN) {
+    if (codigo === ROL.STAFF_VECII) {
       throw new BadRequestException('Los permisos de SUPER_ADMIN no se editan desde la interfaz');
     }
 
@@ -105,13 +105,13 @@ export class RolesService {
    * permisos deja de ser editable para siempre y solo se arregla con SQL a mano.
    * SUPER_ADMIN no cuenta como salvavidas: es staff de Vecii, no del conjunto.
    */
-  private async exigirQueAlguienPuedaSeguirEditando(codigo: CodigoRol, nuevos: string[]) {
+  private async exigirQueAlguienPuedaSeguirEditando(codigo: string, nuevos: string[]) {
     if (nuevos.includes(PERMISOS.ROLES_GESTIONAR)) return;
 
     const otros = await this.prisma.rolPermiso.count({
       where: {
         permiso: { codigo: PERMISOS.ROLES_GESTIONAR },
-        rol: { codigo: { notIn: [codigo, CodigoRol.SUPER_ADMIN] } },
+        rol: { codigo: { notIn: [codigo, ROL.STAFF_VECII] } },
       },
     });
     if (otros === 0) {
@@ -122,8 +122,10 @@ export class RolesService {
     }
   }
 
-  private async obtener(codigo: CodigoRol) {
-    const rol = await this.prisma.rol.findUnique({ where: { codigo } });
+  private async obtener(codigo: string) {
+    // TODO (paso 2): cuando los roles sean por conjunto, `conjuntoId: null` pasa
+    // a ser el conjunto activo. Hoy todos los roles son globales.
+    const rol = await this.prisma.rol.findFirst({ where: { codigo, conjuntoId: null } });
     if (!rol) throw new NotFoundException(`No existe el rol ${codigo}`);
     return rol;
   }

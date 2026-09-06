@@ -36,7 +36,7 @@ async function bootstrap() {
         'Los roles efectivos de una persona salen de **tres** lugares, y se suman:\n\n' +
         '| origen | ejemplo | alcance |\n' +
         '|---|---|---|\n' +
-        '| `usuarios_plataforma` | `SUPER_ADMIN` | todos los conjuntos. Es el equipo de Vecii |\n' +
+        '| `usuarios_plataforma` | `STAFF_VECII` | todos los conjuntos. Es el equipo de Vecii |\n' +
         '| `usuario_conjunto_roles` | `CONSEJO`, `PORTERIA` | solo ese conjunto |\n' +
         '| `usuarios_unidades` | `PROPIETARIO`, `RESIDENTE` | **derivados**: nadie los otorga |\n\n' +
         'Los derivados no tienen fila en ninguna tabla de roles. Por eso quien vende su ' +

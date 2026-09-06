@@ -3,8 +3,8 @@ import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import type { ConjuntoActivo as Ctx } from '../../auth/conjunto-activo.js';
 import { ConjuntoActivo } from '../../common/decorators/conjunto-activo.decorator.js';
 import { RequierePermiso } from '../../common/decorators/requiere-permiso.decorator.js';
+import { ROL, ROLES_DEL_SISTEMA } from '../../common/roles.js';
 import { PERMISOS } from '../../common/permisos.js';
-import { CodigoRol } from '../../generated/prisma/enums.js';
 import { ActualizarRolDto, ReemplazarPermisosDto } from './dto/rol.dto.js';
 import { RolesService } from './roles.service.js';
 
@@ -29,20 +29,20 @@ export class RolesController {
 
   @Patch(':codigo')
   @RequierePermiso(PERMISOS.ROLES_GESTIONAR)
-  @ApiParam({ name: 'codigo', enum: CodigoRol })
+  @ApiParam({ name: 'codigo', example: 'CONSEJO' })
   @ApiOperation({
     summary: 'Renombra un rol',
     description:
       'Solo `nombre` y `descripcion`, que son lo que ve la gente: un conjunto puede preferir ' +
       '"Junta Directiva" a "Consejo". El `codigo` nunca cambia — de el dependen los permisos.',
   })
-  actualizar(@Param('codigo') codigo: CodigoRol, @Body() dto: ActualizarRolDto) {
+  actualizar(@Param('codigo') codigo: string, @Body() dto: ActualizarRolDto) {
     return this.roles.actualizar(codigo, dto);
   }
 
   @Put(':codigo/permisos')
   @RequierePermiso(PERMISOS.ROLES_GESTIONAR)
-  @ApiParam({ name: 'codigo', enum: CodigoRol })
+  @ApiParam({ name: 'codigo', example: 'CONSEJO' })
   @ApiOperation({
     summary: 'Define que puede hacer un rol',
     description:
@@ -57,7 +57,7 @@ export class RolesController {
       'todos los conjuntos del pais. Se abre cuando los roles sean por conjunto.',
   })
   reemplazarPermisos(
-    @Param('codigo') codigo: CodigoRol,
+    @Param('codigo') codigo: string,
     @Body() dto: ReemplazarPermisosDto,
     @ConjuntoActivo() a: Ctx,
   ) {

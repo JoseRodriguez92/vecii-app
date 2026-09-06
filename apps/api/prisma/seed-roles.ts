@@ -1,6 +1,6 @@
 import type { PrismaClient } from '../src/generated/prisma/client.js';
-import { CodigoRol } from '../src/generated/prisma/enums.js';
 import { MODULOS, PERMISOS, TODOS_LOS_PERMISOS } from '../src/common/permisos.js';
+import { ROL, ROLES_DEL_SISTEMA } from '../src/common/roles.js';
 
 /**
  * Dato de SISTEMA, no de ejemplo. Sin esto la API no arranca: al levantar
@@ -10,75 +10,22 @@ import { MODULOS, PERMISOS, TODOS_LOS_PERMISOS } from '../src/common/permisos.js
  * interfaz—; `codigo` nunca, porque de el dependen los permisos.
  */
 
-const ROLES = [
-  {
-    codigo: CodigoRol.SUPER_ADMIN,
-    nombre: 'Staff Vecii',
-    descripcion: 'Personal de Vecii con acceso de soporte.',
-    asignable: false,
-  },
-  {
-    codigo: CodigoRol.ADMIN_CONJUNTO,
-    nombre: 'Administrador',
-    descripcion: 'Administra el conjunto: presupuesto, cuotas, unidades y usuarios.',
-    asignable: true,
-  },
-  {
-    codigo: CodigoRol.CONSEJO,
-    nombre: 'Consejo de Administracion',
-    descripcion: 'Organo elegido en asamblea. Se asigna por periodo.',
-    asignable: true,
-  },
-  {
-    codigo: CodigoRol.REVISOR_FISCAL,
-    nombre: 'Revisor Fiscal',
-    descripcion: 'Vigila la contabilidad. Obligatorio en conjuntos comerciales o mixtos.',
-    asignable: true,
-  },
-  {
-    codigo: CodigoRol.COMITE_CONVIVENCIA,
-    nombre: 'Comite de Convivencia',
-    descripcion: 'Resuelve conflictos entre residentes por via de dialogo.',
-    asignable: true,
-  },
-  {
-    codigo: CodigoRol.PORTERIA,
-    nombre: 'Porteria',
-    descripcion: 'Vigilancia: registra visitantes y autoriza ingresos.',
-    asignable: true,
-  },
-  // Estos dos NO se otorgan: se derivan de `usuarios_unidades`. Existen como
-  // filas porque necesitan permisos asociados, pero `asignable: false` impide
-  // que un administrador se los ponga a alguien que no tiene ni una unidad.
-  {
-    codigo: CodigoRol.PROPIETARIO,
-    nombre: 'Propietario',
-    descripcion: 'Derivado: tiene al menos una unidad con relacion de propietario.',
-    asignable: false,
-  },
-  {
-    codigo: CodigoRol.RESIDENTE,
-    nombre: 'Residente',
-    descripcion: 'Derivado: vive en una unidad como arrendatario o autorizado.',
-    asignable: false,
-  },
-];
 
 /** Permisos por defecto de cada rol. Es el punto de partida; despues se edita
  *  desde la interfaz sin tocar codigo. */
 const PERMISOS_POR_ROL: Record<string, string[]> = {
-  [CodigoRol.SUPER_ADMIN]: Object.values(PERMISOS),
+  [ROL.STAFF_VECII]: Object.values(PERMISOS),
   // TODO menos roles.plataforma: el administrador de un conjunto no nombra staff
   // de Vecii. Es el unico permiso que da poder fuera de su conjunto.
-  [CodigoRol.ADMIN_CONJUNTO]: Object.values(PERMISOS).filter(
+  ['ADMIN_CONJUNTO']: Object.values(PERMISOS).filter(
     (p) => p !== PERMISOS.ROLES_PLATAFORMA,
   ),
-  [CodigoRol.CONSEJO]: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER, PERMISOS.RESERVAS_LEER, PERMISOS.ROLES_LEER],
-  [CodigoRol.REVISOR_FISCAL]: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER],
-  [CodigoRol.COMITE_CONVIVENCIA]: [PERMISOS.CONJUNTOS_LEER],
+  ['CONSEJO']: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER, PERMISOS.RESERVAS_LEER, PERMISOS.ROLES_LEER],
+  ['REVISOR_FISCAL']: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER],
+  ['COMITE_CONVIVENCIA']: [PERMISOS.CONJUNTOS_LEER],
   // El portero registra lo que llega y lo que se retira, pero no toca casilleros:
   // eso es infraestructura y la define la administracion.
-  [CodigoRol.PORTERIA]: [
+  ['PORTERIA']: [
     PERMISOS.CONJUNTOS_LEER,
     PERMISOS.USUARIOS_LEER,
     PERMISOS.ESTRUCTURA_LEER,
@@ -88,7 +35,7 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
     PERMISOS.RESERVAS_LEER,
   ],
   // El propietario puede meter a su arrendatario y a su familia en SUS unidades.
-  [CodigoRol.PROPIETARIO]: [
+  ['PROPIETARIO']: [
     PERMISOS.CONJUNTOS_LEER,
     PERMISOS.ESTRUCTURA_LEER,
     PERMISOS.USUARIOS_CREAR_MI_UNIDAD,
@@ -97,7 +44,7 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
     PERMISOS.RESERVAS_LEER,
     PERMISOS.RESERVAS_CREAR,
   ],
-  [CodigoRol.RESIDENTE]: [
+  ['RESIDENTE']: [
     PERMISOS.CONJUNTOS_LEER,
     PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD,
     PERMISOS.PORTERIA_INVITADOS_MI_UNIDAD,
@@ -137,16 +84,51 @@ export async function sembrarRoles(prisma: PrismaClient) {
     }
   }
 
-  for (const rol of ROLES) {
-    await prisma.rol.upsert({
-      where: { codigo: rol.codigo },
-      create: rol,
-      update: { nombre: rol.nombre, descripcion: rol.descripcion, asignable: rol.asignable },
+  // Los roles del sistema viven con `conjuntoId` nulo. Los de ambito `conjunto`
+  // estan aqui todavia porque el paso a una copia por conjunto no se ha hecho
+  // (ver docs/pendientes.md); ese dia esta plantilla los siembra por conjunto.
+  for (const rol of ROLES_DEL_SISTEMA) {
+    const existente = await prisma.rol.findFirst({
+      where: { codigo: rol.codigo, conjuntoId: null },
+      select: { id: true },
     });
+    const datos = { nombre: rol.nombre, descripcion: rol.descripcion, asignable: rol.asignable };
+    if (existente) {
+      await prisma.rol.update({ where: { id: existente.id }, data: datos });
+    } else {
+      await prisma.rol.create({ data: { ...datos, codigo: rol.codigo, conjuntoId: null } });
+    }
+  }
+
+  // Roles globales que el codigo ya no declara: quedan de un rename. Se avisan y
+  // se borran solo si nadie los tiene; si alguien los tiene, borrarlos en
+  // silencio le quitaria el acceso sin que nadie se entere.
+  const declarados = ROLES_DEL_SISTEMA.map((r) => r.codigo);
+  const sobrantes = await prisma.rol.findMany({
+    where: { conjuntoId: null, codigo: { notIn: declarados } },
+    select: {
+      id: true,
+      codigo: true,
+      _count: { select: { asignaciones: true, deplataforma: true } },
+    },
+  });
+  for (const rol of sobrantes) {
+    const enUso = rol._count.asignaciones + rol._count.deplataforma;
+    if (enUso > 0) {
+      console.warn(
+        `OJO: el rol "${rol.codigo}" ya no existe en el codigo pero ${enUso} persona(s) lo ` +
+          'tienen. No se borra. Reasignalas y vuelve a correr el seed.',
+      );
+      continue;
+    }
+    await prisma.rol.delete({ where: { id: rol.id } });
+    console.log(`Rol obsoleto borrado: ${rol.codigo}`);
   }
 
   for (const [codigoRol, codigosPermiso] of Object.entries(PERMISOS_POR_ROL)) {
-    const rol = await prisma.rol.findUniqueOrThrow({ where: { codigo: codigoRol as CodigoRol } });
+    const rol = await prisma.rol.findFirstOrThrow({
+      where: { codigo: codigoRol, conjuntoId: null },
+    });
     for (const codigoPermiso of codigosPermiso) {
       const permiso = await prisma.permiso.findUniqueOrThrow({ where: { codigo: codigoPermiso } });
       await prisma.rolPermiso.upsert({
@@ -170,7 +152,7 @@ export async function sembrarRoles(prisma: PrismaClient) {
 
   const totalPermisos = MODULOS.reduce((n, m) => n + m.permisos.length, 0);
   console.log(
-    `Sembrado: ${MODULOS.length} modulo(s), ${totalPermisos} permiso(s), ${ROLES.length} rol(es).`,
+    `Sembrado: ${MODULOS.length} modulo(s), ${totalPermisos} permiso(s), ${ROLES_DEL_SISTEMA.length} rol(es).`,
   );
   if (permisosBorrados.count || modulosBorrados.count) {
     console.log(

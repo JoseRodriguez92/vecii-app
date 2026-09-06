@@ -9,7 +9,6 @@ import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { SupabaseAdminService } from '../../auth/supabase-admin.service.js';
 import { rolVigente } from '../../common/rol-vigente.js';
 import { PERMISOS } from '../../common/permisos.js';
-import type { CodigoRol } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { CerrarVinculoDto, RegistrarUsuarioDto } from './dto/usuario.dto.js';
 import type { OtorgarRolDto, TerminarRolDto } from '../roles/dto/rol.dto.js';
@@ -281,8 +280,10 @@ export class UsuariosService {
     });
     if (!vinculo) throw new NotFoundException('Esa persona no pertenece a este conjunto');
 
-    const rol = await this.prisma.rol.findUnique({
-      where: { codigo: dto.codigo },
+    // TODO (paso 2): cuando los roles sean por conjunto, `conjuntoId: null` pasa
+    // a ser el conjunto activo. Hoy todos los roles son globales.
+    const rol = await this.prisma.rol.findFirst({
+      where: { codigo: dto.codigo, conjuntoId: null },
       select: { id: true, nombre: true, asignable: true },
     });
     if (!rol) throw new NotFoundException(`No existe el rol ${dto.codigo}`);
@@ -333,7 +334,7 @@ export class UsuariosService {
     const vigentes = await this.prisma.usuarioConjuntoRol.findMany({
       where: {
         usuarioConjunto: { usuarioId, conjuntoId },
-        rol: { codigo: codigo as never },
+        rol: { codigo },
         ...rolVigente(),
       },
       select: { id: true, desde: true },
@@ -356,7 +357,7 @@ export class UsuariosService {
   }
 
   /** Los cargos se otorgan; propietario y residente se derivan de la unidad. */
-  private async validarRolesOtorgables(roles?: CodigoRol[]) {
+  private async validarRolesOtorgables(roles?: string[]) {
     if (!roles?.length) return [];
     const encontrados = await this.prisma.rol.findMany({
       where: { codigo: { in: roles } },

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsDateString, IsOptional, IsString, IsUUID } from 'class-validator';
-import { ROLES_DE_PLATAFORMA } from '../../../common/permisos.js';
+import { ROLES_DE_PLATAFORMA } from '../../../common/roles.js';
 
 export class NombrarStaffDto {
   @ApiProperty({ format: 'uuid', description: 'Quien entra al equipo. Ya tiene que ser usuario.' })
@@ -12,7 +12,7 @@ export class NombrarStaffDto {
     description:
       'Solo estos. Otorgar CONSEJO por aqui convertiria a alguien en consejero de todos los ' +
       'conjuntos del pais.',
-    example: 'SUPER_ADMIN',
+    example: 'STAFF_VECII',
   })
   @IsString()
   codigo!: string;

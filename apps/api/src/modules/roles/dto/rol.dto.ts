@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ArrayUnique, IsArray, IsDateString, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { CodigoRol } from '../../../generated/prisma/enums.js';
+import { ROLES_DEL_SISTEMA } from '../../../common/roles.js';
 
 export class ActualizarRolDto {
   @ApiPropertyOptional({
@@ -37,14 +37,14 @@ export class ReemplazarPermisosDto {
 
 export class OtorgarRolDto {
   @ApiProperty({
-    enum: CodigoRol,
+    enum: ROLES_DEL_SISTEMA.filter((r) => r.asignable).map((r) => r.codigo),
     description:
       'Solo los roles `asignable`. PROPIETARIO y RESIDENTE no se otorgan: se derivan de las ' +
       'ocupaciones de la unidad.',
-    example: CodigoRol.CONSEJO,
+    example: 'CONSEJO',
   })
   @IsString()
-  codigo!: CodigoRol;
+  codigo!: string;
 
   @ApiPropertyOptional({
     description: 'Desde cuando. Por defecto, ahora. Para el consejo, el inicio del periodo.',

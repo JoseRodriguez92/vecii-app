@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PermisosService } from '../../auth/permisos.service.js';
-import { ROLES_DE_PLATAFORMA } from '../../common/permisos.js';
+import { ROLES_DE_PLATAFORMA } from '../../common/roles.js';
 import { rolVigente } from '../../common/rol-vigente.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { NombrarStaffDto, RetirarStaffDto } from './dto/plataforma.dto.js';
@@ -24,7 +24,7 @@ export class PlataformaService {
   }
 
   async nombrar(autorId: string, dto: NombrarStaffDto) {
-    if (!(ROLES_DE_PLATAFORMA as readonly string[]).includes(dto.codigo)) {
+    if (!ROLES_DE_PLATAFORMA.includes(dto.codigo)) {
       throw new BadRequestException(
         `${dto.codigo} no es un rol de plataforma. Solo: ${ROLES_DE_PLATAFORMA.join(', ')}`,
       );
@@ -36,8 +36,9 @@ export class PlataformaService {
     });
     if (!usuario) throw new NotFoundException('Ese usuario no existe');
 
-    const rol = await this.prisma.rol.findUnique({
-      where: { codigo: dto.codigo as never },
+    // Un rol de plataforma vive con conjuntoId nulo por definicion.
+    const rol = await this.prisma.rol.findFirst({
+      where: { codigo: dto.codigo, conjuntoId: null },
       select: { id: true, nombre: true, conjuntoId: true },
     });
     if (!rol) throw new NotFoundException(`No existe el rol ${dto.codigo}`);
@@ -74,7 +75,7 @@ export class PlataformaService {
    */
   async retirar(autorId: string, usuarioId: string, codigo: string, dto: RetirarStaffDto) {
     const vigentes = await this.prisma.usuarioPlataforma.findMany({
-      where: { usuarioId, rol: { codigo: codigo as never }, ...rolVigente() },
+      where: { usuarioId, rol: { codigo }, ...rolVigente() },
       select: { id: true, desde: true },
     });
     if (vigentes.length === 0) {
@@ -84,7 +85,7 @@ export class PlataformaService {
     // Que no quede la plataforma sin nadie: si se va el ultimo SUPER_ADMIN, no
     // hay quien vuelva a nombrar a otro y solo se arregla con SQL.
     const otros = await this.prisma.usuarioPlataforma.count({
-      where: { rol: { codigo: codigo as never }, usuarioId: { not: usuarioId }, ...rolVigente() },
+      where: { rol: { codigo }, usuarioId: { not: usuarioId }, ...rolVigente() },
     });
     if (otros === 0) {
       throw new BadRequestException(

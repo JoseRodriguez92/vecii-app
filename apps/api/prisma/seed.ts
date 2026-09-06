@@ -1,8 +1,9 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { CodigoRol, TipoAgrupacion, TipoUnidad, TipoZonaComun } from '../src/generated/prisma/enums.js';
+import { TipoAgrupacion, TipoUnidad, TipoZonaComun } from '../src/generated/prisma/enums.js';
 import { sembrarRoles } from './seed-roles.js';
+import { ROL } from '../src/common/roles.js';
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 if (!connectionString) throw new Error('Falta DIRECT_URL / DATABASE_URL');
@@ -31,6 +32,14 @@ async function main() {
     update: {},
   });
 
+  // `connect` por codigo ya no sirve: la unicidad es (conjuntoId, codigo), y
+  // Prisma no acepta un nulo dentro de una clave unica compuesta. Se busca la
+  // fila y se conecta por id.
+  const rolAdmin = await prisma.rol.findFirstOrThrow({
+    where: { codigo: ROL.ADMIN_CONJUNTO, conjuntoId: null },
+    select: { id: true },
+  });
+
   const conjunto = await prisma.conjunto.create({
     data: {
       nombre: 'Conjunto Residencial Los Almendros',
@@ -45,7 +54,7 @@ async function main() {
       usuarios: {
         create: {
           usuarioId: usuario.id,
-          roles: { create: { rol: { connect: { codigo: CodigoRol.ADMIN_CONJUNTO } } } },
+          roles: { create: { rolId: rolAdmin.id } },
         },
       },
       agrupaciones: {
