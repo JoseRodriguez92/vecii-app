@@ -37,6 +37,7 @@ Toda tabla tiene que aparecer en alguna de estas listas. Lo verifica
 | Derecho de largo plazo sobre un cupo | **asignación** | `asignaciones_parqueadero` |
 | Uso puntual de un espacio | **reserva** | `reservas` |
 | Persona autorizada a entrar por una unidad | **invitado** | `invitados` |
+| Cargo de Vecii, no de un conjunto | **rol de plataforma** | `usuarios_plataforma` |
 
 **Asignación vs. reserva** es la distinción que más se confunde: la asignación
 dura meses o años ("el P-101 es del 501"); la reserva dura horas ("el sábado de
@@ -55,6 +56,20 @@ sigue ocupado y la cuenta corre; `POST /reservas/:id/salida` lo cierra.
 
 Con el fin abierto, **la reserva es la visita**: por eso no existe una tabla
 `visitas` aparte.
+
+**Rol de conjunto vs. rol de plataforma** son dos ejes, no dos niveles:
+
+| | qué es | dónde se otorga | alcance |
+|---|---|---|---|
+| **rol de conjunto** | consejo, administrador, portería, propietario | `usuario_conjunto_roles` | ese conjunto |
+| **rol de plataforma** | super admin, soporte de Vecii | `usuarios_plataforma` | todos |
+
+Comparten el catálogo `roles`, y ahí `conjuntoId` los separa: **null = plataforma**.
+
+La misma persona tiene los dos sin conflicto: quien trabaja en Vecii también vive
+en algún lado, y allá es propietario del 501 y miembro del consejo. Meter
+`SUPER_ADMIN` en `usuario_conjunto_roles` era el error — un rol global en una
+tabla que es por conjunto, y por eso solo servía en el conjunto donde se otorgó.
 
 **Invitado vs. visitante** son dos conjuntos distintos, y no sinónimos:
 

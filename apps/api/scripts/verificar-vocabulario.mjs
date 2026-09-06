@@ -31,6 +31,7 @@ const TAGS_DE_INFRA = new Set(['health', 'auth']);
 const ABREVIATURAS = {
   'reservas · espacios': 'espacios_reservables',
   'reservas · politicas': 'politicas_reserva',
+  'plataforma · usuarios': 'usuarios_plataforma',
 };
 
 const schema = leer('prisma/schema.prisma');

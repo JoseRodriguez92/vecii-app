@@ -75,7 +75,19 @@ export const PERMISOS = {
   /// del sistema: con el se otorgan todos los demas. Por eso va aparte de
   /// `usuarios.gestionar`, que solo reparte cargos ya definidos.
   ROLES_GESTIONAR: 'roles.gestionar',
+  /// Nombrar y quitar staff de Vecii. Es el unico permiso que otorga poder
+  /// FUERA del conjunto activo, asi que no deberia tenerlo ningun cargo del
+  /// conjunto — solo la plataforma misma.
+  ROLES_PLATAFORMA: 'roles.plataforma',
 } as const;
+
+/**
+ * Los unicos roles que se pueden otorgar como roles de PLATAFORMA.
+ *
+ * Sin esta lista, otorgar CONSEJO por `usuarios_plataforma` convertiria a
+ * alguien en consejero de todos los conjuntos del pais.
+ */
+export const ROLES_DE_PLATAFORMA = ['SUPER_ADMIN'] as const;
 
 export type CodigoPermiso = (typeof PERMISOS)[keyof typeof PERMISOS];
 
@@ -118,6 +130,7 @@ export const MODULOS = [
     permisos: [
       { codigo: PERMISOS.ROLES_LEER, nombre: 'Ver roles, modulos y permisos' },
       { codigo: PERMISOS.ROLES_GESTIONAR, nombre: 'Editar que puede hacer cada rol' },
+      { codigo: PERMISOS.ROLES_PLATAFORMA, nombre: 'Nombrar y quitar staff de Vecii' },
     ],
   },
   {

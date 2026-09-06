@@ -45,6 +45,10 @@ la función en vez de arreglar el modelo.
 **Decidido: roles propios por conjunto.** Cada conjunto recibe su copia de los
 cargos estándar al crearse, y desde ahí los edita o inventa los suyos.
 
+**Paso 1 hecho:** los roles de plataforma salieron a `usuarios_plataforma`, así
+que ya no queda ninguna excepción global dentro de `usuario_conjunto_roles`.
+Falta el paso 2, que es esto:
+
 Lo que hay que tocar:
 
 | | |

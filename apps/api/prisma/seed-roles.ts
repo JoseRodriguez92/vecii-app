@@ -68,7 +68,11 @@ const ROLES = [
  *  desde la interfaz sin tocar codigo. */
 const PERMISOS_POR_ROL: Record<string, string[]> = {
   [CodigoRol.SUPER_ADMIN]: Object.values(PERMISOS),
-  [CodigoRol.ADMIN_CONJUNTO]: Object.values(PERMISOS),
+  // TODO menos roles.plataforma: el administrador de un conjunto no nombra staff
+  // de Vecii. Es el unico permiso que da poder fuera de su conjunto.
+  [CodigoRol.ADMIN_CONJUNTO]: Object.values(PERMISOS).filter(
+    (p) => p !== PERMISOS.ROLES_PLATAFORMA,
+  ),
   [CodigoRol.CONSEJO]: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER, PERMISOS.RESERVAS_LEER, PERMISOS.ROLES_LEER],
   [CodigoRol.REVISOR_FISCAL]: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER],
   [CodigoRol.COMITE_CONVIVENCIA]: [PERMISOS.CONJUNTOS_LEER],

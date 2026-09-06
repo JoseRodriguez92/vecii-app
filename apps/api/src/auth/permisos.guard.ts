@@ -53,6 +53,16 @@ export class PermisosGuard implements CanActivate {
     const conjuntoId = request.header(CONJUNTO_HEADER);
     if (!conjuntoId) throw new BadRequestException(`Falta la cabecera ${CONJUNTO_HEADER}`);
 
+    // Los roles de PLATAFORMA se leen antes que el vinculo, porque no dependen
+    // de el: alguien de Vecii entra a cualquier conjunto para dar soporte sin
+    // vivir ahi. Antes SUPER_ADMIN se otorgaba dentro de un conjunto y por eso
+    // solo servia en ese, que era el bug.
+    const dePlataforma = await this.prisma.usuarioPlataforma.findMany({
+      where: { usuarioId: user.id, ...rolVigente() },
+      select: { rol: { select: { codigo: true } } },
+    });
+    const rolesDePlataforma = dePlataforma.map((p) => p.rol.codigo as string);
+
     const vinculo = await this.prisma.usuarioConjunto.findUnique({
       where: { usuarioId_conjuntoId: { usuarioId: user.id, conjuntoId } },
       select: {
@@ -63,10 +73,22 @@ export class PermisosGuard implements CanActivate {
       },
     });
 
+    // Sin vinculo solo pasa quien es de la plataforma. El conjunto tiene que
+    // existir igual: sin esa comprobacion, un id inventado en la cabecera daria
+    // un contexto valido apuntando a la nada.
     if (!vinculo || !vinculo.activo) {
-      throw new ForbiddenException('No perteneces a este conjunto');
+      if (rolesDePlataforma.length === 0) {
+        throw new ForbiddenException('No perteneces a este conjunto');
+      }
+      const existe = await this.prisma.conjunto.findUnique({
+        where: { id: conjuntoId },
+        select: { id: true },
+      });
+      if (!existe) throw new ForbiddenException('Ese conjunto no existe');
     }
 
+    // Alguien de Vecii puede ademas VIVIR en este conjunto: sus ocupaciones y
+    // sus cargos de aca se suman a los de plataforma, no se reemplazan.
     const ocupaciones = await this.prisma.usuarioUnidad.findMany({
       where: {
         usuarioId: user.id,
@@ -79,7 +101,8 @@ export class PermisosGuard implements CanActivate {
 
     const roles = [
       ...new Set([
-        ...vinculo.roles.map((a) => a.rol.codigo as string),
+        ...rolesDePlataforma,
+        ...(vinculo?.roles ?? []).map((a) => a.rol.codigo as string),
         ...ocupaciones.map((o) => rolDeRelacion(o.relacion) as string),
       ]),
     ];
@@ -89,7 +112,15 @@ export class PermisosGuard implements CanActivate {
       throw new ForbiddenException('No tienes permisos para esta accion');
     }
 
-    request.conjuntoActivo = { id: vinculo.id, conjuntoId: vinculo.conjuntoId, roles, permisos };
+    request.conjuntoActivo = {
+      // `id` es el del vinculo, y no lo hay cuando entra alguien de Vecii que no
+      // vive aca. Quien lo use tiene que contar con eso.
+      id: vinculo?.id ?? null,
+      conjuntoId,
+      roles,
+      permisos,
+      esDePlataforma: rolesDePlataforma.length > 0,
+    };
     return true;
   }
 }

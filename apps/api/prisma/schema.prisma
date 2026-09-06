@@ -751,6 +751,8 @@ model Usuario {
   conjuntos      UsuarioConjunto[]
   unidades       UsuarioUnidad[]
   rolesAsignados UsuarioConjuntoRol[] @relation("RolesAsignados")
+  rolesDePlataforma  UsuarioPlataforma[] @relation("RolesDePlataforma")
+  plataformaOtorgada UsuarioPlataforma[] @relation("PlataformaOtorgada")
   reservas       Reserva[]            @relation("ReservasSolicitadas")
   reservasAprobadas Reserva[]         @relation("ReservasAprobadas")
   encomiendasRecibidas     Encomienda[]      @relation("EncomiendasRecibidas")
@@ -810,6 +812,7 @@ model Rol {
   updatedAt   DateTime  @updatedAt
 
   asignaciones UsuarioConjuntoRol[]
+  deplataforma UsuarioPlataforma[]
   permisos     RolPermiso[]
 
   @@index([conjuntoId])
@@ -1122,4 +1125,45 @@ model Invitado {
   /// El portero teclea la cedula que le muestran en la puerta.
   @@index([numeroDocumento])
   @@map("invitados")
+}
+
+/// Alguien del equipo de Vecii, con su cargo en la PLATAFORMA.
+///
+/// Existe porque `usuario_conjunto_roles` no sirve para esto: ahi el rol cuelga
+/// del vinculo con UN conjunto, asi que un SUPER_ADMIN otorgado por esa via solo
+/// era super admin en el conjunto donde se lo dieron y no podia entrar al de al
+/// lado. Un rol global metido en una tabla que es por conjunto.
+///
+/// Separarlo tambien resuelve el caso normal: quien trabaja en Vecii **tambien
+/// vive en un conjunto**. Es SUPER_ADMIN por aqui, y por alla es propietario del
+/// 501 y miembro del consejo. Tres filas en dos tablas, sin competir.
+///
+/// Un rol de plataforma da dos poderes distintos:
+///   1. Entrar a cualquier conjunto sin tener vinculo con el.
+///   2. Los permisos que le de la matriz, igual que cualquier otro rol.
+model UsuarioPlataforma {
+  id        String @id @default(uuid()) @db.Uuid
+  usuarioId String @db.Uuid
+  /// Tiene que ser un Rol con `conjuntoId` nulo. Lo valida el servicio: es un
+  /// cruce entre dos filas y la base no puede verlo.
+  rolId     String @db.Uuid
+
+  desde DateTime  @default(now())
+  /// Null = vigente. Cerrar no borra: hace falta saber quien tenia acceso a todo
+  /// cuando paso algo.
+  hasta DateTime?
+
+  /// Quien lo otorgo. Otro miembro del equipo; null si lo sembro el seed.
+  otorgadoPorId String? @db.Uuid
+  createdAt     DateTime @default(now())
+
+  usuario     Usuario  @relation("RolesDePlataforma", fields: [usuarioId], references: [id], onDelete: Cascade)
+  rol         Rol      @relation(fields: [rolId], references: [id], onDelete: Restrict)
+  otorgadoPor Usuario? @relation("PlataformaOtorgada", fields: [otorgadoPorId], references: [id], onDelete: SetNull)
+
+  /// `desde` entra en la clave para permitir historial: alguien pudo ser staff,
+  /// irse, y volver.
+  @@unique([usuarioId, rolId, desde])
+  @@index([usuarioId, hasta])
+  @@map("usuarios_plataforma")
 }
