@@ -253,27 +253,29 @@ no se ha tocado:
 
 ---
 
+## 🔴 El RBAC no es administrable
+
+`usuario_conjunto_roles` se escribe en un solo lugar: al registrar a alguien.
+Después no hay endpoint. Se eligió el consejo nuevo y **no hay forma de
+nombrarlos**, ni de cerrarle el período al saliente — que era justo lo que la
+vigencia `desde`/`hasta` estaba ahí para soportar.
+
+Y `roles_permisos`, cuyo punto entero era *"cambiar quién puede hacer qué sin
+desplegar código"*, solo la escribe el seed. Hoy se edita con SQL a mano.
+
+Falta:
+
+- `POST /usuarios/:id/roles` — otorgar un cargo, con `desde`.
+- `DELETE /usuarios/:id/roles/:rolId` — cerrarlo con `hasta`, no borrarlo.
+- `GET /roles` y `PUT /roles/:codigo/permisos` — editar la matriz.
+
+Ojo con dos reglas que ya están en el código y hay que respetar: solo se otorgan
+los roles `asignable`, y `PROPIETARIO`/`RESIDENTE` nunca — se derivan de las
+ocupaciones.
+
+---
+
 ## 🟢 Herramientas del repo
-
-**`scripts/verificar-vocabulario.mjs`** — hermano de `verificar-schema.mjs`, para que
-la coherencia del vocabulario deje de depender de que alguien se acuerde. Falla si:
-
-| Chequeo | Qué atrapa |
-|---|---|
-| toda tabla con `@@map` aparece en el glosario | la tabla nueva que nadie nombró |
-| todo tag de Swagger termina en un nombre de tabla | el caso `personas`, automatizado |
-| toda carpeta de `modules/` es prefijo de algún tag | el caso `seguridad`, automatizado |
-| todo permiso empieza por un módulo que existe | permisos huérfanos |
-| toda palabra del glosario sigue usándose | el glosario que acumula fósiles |
-
-El último importa tanto como los otros: un glosario que solo crece se vuelve un
-cementerio, y ahí deja de leerse.
-
-Se cuelga de `pnpm lint`. Mismo espíritu que `PermisosService`, que se niega a
-levantar la API si falta un permiso sembrado: no confiar en la memoria de nadie.
-
-Verifica **cobertura, no criterio**: puede exigir que `visitas` tenga su fila en el
-glosario, no decidir si `visitas` era mejor palabra que `minuta`.
 
 - Podar las ~12 skills que no aplican a Vecii (`prisma-mongodb-upgrade`,
   `prisma-compute`, `prisma-postgres*`, `expo-app-clip`, `expo-brownfield`,

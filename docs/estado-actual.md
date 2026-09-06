@@ -9,116 +9,108 @@ Se actualiza al cerrar cada sesión; si algo aquí ya no es cierto, se corrige.
 
 ## 🔴 Lo primero al abrir una sesión
 
-El schema tiene un rename sin aplicar a la base. **El proyecto no compila
-hasta correr esto:**
-
 ```powershell
-pnpm db:push
-pnpm --filter vecii-backend prisma:seed
+pnpm db:push                                   # aplica el schema y regenera el cliente
+pnpm --filter vecii-backend prisma:seed        # siembra permisos y roles
+pnpm dev:api                                   # Swagger en http://localhost:3201/docs
 ```
 
-`db:push` regenera el cliente de Prisma (que hoy todavía dice `Invitacion` y no
-`Vinculacion`, que ya no existe), y el seed siembra los códigos de permiso
-nuevos — `usuarios.crear*` — y borra los viejos.
+El seed **no es opcional**: la API verifica al arrancar que todo permiso
+declarado en un decorador exista sembrado, y se niega a levantar si falta uno.
 
-`db:push` va a avisar que **borra la tabla `vinculaciones`**. Es correcto:
-se eliminó a propósito.
-
-Después, para verificar:
+Antes de commitear:
 
 ```powershell
 cd apps\api
-node scripts\verificar-schema.mjs prisma\schema.prisma
+pnpm lint                                      # oxlint + los dos verificadores
 npx tsc --noEmit
-pnpm dev:api          # Swagger en http://localhost:3201/docs
 ```
+
+`pnpm lint` corre dos scripts propios: `verificar-schema.mjs` (campos duplicados,
+relaciones sin inversa, modelos sin `@@map`) y `verificar-vocabulario.mjs` (que
+una misma cosa se llame igual en la tabla, la carpeta, la ruta, el permiso y el
+tag de Swagger).
 
 ---
 
-## Qué hay construido
+## Qué hay funcionando
 
-**Base de datos:** 22 modelos. Ver `prisma/schema.prisma`, que está comentado a
-conciencia — el *por qué* de cada decisión vive ahí, no aquí.
+**13 rutas, 58 endpoints.** Todo con Swagger documentado.
 
-**API con Swagger completo:**
-
-| módulo | tags | estado |
+| módulo | rutas | qué resuelve |
 |---|---|---|
-| `auth` | `auth` | JWT asimétrico de Supabase por JWKS |
-| `conjuntos` | `conjuntos` | listo |
-| `estructura` | `estructura · agrupaciones\|tipologias\|unidades` | listo, con carga masiva y chequeo de coeficientes |
-| `usuarios` | `usuarios` | listo |
-| `porteria` | `porteria · casilleros\|encomiendas\|invitados` | listo |
-| `reservas` | `reservas`, `reservas · espacios\|politicas` | listo |
+| `auth` | `/auth` | JWT asimétrico de Supabase verificado por JWKS |
+| `conjuntos` | `/conjuntos` | la copropiedad y su configuración |
+| `estructura` | `/agrupaciones` `/tipologias` `/unidades` | torres y etapas anidadas, plantas, unidades con carga masiva y chequeo de coeficientes |
+| `usuarios` | `/usuarios` | registrar personas, quién vive dónde, cerrar vínculos |
+| `porteria` | `/casilleros` `/encomiendas` `/invitados` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
+| `reservas` | `/espacios-reservables` `/politicas-reserva` `/reservas` | qué se puede apartar, con qué reglas, y quién apartó |
 
-**RBAC por permisos.** Módulos → permisos → roles → asignaciones. Quién puede
-qué se edita en la base, no en el código. Al arrancar, la API verifica que todo
-permiso declarado exista sembrado y se niega a levantar si falta alguno.
+**RBAC por permisos.** Módulos → permisos → roles → asignaciones. Los roles de
+propietario y residente **se derivan** de `usuarios_unidades`, no se otorgan.
 
-**Sin API todavía** (las tablas existen, los endpoints no): zonas comunes con
-sus horarios, parqueaderos y asignaciones de parqueadero. Se cargan a mano.
-
-**Sin modelar:** control de ingreso (entrada/salida), tarifas, finanzas, asambleas.
+**Concurrencia resuelta en reservas.** `pg_advisory_xact_lock` por espacio, dentro
+de la misma transacción que inserta.
 
 ---
 
-## Dónde nos quedamos: el parqueadero de visitantes
+## Los dos huecos grandes
 
-Es el hilo abierto. El caso concreto que se estaba resolviendo:
+### 1. El RBAC no es administrable
 
-> Un residente del Torre 1 · apto 501 autoriza a un visitante. El visitante llega
-> en carro, portería le asigna un cupo, entra 15:12 y sale 22:12. ¿Cuánto paga el
-> 501 y cómo se calcula?
+`usuario_conjunto_roles` se escribe **en un solo lugar**: al registrar a alguien.
+Después no hay endpoint.
 
-**Hoy el modelo llega hasta la reserva y ahí se corta.** `reservas` guarda que el
-501 apartó el pool de visitantes de 15:00 a 21:00. Falta todo lo demás.
+> Se eligió el consejo nuevo. **No hay forma de nombrarlos**, ni de cerrarle el
+> período al saliente.
 
-### Falta 1 — la tabla `visitas` (portería)
+Y `roles_permisos` —la tabla cuyo punto entero era *"cambiar quién puede hacer
+qué sin desplegar código"*— solo la escribe el seed. Hoy se edita con SQL.
 
-Sin ella no hay hora de entrada, hora de salida, ni qué cupo concreto le tocó
-(la reserva apunta al *pool*, no al cupo). Forma propuesta:
+Está **modelado y aplicándose**, pero no administrable.
 
-| campo | qué es |
+### 2. El inventario físico no tiene API
+
+Cuatro tablas se cargan a mano, y eso deja módulos completos sin nada contra qué
+trabajar:
+
+| tabla | consecuencia |
 |---|---|
-| `unidadId` | a quién visita — **y quién paga** |
-| `nombre`, `documento`, `placa` | los datos del visitante |
-| `autorizadaPorId`, `autorizadaEn` | quién lo dejó entrar y cuándo |
-| `reservaId` | null si llegó sin avisar |
-| `parqueaderoId` | el cupo que le asignó portería |
-| `ingresoEn`, `salidaEn` | los hechos |
+| `zonas_comunes` + `horarios_zona_comun` | **el salón comunal no se puede ni crear** — hoy un espacio solo puede apuntar a un pool de parqueaderos |
+| `parqueaderos` | los cupos V-01…V-50 no existen, así que `POST /reservas/:id/cupo` no tiene qué asignar |
+| `asignaciones_parqueadero` | no hay cómo decir "el P-101 es del 501" ni correr el sorteo anual |
 
-Una sola tabla cubre los dos casos: autorizado con anticipación (nace con
-`ingresoEn` en null) o llegado de sorpresa (portería crea la fila completa).
+**Reservas está completo pero vacío.**
 
-### Falta 2 — la tarifa (finanzas)
+---
 
-`politicas_reserva` no tiene plata a propósito: solo lleva lo que se puede
-validar sin saber de dinero. La tarifa necesita **vigencia** (`desde`/`hasta`),
-porque una visita de marzo se cobra a la tarifa de marzo aunque la asamblea la
-haya subido en abril.
+## A medias, y hay que saberlo
 
-Campos propuestos: `valorHora`, `fraccionMinutos` (60 = "por hora o fracción"),
-`minutosGratis`, `topeDiario`, `desde`, `hasta`.
+- **El correo no se envía.** `generateLink` crea la cuenta en Supabase pero nadie
+  manda el enlace: falta el SMTP propio. Entran con "olvidé mi contraseña".
+- **Las reservas abiertas no las cierra nadie.** Si portería olvida la salida, el
+  cupo queda tomado y la cuenta de esa unidad crece sola.
+- **Ninguna reserva se marca `CUMPLIDA`** salvo las de parqueadero al salir.
+- **Sin control de ingreso**, el sistema conoce las reservas pero no la ocupación
+  real: un carro que entró sin reservar es invisible.
+- **No hay tarifas**, así que todavía nadie paga nada.
+- **Las migraciones siguen desfasadas.** Todo se aplicó con `db push`.
 
-El cálculo con el ejemplo de arriba, a $1.500/hora con 2 horas de gracia:
+---
 
-```
-420 min − 120 de gracia = 300 min → 5 fracciones × $1.500 = $7.500 al apto 501
-```
+## Sin empezar
 
-`visitas` **no** guarda esos $7.500: guarda 15:12 y 22:12. El monto se congela
-una sola vez, cuando finanzas emite el cargo — una cuota facturada no puede
-cambiar si suben la tarifa después.
+Finanzas (tarifas, cuotas, pagos, estado de cuenta), asambleas y votación por
+coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 
-### Tres preguntas sin responder
+---
 
-Bloquean el diseño de la tarifa. Son del dueño del producto, no del código:
+## Orden sugerido
 
-1. **¿Cobra distinto el que reservó** que el que llegó sin avisar?
-2. **¿La gracia es por visita o por mes?** ("dos horas gratis cada vez" vs "diez
-   horas al mes por apartamento" — la segunda necesita acumulado.)
-3. **¿Existe la visita frecuente?** La empleada que entra todos los días, ¿se
-   autoriza una vez o se registra cada día?
+1. **Parqueaderos y zonas comunes** — desbloquean lo que ya está construido.
+2. **Administración de roles** — el hueco más incómodo del RBAC.
+3. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
+4. **Finanzas** — al final, cuando el resto genere los hechos que hay que cobrar.
 
 ---
 

@@ -9,15 +9,23 @@ dos veces la misma cosa creyendo que son distintas.
 
 ## Las cosas
 
-| Concepto | Palabra | Qué NO es |
-|---|---|---|
-| La copropiedad completa, con su NIT | **conjunto** | no "edificio", no "propiedad", no "condominio" |
-| Cómo se subdivide el conjunto | **agrupación** | no "torre" — torre es solo un *tipo* de agrupación |
-| Propiedad privada con coeficiente | **unidad** | no "apartamento" — apartamento es un *tipo* de unidad |
-| Planta repetida (65 m², 2 hab) | **tipología** | no "modelo", no "molde" |
-| Bien común: piscina, salón, gym | **zona común** | nunca "unidad" — no tiene dueño ni coeficiente |
-| Cupo de parqueadero, como cosa física | **parqueadero** | no "puesto", no "celda" |
-| Lo que se puede apartar, con capacidad | **espacio reservable** | no "recurso" |
+| Concepto | Palabra | Tabla | Qué NO es |
+|---|---|---|---|
+| La copropiedad completa, con su NIT | **conjunto** | `conjuntos` | no "edificio", no "propiedad", no "condominio" |
+| Cómo se subdivide el conjunto | **agrupación** | `agrupaciones` | no "torre" — torre es solo un *tipo* de agrupación |
+| Propiedad privada con coeficiente | **unidad** | `unidades` | no "apartamento" — apartamento es un *tipo* de unidad |
+| Planta repetida (65 m², 2 hab) | **tipología** | `tipologias` | no "modelo", no "molde" |
+| Bien común: piscina, salón, gym | **zona común** | `zonas_comunes` | nunca "unidad" — no tiene dueño ni coeficiente |
+| Franja en que abre una zona común | **horario** | `horarios_zona_comun` | no "agenda" — se guarda en minutos desde medianoche |
+| Cupo de parqueadero, como cosa física | **parqueadero** | `parqueaderos` | no "puesto", no "celda" |
+| Lo que se puede apartar, con capacidad | **espacio reservable** | `espacios_reservables` | no "recurso" |
+| Las reglas de un espacio | **política** | `politicas_reserva` | no lleva tarifas: eso es finanzas |
+| La casilla física de una unidad | **casillero** | `casilleros` | no "buzón" — no tiene llave |
+| Lo que le encomiendan a portería | **encomienda** | `encomiendas` | no "entrega" — eso es uno de sus estados |
+| Persona con cuenta en Vecii | **usuario** | `usuarios` | no "persona", no "residente" a secas |
+
+Toda tabla tiene que aparecer en alguna de estas listas. Lo verifica
+`apps/api/scripts/verificar-vocabulario.mjs`.
 
 ## Las relaciones entre personas y cosas
 
@@ -63,6 +71,19 @@ autoriza un residente es un **invitado**.
 **vive** ahí y quien **puede entrar** se modelan igual, con `desde`/`hasta`. Sin
 `hasta` es permanente —la empleada—; con fecha es puntual. Un solo patrón cubre
 los dos casos sin ningún mecanismo especial.
+
+## El vocabulario de los permisos
+
+| Concepto | Palabra | Tabla |
+|---|---|---|
+| Área funcional, para agrupar en la interfaz | **módulo** | `modulos` |
+| Una acción concreta que se puede permitir | **permiso** | `permisos` |
+| Qué permisos tiene cada rol | *(tabla puente)* | `roles_permisos` |
+
+El código de un permiso es `modulo.espacio.accion` y **siempre empieza por un
+módulo que existe**: `usuarios.crear`, `porteria.encomiendas.registrar`. Eso lo
+verifica el script, igual que verifica que el tag de Swagger termine en un nombre
+de tabla.
 
 ## La familia de la propiedad
 
