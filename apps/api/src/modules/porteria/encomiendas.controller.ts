@@ -6,24 +6,24 @@ import { ConjuntoActivo } from '../../common/decorators/conjunto-activo.decorato
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequierePermiso } from '../../common/decorators/requiere-permiso.decorator.js';
 import { PERMISOS } from '../../common/permisos.js';
-import { EstadoEntrega } from '../../generated/prisma/enums.js';
+import { EstadoEncomienda } from '../../generated/prisma/enums.js';
 import {
   DevolverDto,
   EntregarDto,
-  RegistrarEntregaDto,
-  RegistrarEntregaMasivaDto,
-} from './dto/entrega.dto.js';
-import { EntregasService } from './entregas.service.js';
+  RegistrarEncomiendaDto,
+  RegistrarEncomiendaMasivaDto,
+} from './dto/encomienda.dto.js';
+import { EncomiendasService } from './encomiendas.service.js';
 
-@ApiTags('porteria · entregas')
+@ApiTags('porteria · encomiendas')
 @ApiBearerAuth()
-@Controller('entregas')
-export class EntregasController {
-  constructor(private readonly entregas: EntregasService) {}
+@Controller('encomiendas')
+export class EncomiendasController {
+  constructor(private readonly encomiendas: EncomiendasService) {}
 
   @Get()
   @RequierePermiso(PERMISOS.PORTERIA_LEER)
-  @ApiQuery({ name: 'estado', required: false, enum: EstadoEntrega })
+  @ApiQuery({ name: 'estado', required: false, enum: EstadoEncomienda })
   @ApiQuery({ name: 'unidadId', required: false })
   @ApiQuery({ name: 'casilleroId', required: false })
   @ApiOperation({
@@ -35,28 +35,28 @@ export class EntregasController {
   })
   listar(
     @ConjuntoActivo() a: Ctx,
-    @Query('estado') estado?: EstadoEntrega,
+    @Query('estado') estado?: EstadoEncomienda,
     @Query('unidadId') unidadId?: string,
     @Query('casilleroId') casilleroId?: string,
   ) {
-    return this.entregas.listar(a.conjuntoId, { estado, unidadId, casilleroId });
+    return this.encomiendas.listar(a.conjuntoId, { estado, unidadId, casilleroId });
   }
 
   // OJO: va ANTES de cualquier ruta con ':id', o Express lee "mias" como un id.
   @Get('mias')
-  @RequierePermiso(PERMISOS.PORTERIA_ENTREGAS_MI_UNIDAD, PERMISOS.PORTERIA_LEER)
+  @RequierePermiso(PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD, PERMISOS.PORTERIA_LEER)
   @ApiOperation({
     summary: 'Lo que le ha llegado al residente',
     description:
-      'Tres cosas: las entregas de sus unidades, las que llegaron para su torre o etapa ' +
+      'Tres cosas: las encomiendas de sus unidades, las que llegaron para su torre o etapa ' +
       '(subiendo por las agrupaciones padre) y las que llegaron para todo el conjunto.',
   })
   mias(@ConjuntoActivo() a: Ctx, @CurrentUser() user: AuthUser) {
-    return this.entregas.misEntregas(a.conjuntoId, user.id);
+    return this.encomiendas.misEntregas(a.conjuntoId, user.id);
   }
 
   @Post()
-  @RequierePermiso(PERMISOS.PORTERIA_ENTREGAS_REGISTRAR)
+  @RequierePermiso(PERMISOS.PORTERIA_ENCOMIENDAS_REGISTRAR)
   @ApiOperation({
     summary: 'Registra algo que llego para una unidad',
     description:
@@ -65,15 +65,15 @@ export class EntregasController {
       'que nadie recoge son problemas distintos.',
   })
   registrar(
-    @Body() dto: RegistrarEntregaDto,
+    @Body() dto: RegistrarEncomiendaDto,
     @ConjuntoActivo() a: Ctx,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.entregas.registrar(a.conjuntoId, user.id, dto);
+    return this.encomiendas.registrar(a.conjuntoId, user.id, dto);
   }
 
   @Post('masiva')
-  @RequierePermiso(PERMISOS.PORTERIA_ENTREGAS_REGISTRAR)
+  @RequierePermiso(PERMISOS.PORTERIA_ENCOMIENDAS_REGISTRAR)
   @ApiOperation({
     summary: 'Registra un reparto masivo',
     description:
@@ -82,27 +82,27 @@ export class EntregasController {
       'la Torre 1". Nace `NOTIFICADA` porque no hay nada que entregar en mano.',
   })
   registrarMasiva(
-    @Body() dto: RegistrarEntregaMasivaDto,
+    @Body() dto: RegistrarEncomiendaMasivaDto,
     @ConjuntoActivo() a: Ctx,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.entregas.registrarMasiva(a.conjuntoId, user.id, dto);
+    return this.encomiendas.registrarMasiva(a.conjuntoId, user.id, dto);
   }
 
   @Post(':id/notificar')
-  @RequierePermiso(PERMISOS.PORTERIA_ENTREGAS_REGISTRAR)
+  @RequierePermiso(PERMISOS.PORTERIA_ENCOMIENDAS_REGISTRAR)
   @ApiOperation({
     summary: 'Avisa (o vuelve a avisar) al residente',
     description:
-      'Para la entrega que nacio sin destinatarios y ya tiene a quien avisarle, y para ' +
+      'Para la encomienda que nacio sin destinatarios y ya tiene a quien avisarle, y para ' +
       'insistir cuando lleva semanas sin que nadie baje.',
   })
   notificar(@Param('id', ParseUUIDPipe) id: string, @ConjuntoActivo() a: Ctx) {
-    return this.entregas.notificar(a.conjuntoId, id);
+    return this.encomiendas.notificar(a.conjuntoId, id);
   }
 
   @Post(':id/entregar')
-  @RequierePermiso(PERMISOS.PORTERIA_ENTREGAS_REGISTRAR)
+  @RequierePermiso(PERMISOS.PORTERIA_ENCOMIENDAS_REGISTRAR)
   @ApiOperation({
     summary: 'Anota quien la retiro',
     description: 'Este es el dato que zanja el "yo nunca recibi nada".',
@@ -113,11 +113,11 @@ export class EntregasController {
     @ConjuntoActivo() a: Ctx,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.entregas.entregar(a.conjuntoId, user.id, id, dto);
+    return this.encomiendas.entregar(a.conjuntoId, user.id, id, dto);
   }
 
   @Post(':id/devolver')
-  @RequierePermiso(PERMISOS.PORTERIA_ENTREGAS_REGISTRAR)
+  @RequierePermiso(PERMISOS.PORTERIA_ENCOMIENDAS_REGISTRAR)
   @ApiOperation({ summary: 'Se devolvio al mensajero o al remitente' })
   devolver(
     @Param('id', ParseUUIDPipe) id: string,
@@ -125,6 +125,6 @@ export class EntregasController {
     @ConjuntoActivo() a: Ctx,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.entregas.devolver(a.conjuntoId, user.id, id, dto);
+    return this.encomiendas.devolver(a.conjuntoId, user.id, id, dto);
   }
 }

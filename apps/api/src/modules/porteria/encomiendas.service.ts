@@ -1,27 +1,27 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { EstadoEntrega } from '../../generated/prisma/enums.js';
+import { EstadoEncomienda } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { rolVigente } from '../../common/rol-vigente.js';
 import type {
   DevolverDto,
   EntregarDto,
-  RegistrarEntregaDto,
-  RegistrarEntregaMasivaDto,
-} from './dto/entrega.dto.js';
+  RegistrarEncomiendaDto,
+  RegistrarEncomiendaMasivaDto,
+} from './dto/encomienda.dto.js';
 
-/** Estados en los que la entrega ya se cerro y no admite mas movimientos. */
-const CERRADAS: EstadoEntrega[] = [EstadoEntrega.ENTREGADA, EstadoEntrega.DEVUELTA];
+/** Estados en los que la encomienda ya se cerro y no admite mas movimientos. */
+const CERRADAS: EstadoEncomienda[] = [EstadoEncomienda.ENTREGADA, EstadoEncomienda.DEVUELTA];
 
 @Injectable()
-export class EntregasService {
+export class EncomiendasService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** La bandeja de porteria: todo lo del conjunto, con filtros. */
   listar(
     conjuntoId: string,
-    opciones: { estado?: EstadoEntrega; unidadId?: string; casilleroId?: string } = {},
+    opciones: { estado?: EstadoEncomienda; unidadId?: string; casilleroId?: string } = {},
   ) {
-    return this.prisma.entrega.findMany({
+    return this.prisma.encomienda.findMany({
       where: {
         conjuntoId,
         ...(opciones.estado ? { estado: opciones.estado } : {}),
@@ -40,7 +40,7 @@ export class EntregasService {
   /**
    * Lo que le ha llegado a un residente.
    *
-   * Son tres cosas y no una, por como esta modelado el destino: sus entregas
+   * Son tres cosas y no una, por como esta modelado el destino: sus encomiendas
    * propias, las de su agrupacion (y las de las agrupaciones padre, porque un
    * apartamento de la Torre B de la Etapa 2 tambien recibe lo que llego "para
    * toda la Etapa 2") y las que llegaron para el conjunto entero.
@@ -56,7 +56,7 @@ export class EntregasService {
       ocupaciones.map((o) => o.unidad.agrupacionId).filter((id): id is string => id !== null),
     );
 
-    return this.prisma.entrega.findMany({
+    return this.prisma.encomienda.findMany({
       where: {
         conjuntoId,
         OR: [
@@ -75,7 +75,7 @@ export class EntregasService {
     });
   }
 
-  async registrar(conjuntoId: string, porteroId: string, dto: RegistrarEntregaDto) {
+  async registrar(conjuntoId: string, porteroId: string, dto: RegistrarEncomiendaDto) {
     const unidad = await this.prisma.unidad.findFirst({
       where: { id: dto.unidadId, conjuntoId },
     });
@@ -100,17 +100,17 @@ export class EntregasService {
     }
 
     // El estado sale de si HAY a quien avisarle. Si la unidad todavia no tiene
-    // usuarios registrados —lo normal al arrancar un conjunto— la entrega se queda
+    // usuarios registrados —lo normal al arrancar un conjunto— la encomienda se queda
     // en RECIBIDA, y eso es informacion: nadie sabe que le llego algo.
     const destinatarios = await this.destinatarios(conjuntoId, dto.unidadId);
     const hayAQuienAvisar = destinatarios.length > 0;
 
-    return this.prisma.entrega.create({
+    return this.prisma.encomienda.create({
       data: {
         ...dto,
         conjuntoId,
         recibidaPorId: porteroId,
-        estado: hayAQuienAvisar ? EstadoEntrega.NOTIFICADA : EstadoEntrega.RECIBIDA,
+        estado: hayAQuienAvisar ? EstadoEncomienda.NOTIFICADA : EstadoEncomienda.RECIBIDA,
         notificadaEn: hayAQuienAvisar ? new Date() : null,
       },
     });
@@ -126,7 +126,7 @@ export class EntregasService {
    * Nace NOTIFICADA: no hay nada que entregar en mano, y registrarlo en la app ES
    * el aviso a los residentes.
    */
-  async registrarMasiva(conjuntoId: string, porteroId: string, dto: RegistrarEntregaMasivaDto) {
+  async registrarMasiva(conjuntoId: string, porteroId: string, dto: RegistrarEncomiendaMasivaDto) {
     if (dto.agrupacionId) {
       const agrupacion = await this.prisma.agrupacion.findFirst({
         where: { id: dto.agrupacionId, conjuntoId },
@@ -134,13 +134,13 @@ export class EntregasService {
       if (!agrupacion) throw new NotFoundException('Esa agrupacion no existe en este conjunto');
     }
 
-    return this.prisma.entrega.create({
+    return this.prisma.encomienda.create({
       data: {
         ...dto,
         conjuntoId,
         unidadId: null,
         recibidaPorId: porteroId,
-        estado: EstadoEntrega.NOTIFICADA,
+        estado: EstadoEncomienda.NOTIFICADA,
         notificadaEn: new Date(),
       },
     });
@@ -149,17 +149,17 @@ export class EntregasService {
   /**
    * Marca que se le aviso al residente.
    *
-   * Sirve para dos cosas: cerrar el caso de la entrega que nacio sin destinatarios
+   * Sirve para dos cosas: cerrar el caso de la encomienda que nacio sin destinatarios
    * (ya se registro alguien en esa unidad), y volver a avisar cuando un paquete
    * lleva semanas sin que nadie baje.
    */
   async notificar(conjuntoId: string, id: string) {
-    const entrega = await this.obtenerVigente(conjuntoId, id);
-    if (!entrega.unidadId) {
+    const encomienda = await this.obtenerVigente(conjuntoId, id);
+    if (!encomienda.unidadId) {
       throw new BadRequestException('Un reparto masivo ya nace notificado');
     }
 
-    const destinatarios = await this.destinatarios(conjuntoId, entrega.unidadId);
+    const destinatarios = await this.destinatarios(conjuntoId, encomienda.unidadId);
     if (destinatarios.length === 0) {
       throw new BadRequestException(
         'Esa unidad no tiene usuarios registrados: no hay a quien avisarle todavia',
@@ -168,22 +168,22 @@ export class EntregasService {
 
     // TODO: aqui va el envio real (push y correo por SMTP propio) cuando exista el
     // modulo de notificaciones. Ver docs/pendientes.md.
-    return this.prisma.entrega.update({
+    return this.prisma.encomienda.update({
       where: { id },
-      data: { estado: EstadoEntrega.NOTIFICADA, notificadaEn: new Date() },
+      data: { estado: EstadoEncomienda.NOTIFICADA, notificadaEn: new Date() },
     });
   }
 
   async entregar(conjuntoId: string, porteroId: string, id: string, dto: EntregarDto) {
-    const entrega = await this.obtenerVigente(conjuntoId, id);
-    if (!entrega.unidadId) {
+    const encomienda = await this.obtenerVigente(conjuntoId, id);
+    if (!encomienda.unidadId) {
       throw new BadRequestException('Un reparto masivo no se entrega en mano');
     }
 
-    return this.prisma.entrega.update({
+    return this.prisma.encomienda.update({
       where: { id },
       data: {
-        estado: EstadoEntrega.ENTREGADA,
+        estado: EstadoEncomienda.ENTREGADA,
         retiradaPorNombre: dto.retiradaPorNombre,
         entregadaPorId: porteroId,
         entregadaEn: new Date(),
@@ -194,10 +194,10 @@ export class EntregasService {
 
   async devolver(conjuntoId: string, porteroId: string, id: string, dto: DevolverDto) {
     await this.obtenerVigente(conjuntoId, id);
-    return this.prisma.entrega.update({
+    return this.prisma.encomienda.update({
       where: { id },
       data: {
-        estado: EstadoEntrega.DEVUELTA,
+        estado: EstadoEncomienda.DEVUELTA,
         entregadaPorId: porteroId,
         entregadaEn: new Date(),
         observacion: dto.observacion,
@@ -208,14 +208,14 @@ export class EntregasService {
   // --- ayudas ---------------------------------------------------------------
 
   private async obtenerVigente(conjuntoId: string, id: string) {
-    const entrega = await this.prisma.entrega.findFirst({ where: { id, conjuntoId } });
-    if (!entrega) throw new NotFoundException('Entrega no encontrada');
-    if (CERRADAS.includes(entrega.estado)) {
+    const encomienda = await this.prisma.encomienda.findFirst({ where: { id, conjuntoId } });
+    if (!encomienda) throw new NotFoundException('Encomienda no encontrada');
+    if (CERRADAS.includes(encomienda.estado)) {
       throw new BadRequestException(
-        `Esa entrega ya esta ${entrega.estado.toLowerCase()} y no admite mas cambios`,
+        `Esa encomienda ya esta ${encomienda.estado.toLowerCase()} y no admite mas cambios`,
       );
     }
-    return entrega;
+    return encomienda;
   }
 
   /** Usuarios vigentes de una unidad: a quienes hay que avisarles. */

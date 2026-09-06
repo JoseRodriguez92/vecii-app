@@ -57,7 +57,7 @@ export class CasillerosController {
   @ApiOperation({
     summary: 'Actualiza un casillero',
     description:
-      'No hay DELETE a proposito: las entregas viejas apuntan a la casilla y tienen que seguir ' +
+      'No hay DELETE a proposito: las encomiendas viejas apuntan a la casilla y tienen que seguir ' +
       'teniendo sentido. Para sacarla de servicio, `activo: false`.',
   })
   actualizar(

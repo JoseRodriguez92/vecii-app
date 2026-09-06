@@ -41,7 +41,7 @@ export class CrearCasilleroDto {
 
 export class ActualizarCasilleroDto extends PartialType(CrearCasilleroDto) {
   @ApiPropertyOptional({
-    description: 'Falso = fuera de servicio. No se borra: las entregas viejas la referencian.',
+    description: 'Falso = fuera de servicio. No se borra: las encomiendas viejas la referencian.',
   })
   @IsOptional()
   @IsBoolean()

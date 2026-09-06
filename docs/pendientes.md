@@ -183,19 +183,19 @@ petición. Es la tarea 1 del [ADR-0001](adr/0001-autenticacion-supabase.md).
 
 ---
 
-## 🟡 Entregas: restricciones que Prisma no expresa
+## 🟡 Encomiendas: restricciones que Prisma no expresa
 
-**Una entrega no puede ir a una unidad Y a una agrupación al mismo tiempo.**
+**Una encomienda no puede ir a una unidad Y a una agrupación al mismo tiempo.**
 Los dos campos son opcionales para permitir los tres destinos (unidad / torre /
 conjunto entero), pero llenar los dos es incoherente y hoy nada lo impide. Va en
 el `.sql` de la línea base, junto a las otras:
 
 ```sql
-ALTER TABLE entregas ADD CONSTRAINT entrega_destino_unico
+ALTER TABLE encomiendas ADD CONSTRAINT entrega_destino_unico
   CHECK (NOT (unidad_id IS NOT NULL AND agrupacion_id IS NOT NULL));
 ```
 
-**El casillero tiene que ser de la misma unidad a la que va la entrega.** Hoy se
+**El casillero tiene que ser de la misma unidad a la que va la encomienda.** Hoy se
 puede guardar el paquete del 501 en el casillero del 302 sin que nada chille.
 Cruza tablas, así que no es un CHECK: va en el servicio.
 
@@ -203,7 +203,7 @@ Cruza tablas, así que no es un CHECK: va en el servicio.
 
 ## 🟢 Portería: lo que falta
 
-`casilleros` y `entregas` ya están modelados; falta el API. Lo demás de portería
+`casilleros` y `encomiendas` ya están modelados; falta el API. Lo demás de portería
 no se ha tocado:
 
 - **Minuta de visitantes.** Ingreso y salida: nombre, documento, a qué unidad,
@@ -214,7 +214,7 @@ no se ha tocado:
 - **El paquete que nadie retira.** No necesita estado propio —sale de
   `recibidaEn` + `estado`— pero sí una decisión: ¿a las cuántas semanas se
   devuelve, y quién decide? Eso es política del conjunto, no del código.
-- **Domicilios de comida.** No generan entrega: portería no los recibe. Cuando se
+- **Domicilios de comida.** No generan encomienda: portería no los recibe. Cuando se
   modele la minuta hay que ver si el domiciliario entra ahí o no entra a ningún
   lado.
 

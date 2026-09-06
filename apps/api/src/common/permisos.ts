@@ -43,11 +43,11 @@ export const PERMISOS = {
   PORTERIA_GESTIONAR: 'porteria.gestionar',
   /// Registrar lo que llega, avisar, y anotar quien retiro. Es el trabajo diario
   /// del portero.
-  PORTERIA_ENTREGAS_REGISTRAR: 'porteria.entregas.registrar',
-  /// Ver solo las entregas de las unidades propias. Lo tienen el propietario y el
+  PORTERIA_ENCOMIENDAS_REGISTRAR: 'porteria.encomiendas.registrar',
+  /// Ver solo las encomiendas de las unidades propias. Lo tienen el propietario y el
   /// residente. Igual que con invitaciones, el guard solo verifica el permiso; que
   /// la unidad sea suya lo resuelve el servicio, porque es alcance de FILA.
-  PORTERIA_ENTREGAS_MI_UNIDAD: 'porteria.entregas.mi_unidad',
+  PORTERIA_ENCOMIENDAS_MI_UNIDAD: 'porteria.encomiendas.mi_unidad',
 } as const;
 
 export type CodigoPermiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -89,10 +89,10 @@ export const MODULOS = [
     descripcion: 'Casilleros y lo que llega para las unidades.',
     orden: 30,
     permisos: [
-      { codigo: PERMISOS.PORTERIA_LEER, nombre: 'Ver casilleros y entregas del conjunto' },
+      { codigo: PERMISOS.PORTERIA_LEER, nombre: 'Ver casilleros y encomiendas del conjunto' },
       { codigo: PERMISOS.PORTERIA_GESTIONAR, nombre: 'Crear y editar casilleros' },
-      { codigo: PERMISOS.PORTERIA_ENTREGAS_REGISTRAR, nombre: 'Registrar entregas y retiros' },
-      { codigo: PERMISOS.PORTERIA_ENTREGAS_MI_UNIDAD, nombre: 'Ver las entregas de mis unidades' },
+      { codigo: PERMISOS.PORTERIA_ENCOMIENDAS_REGISTRAR, nombre: 'Registrar encomiendas y retiros' },
+      { codigo: PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD, nombre: 'Ver las encomiendas de mis unidades' },
     ],
   },
   {

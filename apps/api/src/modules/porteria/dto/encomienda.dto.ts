@@ -8,19 +8,19 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { EstadoEntrega, TipoEntrega } from '../../../generated/prisma/enums.js';
+import { EstadoEncomienda, TipoEncomienda } from '../../../generated/prisma/enums.js';
 
-export class RegistrarEntregaDto {
+export class RegistrarEncomiendaDto {
   @ApiProperty({
-    description: 'A que unidad va. Para lo que llega para toda una torre, usar POST /entregas/masiva.',
+    description: 'A que unidad va. Para lo que llega para toda una torre, usar POST /encomiendas/masiva.',
     format: 'uuid',
   })
   @IsUUID()
   unidadId!: string;
 
-  @ApiProperty({ enum: TipoEntrega, example: TipoEntrega.PAQUETE })
-  @IsEnum(TipoEntrega)
-  tipo!: TipoEntrega;
+  @ApiProperty({ enum: TipoEncomienda, example: TipoEncomienda.PAQUETE })
+  @IsEnum(TipoEncomienda)
+  tipo!: TipoEncomienda;
 
   @ApiPropertyOptional({
     description: 'El nombre escrito en el paquete, tal cual. Puede no ser un usuario de la app.',
@@ -60,7 +60,7 @@ export class RegistrarEntregaDto {
   fotoUrl?: string;
 }
 
-export class RegistrarEntregaMasivaDto {
+export class RegistrarEncomiendaMasivaDto {
   @ApiPropertyOptional({
     description:
       'A que torre o etapa llego. Omitir si llego para TODO el conjunto. ' +
@@ -71,9 +71,9 @@ export class RegistrarEntregaMasivaDto {
   @IsUUID()
   agrupacionId?: string;
 
-  @ApiProperty({ enum: TipoEntrega, example: TipoEntrega.CORRESPONDENCIA })
-  @IsEnum(TipoEntrega)
-  tipo!: TipoEntrega;
+  @ApiProperty({ enum: TipoEncomienda, example: TipoEncomienda.CORRESPONDENCIA })
+  @IsEnum(TipoEncomienda)
+  tipo!: TipoEncomienda;
 
   @ApiProperty({ description: 'Quien lo manda.', example: 'Acueducto de Bogota', maxLength: 120 })
   @IsString()
@@ -119,11 +119,11 @@ export class DevolverDto {
 }
 
 /** Filtros de la bandeja. Se declara aparte para que Swagger los documente. */
-export class FiltroEntregasDto {
-  @ApiPropertyOptional({ enum: EstadoEntrega })
+export class FiltroEncomiendasDto {
+  @ApiPropertyOptional({ enum: EstadoEncomienda })
   @IsOptional()
-  @IsEnum(EstadoEntrega)
-  estado?: EstadoEntrega;
+  @IsEnum(EstadoEncomienda)
+  estado?: EstadoEncomienda;
 
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()

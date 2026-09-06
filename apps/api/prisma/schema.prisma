@@ -164,8 +164,8 @@ enum EstadoConjunto {
 ///
 /// No hay DOMICILIO ni MERCADO: las porterias no reciben comida. El domiciliario
 /// espera en la reja o sube, asi que no hay custodia, no hay fila — eso es
-/// minuta de visitantes, no una entrega.
-enum TipoEntrega {
+/// minuta de visitantes, no una encomienda.
+enum TipoEncomienda {
   /// Mensajeria, compras en linea, flores, regalos.
   PAQUETE
   /// Recibos, extractos, cartas. Es el que normalmente llega masivo.
@@ -175,18 +175,18 @@ enum TipoEntrega {
   OTRO
 }
 
-/// Ciclo de vida de una entrega.
+/// Ciclo de vida de una encomienda.
 ///
 /// La regla que decidio estos nombres: el sistema solo guarda estados que EL
 /// MISMO provoca. No puede verificar que porteria metio los recibos a los
 /// casilleros, asi que no existe un estado "REPARTIDA" — seria una afirmacion
 /// sobre el mundo fisico que nadie confirma. Si sabe, en cambio, que mando la
 /// notificacion.
-enum EstadoEntrega {
+enum EstadoEncomienda {
   /// Llego y quedo anotada, pero todavia no se le aviso a nadie.
   ///
   /// No es un estado de milisegundos: si la unidad no tiene usuarios registrados
-  /// —lo normal al arrancar un conjunto— no hay a quien avisarle y la entrega se
+  /// —lo normal al arrancar un conjunto— no hay a quien avisarle y la encomienda se
   /// queda aqui. Distinguirlo importa, porque un paquete sin avisar y uno
   /// avisado que nadie recoge son problemas distintos.
   RECIBIDA
@@ -233,7 +233,7 @@ model Conjunto {
   usuarios     UsuarioConjunto[]
   invitaciones Invitacion[]
   casilleros   Casillero[]
-  entregas     Entrega[]
+  encomiendas     Encomienda[]
 
   @@map("conjuntos")
 }
@@ -266,7 +266,7 @@ model Agrupacion {
   parqueaderos Parqueadero[]
   espacios     EspacioReservable[]
   casilleros   Casillero[]
-  entregas     Entrega[]
+  encomiendas     Encomienda[]
 
   /// Nombre unico dentro del conjunto, incluso entre etapas distintas: dos
   /// "Torre A" en el mismo conjunto confunden al residente, no solo a la query.
@@ -327,7 +327,7 @@ model Unidad {
   invitaciones  Invitacion[]            @relation("InvitacionesUnidad")
   /// La casilla de esta unidad. Una sola: el casillero no rota.
   casillero     Casillero?
-  entregas      Entrega[]               @relation("EntregasUnidad")
+  encomiendas      Encomienda[]               @relation("EncomiendasUnidad")
 
   /// El identificador es unico DENTRO de su agrupacion, no del conjunto: cada
   /// torre tiene su 101. Antes estaba como [conjuntoId, identificador] y eso
@@ -340,7 +340,7 @@ model Unidad {
   ///   CREATE UNIQUE INDEX ... ON unidades (conjunto_id, identificador)
   ///     WHERE agrupacion_id IS NULL;
   @@unique([conjuntoId, agrupacionId, identificador])
-  /// Habilita las FK compuestas desde Casillero y Entrega (mismo patron que
+  /// Habilita las FK compuestas desde Casillero y Encomienda (mismo patron que
   /// Agrupacion): apuntan a la PAREJA (unidad, conjunto), no solo a la unidad.
   @@unique([id, conjuntoId])
   @@index([conjuntoId])
@@ -780,8 +780,8 @@ model Usuario {
   reservasAprobadas Reserva[]         @relation("ReservasAprobadas")
   invitacionesEnviadas Invitacion[]   @relation("InvitacionesEnviadas")
   invitacionesAceptadas Invitacion[]  @relation("InvitacionesAceptadas")
-  entregasRecibidas     Entrega[]      @relation("EntregasRecibidas")
-  entregasEntregadas    Entrega[]      @relation("EntregasEntregadas")
+  entregasRecibidas     Encomienda[]      @relation("EncomiendasRecibidas")
+  entregasEntregadas    Encomienda[]      @relation("EncomiendasEntregadas")
 
   @@unique([tipoDocumento, numeroDocumento])
   @@map("usuarios")
@@ -968,7 +968,7 @@ model UsuarioUnidad {
 /// En Colombia son casillas ABIERTAS detras del mostrador, no buzones con llave
 /// como en Estados Unidos. Esa diferencia decide el modelo entero: dejar algo en
 /// la casilla NO es entregarlo — porteria sigue respondiendo por el paquete
-/// hasta que se lo pasa a alguien. Por eso `Entrega` rastrea quien retiro.
+/// hasta que se lo pasa a alguien. Por eso `Encomienda` rastrea quien retiro.
 ///
 /// NO lleva tabla de asignaciones con vigencia, a diferencia de `Parqueadero`.
 /// Un cupo de parqueadero rota —sorteo anual, prestamo, arriendo— y hay que
@@ -985,7 +985,7 @@ model Casillero {
   /// tienen casilla, y esas no son de ninguna unidad.
   unidadId      String? @db.Uuid
 
-  /// Falso = se dano la chapa, se tapio. No se borra: las entregas viejas que
+  /// Falso = se dano la chapa, se tapio. No se borra: las encomiendas viejas que
   /// apuntan a ella tienen que seguir teniendo sentido.
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -994,13 +994,13 @@ model Casillero {
   conjunto   Conjunto    @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
   agrupacion Agrupacion? @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   unidad     Unidad?     @relation(fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
-  entregas   Entrega[]
+  encomiendas   Encomienda[]
 
   @@unique([conjuntoId, identificador])
   /// Una unidad, un casillero. Si algun dia aparece un conjunto donde el 501
   /// tiene dos, se quita; mientras tanto la base impide el error de digitacion.
   @@unique([unidadId, conjuntoId])
-  /// Habilita la FK compuesta desde Entrega.
+  /// Habilita la FK compuesta desde Encomienda.
   @@unique([id, conjuntoId])
   @@index([conjuntoId])
   @@index([agrupacionId])
@@ -1020,14 +1020,14 @@ model Casillero {
 /// Abrirlo en una fila por unidad seria guardar la conclusion en vez del hecho,
 /// y serian miles de filas al ano que ademas nunca cambian de estado.
 ///
-/// Consecuencia para las consultas: "que le ha llegado al 501" son sus entregas
+/// Consecuencia para las consultas: "que le ha llegado al 501" son sus encomiendas
 /// propias MAS las de su agrupacion (y las de las agrupaciones padre) MAS las
 /// del conjunto entero.
 ///
 /// Lo que NO entra: la correspondencia ordinaria que se mete a las casillas y
 /// ya. Ningun portero va a digitar 120 recibos uno por uno, y una app que se lo
 /// exija termina sin que registren nada — ni siquiera los paquetes.
-model Entrega {
+model Encomienda {
   id         String @id @default(uuid()) @db.Uuid
   conjuntoId String @db.Uuid
 
@@ -1038,7 +1038,7 @@ model Entrega {
   /// puede ser la empleada, un hijo, o alguien que no tiene usuario en la app.
   destinatario String?
 
-  tipo      TipoEntrega
+  tipo      TipoEncomienda
   /// Quien lo manda: "Mercado Libre", "Acueducto", "Juzgado 12".
   remitente String?
 
@@ -1046,7 +1046,7 @@ model Entrega {
   /// mostrador, o es un reparto masivo (va a todas).
   casilleroId String? @db.Uuid
 
-  estado EstadoEntrega @default(RECIBIDA)
+  estado EstadoEncomienda @default(RECIBIDA)
 
   recibidaPorId String   @db.Uuid
   recibidaEn    DateTime @default(now())
@@ -1071,16 +1071,16 @@ model Entrega {
   updatedAt DateTime @updatedAt
 
   conjunto     Conjunto    @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
-  unidad       Unidad?     @relation("EntregasUnidad", fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  unidad       Unidad?     @relation("EncomiendasUnidad", fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   agrupacion   Agrupacion? @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   casillero    Casillero?  @relation(fields: [casilleroId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
-  recibidaPor  Usuario     @relation("EntregasRecibidas", fields: [recibidaPorId], references: [id], onDelete: Restrict)
-  entregadaPor Usuario?    @relation("EntregasEntregadas", fields: [entregadaPorId], references: [id], onDelete: SetNull)
+  recibidaPor  Usuario     @relation("EncomiendasRecibidas", fields: [recibidaPorId], references: [id], onDelete: Restrict)
+  entregadaPor Usuario?    @relation("EncomiendasEntregadas", fields: [entregadaPorId], references: [id], onDelete: SetNull)
 
   /// La bandeja de porteria: lo que sigue en custodia.
   @@index([conjuntoId, estado])
   @@index([unidadId])
   @@index([agrupacionId])
   @@index([casilleroId])
-  @@map("entregas")
+  @@map("encomiendas")
 }
