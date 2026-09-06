@@ -439,8 +439,14 @@ model Parqueadero {
 model AsignacionParqueadero {
   id            String           @id @default(uuid()) @db.Uuid
   parqueaderoId String           @db.Uuid
-  /// La unidad que lo usa. Para un cupo de VISITANTES esto queda null: no se
-  /// asigna a nadie.
+  /// La unidad que tiene el derecho. Obligatoria: una asignacion sin unidad no
+  /// significa nada.
+  ///
+  /// Un cupo de VISITANTES NO lleva filas aqui — no se le asigna a nadie, se usa
+  /// por turnos a traves del pool de `espacios_reservables`. Lo que rota ahi es
+  /// que carro esta parqueado en este momento, y eso es una visita, no una
+  /// asignacion. (El comentario anterior decia que este campo quedaba null para
+  /// visitantes; era resto de un diseno que no prospero.)
   unidadId      String           @db.Uuid
   origen        OrigenAsignacion
   desde         DateTime         @default(now())
