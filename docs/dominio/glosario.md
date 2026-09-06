@@ -85,13 +85,27 @@ datos la tabla es `usuarios`, entonces:
 submódulos usa `modulo · tabla`:
 
 - `estructura · unidades` ✓
-- `usuarios · vinculaciones` ✓
+- `porteria · encomiendas` ✓
 - `personas` ✗ — no existe ninguna tabla `personas`
 
 Esto se descubrió al revés: el módulo se llamó `personas` porque sonaba humano,
 y en Swagger apareció un grupo que no correspondía a nada de la base de datos.
 Se renombró completo a `usuarios`. El costo de un sinónimo bonito es que a los
 tres meses nadie sabe si `personas` y `usuarios` son lo mismo.
+
+**Un módulo se llama como la cosa que existe, no como la función que presta.**
+`porteria`, no `seguridad`: la portería *presta* seguridad, igual que la
+administración presta gestión. Nombrar la función es oblicuo —obliga a traducir
+dos veces y no corresponde a nada que se pueda señalar con el dedo—. Nadie en un
+conjunto dice "avisale a seguridad".
+
+Es el mismo error de `personas`, por el otro lado: aquel era un sinónimo bonito de
+algo que ya existía; este es una abstracción por encima de un lugar concreto.
+
+No confundir con agrupar: `estructura` vale aunque no sea una tabla, porque reúne
+cosas que sí se pueden señalar y su tag siempre termina en una
+(`estructura · unidades`). Lo que no vale es nombrar el servicio prestado en vez
+de la cosa.
 
 **Lo derivable se deriva, no se guarda.** La categoría de una unidad sale de su
 tipo; los roles de propietario y residente salen de las ocupaciones. Guardar la

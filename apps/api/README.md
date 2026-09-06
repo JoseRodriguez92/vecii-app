@@ -17,7 +17,7 @@ pnpm install
 cp .env.example .env        # y completa los valores (ver abajo)
 pnpm prisma:migrate         # crea las tablas en Supabase
 pnpm prisma:seed            # datos de ejemplo (opcional)
-pnpm start:dev              # http://localhost:3000/api  ·  docs: /docs
+pnpm start:dev              # http://localhost:3201/api  ·  docs: /docs
 ```
 
 ## Variables de entorno

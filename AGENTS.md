@@ -35,6 +35,50 @@ tiene tres nombres, alguien termina modelando dos veces la misma cosa.
 
 @docs/dominio/glosario.md
 
+### Cuándo se toca el glosario
+
+En el **mismo cambio**, nunca "después":
+
+- **Nace una tabla, un enum o un módulo** → su palabra entra al glosario antes
+  del commit.
+- **Se renombra algo** → se renombra en las cinco capas (tabla, carpeta, ruta,
+  permiso, tag de Swagger) *y* en el glosario.
+- **Aparece una palabra nueva discutiendo el dominio** → o entra al glosario, o
+  se descarta a propósito y queda escrito por qué.
+- **Un doc viejo contradice al glosario** → gana el glosario, y el doc se corrige
+  en el acto.
+
+Un ADR o un comentario escrito *antes* que el glosario no está exento: está
+desactualizado. Así sobrevivió `seguridad/` dibujado en el ADR-0002 —un módulo
+que en este proyecto se llama `porteria`— hasta que alguien fue a compararlos.
+
+### Revisión de coherencia
+
+Cada cierto tiempo, y siempre antes de cerrar una tanda de trabajo, se compara el
+glosario contra lo que ya está escrito: tablas sin palabra, palabras que ya nadie
+usa, docs que dicen otra cosa, módulos que no corresponden a ningún tag.
+
+Se pide con estas palabras: **"revisemos el glosario"**. Y si vas a leer este
+archivo, ofrecela vos cuando la tanda esté por cerrarse — no esperes a que la
+pidan.
+
+Hoy es una revisión que se hace leyendo. Cuando exista
+`verificar-vocabulario.mjs` (ver [pendientes](docs/pendientes.md)) dejará de
+depender de que alguien se acuerde.
+
+### Dónde vive cada cosa
+
+Son cinco lugares, y confundirlos es exactamente como la misma idea termina
+escrita en dos:
+
+| Qué | Dónde |
+|---|---|
+| el **porqué** de un campo o una tabla | comentario en `schema.prisma` |
+| la **palabra** | `docs/dominio/glosario.md` |
+| una **decisión estructural**, con lo que se descartó | `docs/adr/` |
+| lo que se **aplazó**, con el motivo | `docs/pendientes.md` |
+| dónde **quedamos** y cuál es el hilo abierto | `docs/estado-actual.md` |
+
 ## Reglas de modelado que ya están decididas
 
 - **Lo derivable se deriva, no se guarda.** La categoría de una unidad sale de su

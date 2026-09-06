@@ -18,11 +18,11 @@ pnpm --filter vecii-backend prisma:seed
 ```
 
 `db:push` regenera el cliente de Prisma (que hoy todavía dice `Invitacion` y no
-`Vinculacion`), y el seed siembra los códigos de permiso nuevos —
-`usuarios.vincular*` — y borra los viejos.
+`Vinculacion`, que ya no existe), y el seed siembra los códigos de permiso
+nuevos — `usuarios.crear*` — y borra los viejos.
 
-Si `db:push` avisa de pérdida de datos en `invitaciones`, aceptar: la tabla
-está vacía.
+`db:push` va a avisar que **borra la tabla `vinculaciones`**. Es correcto:
+se eliminó a propósito.
 
 Después, para verificar:
 
@@ -30,7 +30,7 @@ Después, para verificar:
 cd apps\api
 node scripts\verificar-schema.mjs prisma\schema.prisma
 npx tsc --noEmit
-pnpm dev:api          # Swagger en http://localhost:3000/docs
+pnpm dev:api          # Swagger en http://localhost:3201/docs
 ```
 
 ---
@@ -47,7 +47,7 @@ conciencia — el *por qué* de cada decisión vive ahí, no aquí.
 | `auth` | `auth` | JWT asimétrico de Supabase por JWKS |
 | `conjuntos` | `conjuntos` | listo |
 | `estructura` | `estructura · agrupaciones\|tipologias\|unidades` | listo, con carga masiva y chequeo de coeficientes |
-| `usuarios` | `usuarios`, `usuarios · vinculaciones` | listo |
+| `usuarios` | `usuarios` | listo |
 | `porteria` | `porteria · casilleros\|encomiendas` | listo |
 
 **RBAC por permisos.** Módulos → permisos → roles → asignaciones. Quién puede
@@ -126,9 +126,17 @@ Bloquean el diseño de la tarifa. Son del dueño del producto, no del código:
 
 - **`entregas` → `encomiendas`.** Una encomienda es lo que se le *encomienda* a
   portería. Además la tabla se llamaba igual que uno de sus propios estados.
-- **`invitaciones` → `vinculaciones`.** En un conjunto, "invitar" es traer a
-  alguien a tu casa. Esa tabla vincula personas a unidades; el visitante es otra
-  cosa y va en `visitas`.
+- **Se borró la tabla de invitaciones.** Se llamó `invitaciones`, después
+  `vinculaciones`, y tres discusiones seguidas fueron sobre su nombre y ninguna
+  sobre si hacía falta. Una tabla que hay que renombrar dos veces es una tabla
+  que nadie sabe qué es. El fondo: decía que alguien se vuelve propietario del
+  501 cuando hace clic en un correo, y es al revés — lo es porque tiene la
+  escritura. Ahora `POST /usuarios` crea la cuenta y el vínculo de una vez.
+- **Registrar solo agrega.** Nunca cierra un vínculo anterior: un propietario
+  con parqueadero privado tiene dos unidades y las dos son correctas. La mudanza
+  es una acción aparte, `PATCH /usuarios/:id/unidades/:unidadId`.
+- **No se agrega `activo` a `usuarios_unidades`.** Ya existe `hasta`, que además
+  dice *cuándo* — y hace falta para saber a quién le tocaba la cuota de enero.
 - **El propietario no crea usuarios ni reparte cargos.** Puede vincular gente a
   *sus* unidades y nada más. Si un arrendatario necesita registrar a su familia,
   **lo hace la administración** — que es como opera un conjunto de verdad, sobre

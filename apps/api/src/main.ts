@@ -37,7 +37,6 @@ async function bootstrap() {
     .addTag('auth', 'Sesion del usuario')
     .addTag('conjuntos', 'La copropiedad')
     .addTag('usuarios', 'Quien esta en el conjunto, con que rol y en que unidad')
-    .addTag('usuarios · vinculaciones', 'Vinculaciones por correo para entrar al conjunto')
     .addTag('estructura · agrupaciones', 'Torres, manzanas, etapas: como se subdivide')
     .addTag('estructura · tipologias', 'Plantas repetidas con las que se construyo')
     .addTag('estructura · unidades', 'Propiedad privada: apartamentos, casas, locales')

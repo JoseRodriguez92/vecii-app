@@ -144,7 +144,7 @@ Cambiar a: generar el enlace sin enviar (`auth.admin.generateLink`) y mandarlo
 desde nuestro propio SMTP.
 
 Y hacerlo como un **módulo de notificaciones**, no metiendo SMTP dentro de
-vinculaciones: en poco tiempo van a necesitar correo la cuota generada, la reserva
+el registro de usuarios: en poco tiempo van a necesitar correo la cuota generada, la reserva
 confirmada y el visitante en portería.
 
 ---
@@ -244,6 +244,26 @@ no se ha tocado:
 ---
 
 ## 🟢 Herramientas del repo
+
+**`scripts/verificar-vocabulario.mjs`** — hermano de `verificar-schema.mjs`, para que
+la coherencia del vocabulario deje de depender de que alguien se acuerde. Falla si:
+
+| Chequeo | Qué atrapa |
+|---|---|
+| toda tabla con `@@map` aparece en el glosario | la tabla nueva que nadie nombró |
+| todo tag de Swagger termina en un nombre de tabla | el caso `personas`, automatizado |
+| toda carpeta de `modules/` es prefijo de algún tag | el caso `seguridad`, automatizado |
+| todo permiso empieza por un módulo que existe | permisos huérfanos |
+| toda palabra del glosario sigue usándose | el glosario que acumula fósiles |
+
+El último importa tanto como los otros: un glosario que solo crece se vuelve un
+cementerio, y ahí deja de leerse.
+
+Se cuelga de `pnpm lint`. Mismo espíritu que `PermisosService`, que se niega a
+levantar la API si falta un permiso sembrado: no confiar en la memoria de nadie.
+
+Verifica **cobertura, no criterio**: puede exigir que `visitas` tenga su fila en el
+glosario, no decidir si `visitas` era mejor palabra que `minuta`.
 
 - Podar las ~12 skills que no aplican a Vecii (`prisma-mongodb-upgrade`,
   `prisma-compute`, `prisma-postgres*`, `expo-app-clip`, `expo-brownfield`,

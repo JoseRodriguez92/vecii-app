@@ -27,14 +27,14 @@ export const PERMISOS = {
   // --- modulo: usuarios ---
   USUARIOS_LEER: 'usuarios.leer',
   USUARIOS_GESTIONAR: 'usuarios.gestionar',
-  /// Vincular a CUALQUIER unidad del conjunto. Es del administrador.
-  USUARIOS_VINCULAR: 'usuarios.vincular',
-  /// Vincular solo a las unidades propias. Lo tiene el propietario, para que
+  /// Registrar a alguien en CUALQUIER unidad del conjunto. Es del administrador.
+  USUARIOS_CREAR: 'usuarios.crear',
+  /// Registrar gente solo en las unidades propias. Lo tiene el propietario, para que
   /// pueda meter a su arrendatario y a su familia sin pasar por administracion.
   /// El guard solo verifica que tenga el permiso; que la unidad sea suya lo
   /// comprueba el servicio, porque es un alcance de FILA y el guard razona a
   /// nivel de conjunto.
-  USUARIOS_VINCULAR_MI_UNIDAD: 'usuarios.vincular.mi_unidad',
+  USUARIOS_CREAR_MI_UNIDAD: 'usuarios.crear.mi_unidad',
 
   // --- modulo: porteria ---
   PORTERIA_LEER: 'porteria.leer',
@@ -45,7 +45,7 @@ export const PERMISOS = {
   /// del portero.
   PORTERIA_ENCOMIENDAS_REGISTRAR: 'porteria.encomiendas.registrar',
   /// Ver solo las encomiendas de las unidades propias. Lo tienen el propietario y el
-  /// residente. Igual que con vinculaciones, el guard solo verifica el permiso; que
+  /// residente. Igual que al registrar usuarios, el guard solo verifica el permiso; que
   /// la unidad sea suya lo resuelve el servicio, porque es alcance de FILA.
   PORTERIA_ENCOMIENDAS_MI_UNIDAD: 'porteria.encomiendas.mi_unidad',
 } as const;
@@ -79,8 +79,8 @@ export const MODULOS = [
     permisos: [
       { codigo: PERMISOS.USUARIOS_LEER, nombre: 'Ver los usuarios del conjunto' },
       { codigo: PERMISOS.USUARIOS_GESTIONAR, nombre: 'Asignar roles y ocupaciones' },
-      { codigo: PERMISOS.USUARIOS_VINCULAR, nombre: 'Vincular a cualquier unidad' },
-      { codigo: PERMISOS.USUARIOS_VINCULAR_MI_UNIDAD, nombre: 'Vincular a mis propias unidades' },
+      { codigo: PERMISOS.USUARIOS_CREAR, nombre: 'Registrar gente en cualquier unidad' },
+      { codigo: PERMISOS.USUARIOS_CREAR_MI_UNIDAD, nombre: 'Registrar gente en mis unidades' },
     ],
   },
   {

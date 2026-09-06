@@ -18,13 +18,23 @@ producción, un equipo pequeño.**
 Un solo backend NestJS, organizado en módulos con fronteras claras:
 
 ```
-BE/src/modules/
-├── conjuntos/     unidades, torres, coeficientes
-├── finanzas/      cuotas de administración, pagos
-├── seguridad/     visitantes, minutas, autorizaciones de ingreso
-├── comunidad/     PQRS, cartelera, reservas de zonas comunes
+apps/api/src/modules/
+├── conjuntos/     el conjunto y su configuración
+├── estructura/    agrupaciones, tipologías, unidades
+├── usuarios/      registro de personas, ocupaciones de unidad, roles
+├── porteria/      casilleros, encomiendas, visitas, autorizaciones de salida
+├── reservas/      espacios reservables, políticas, reservas
+├── finanzas/      tarifas, cuotas de administración, pagos
 └── mercado/       perfiles de proveedor, servicios, solicitudes
 ```
+
+Los cuatro primeros existen hoy; el resto es el plan.
+
+Este diagrama es anterior al [glosario](../dominio/glosario.md) y decía `torres`,
+`seguridad/` y `comunidad/`. Se corrigió el **vocabulario**, no la decisión: torre
+es un tipo de agrupación, y un módulo se llama como la cosa que existe y no como
+la función que presta —la portería presta seguridad, y `comunidad` no es nada que
+se pueda señalar—.
 
 Cada módulo tiene su propio controlador, servicio y DTOs, y no importa servicios de otro módulo
 directamente. Cuando dos módulos necesiten hablarse, se hace por una interfaz explícita —no
