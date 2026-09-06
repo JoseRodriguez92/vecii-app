@@ -49,14 +49,14 @@ conciencia — el *por qué* de cada decisión vive ahí, no aquí.
 | `estructura` | `estructura · agrupaciones\|tipologias\|unidades` | listo, con carga masiva y chequeo de coeficientes |
 | `usuarios` | `usuarios` | listo |
 | `porteria` | `porteria · casilleros\|encomiendas\|invitados` | listo |
+| `reservas` | `reservas`, `reservas · espacios\|politicas` | listo |
 
 **RBAC por permisos.** Módulos → permisos → roles → asignaciones. Quién puede
 qué se edita en la base, no en el código. Al arrancar, la API verifica que todo
 permiso declarado exista sembrado y se niega a levantar si falta alguno.
 
-**Sin API todavía** (las tablas existen, los endpoints no): zonas comunes,
-horarios, espacios reservables, políticas de reserva, reservas, parqueaderos y
-asignaciones de parqueadero.
+**Sin API todavía** (las tablas existen, los endpoints no): zonas comunes con
+sus horarios, parqueaderos y asignaciones de parqueadero. Se cargan a mano.
 
 **Sin modelar:** control de ingreso (entrada/salida), tarifas, finanzas, asambleas.
 

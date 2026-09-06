@@ -85,51 +85,27 @@ migraciones definitivas:
 
 ---
 
-## 🔴 Antes de abrir reservas al público
+## 🟡 Reservas: lo que quedó fuera
 
-**Cupo de reservas concurrentes — esto NO se resuelve en código de aplicación**
+**El candado de concurrencia ya está puesto.** `ReservasService.crear` toma un
+`pg_advisory_xact_lock` por espacio antes de contar las solapadas, dentro de la
+misma transacción que inserta. Es un lock de transacción, así que se suelta solo
+al terminar y funciona igual detrás del pooler de Supabase. Serializa únicamente
+las reservas del mismo espacio.
 
-Dos personas reservan el último cupo en el mismo instante. Las dos consultas
-cuentan "hay 49 de 50 ocupados", las dos reciben que cabe, las dos insertan.
-Resultado: 51 reservas para 50 cupos.
+Lo que sigue pendiente de este módulo:
 
-Validar en el servicio no lo arregla: entre el `count` y el `insert` hay una
-ventana, y con concurrencia siempre se cuela.
-
-Como los espacios tienen **capacidad** (el salón es 1, el pool de visitantes es
-50), una restricción `EXCLUDE` de Postgres **no sirve** — esa solo sabe impedir
-solapamientos, no contar. La forma correcta es un **advisory lock** por espacio
-alrededor del conteo y la inserción, dentro de la misma transacción:
-
-```sql
--- dentro de la transaccion, antes de contar:
-SELECT pg_advisory_xact_lock(hashtextextended(:espacio_id, 0));
--- ahora contar solapadas y decidir; el lock se libera al hacer commit
-```
-
-Sirve igual para capacidad 1 y para capacidad 50, así que es un solo mecanismo.
-
-**CHECK de espacio bien formado en `espacios_reservables`**
-Un espacio apunta a una zona común **o** a un pool de parqueaderos, no a ambos
-ni a ninguno:
-
-```sql
-ALTER TABLE espacios_reservables ADD CONSTRAINT espacio_apunta_a_algo
-  CHECK ((zona_comun_id IS NULL) <> (naturaleza_parqueadero IS NULL));
-```
-
-**Capacidad vs. inventario real**
-Si el pool de visitantes declara capacidad 50 pero solo hay 30 filas en
-`parqueaderos` con naturaleza `VISITANTES`, hay una incoherencia. Vale un
-chequeo de salud que la reporte (no una restricción: la capacidad puede ser
-menor a propósito, reservando cupos para uso libre).
-
-**Tarifas y depósitos** — esperan a finanzas. La reserva guarda el hecho
-(espacio, franja); el cargo lo genera finanzas leyéndolo.
-
-**Un `SORTEO` sobre un parqueadero `PRIVADO` debe rechazarse.** En los privados
-solo tienen sentido `ESCRITURA`, `PRESTAMO` y `ARRIENDO`: rifar la propiedad de
-alguien no es una opción.
+- **`bloqueaConMora` se guarda pero no bloquea.** Necesita la consulta de mora,
+  que es de finanzas.
+- **Nadie marca `CUMPLIDA`.** Una reserva confirmada que pasó se queda en
+  `CONFIRMADA` para siempre. Falta una tarea que las cierre, o derivarlo de la
+  fecha y no guardar ese estado.
+- **Zonas comunes y parqueaderos no tienen API.** Las tablas existen y hoy se
+  cargan a mano. Sin zonas comunes cargadas, un espacio solo puede apuntar a un
+  pool de parqueaderos.
+- **Una reserva que cruza la medianoche** se rechaza cuando el espacio tiene
+  horario: hay que partirla en dos. Si aparece el caso de verdad —una fiesta que
+  termina a las 2am— toca validar contra dos franjas.
 
 ---
 

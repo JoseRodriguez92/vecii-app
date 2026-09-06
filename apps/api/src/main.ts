@@ -43,6 +43,9 @@ async function bootstrap() {
     .addTag('porteria · casilleros', 'La casilla fisica de cada unidad')
     .addTag('porteria · encomiendas', 'Lo que llega para las unidades y quien lo retira')
     .addTag('porteria · invitados', 'A quien autorizo cada unidad a entrar')
+    .addTag('reservas · espacios', 'Que se puede apartar y cuantos a la vez')
+    .addTag('reservas · politicas', 'Las reglas de cada espacio')
+    .addTag('reservas', 'Quien aparto que y cuando')
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
 

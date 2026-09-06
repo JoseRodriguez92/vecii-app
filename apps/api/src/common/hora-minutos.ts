@@ -30,3 +30,43 @@ export function minutosDeAhora(zonaHoraria = 'America/Bogota', ahora = new Date(
   const minuto = Number(partes.find((p) => p.type === 'minute')?.value ?? 0);
   return hora * 60 + minuto;
 }
+
+/**
+ * Dia de la semana y minutos desde medianoche de una fecha, EN LA ZONA DEL
+ * CONJUNTO.
+ *
+ * Hace falta para cruzar una reserva contra los horarios de la zona comun. Una
+ * reserva se guarda en UTC; el horario dice "los sabados de 8:00 a 22:00" en
+ * hora local. Comparar sin convertir corre la franja cinco horas y deja pasar
+ * reservas de madrugada.
+ */
+export function diaYMinutos(
+  fecha: Date,
+  zonaHoraria = 'America/Bogota',
+): { dia: string; minutos: number } {
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone: zonaHoraria,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(fecha);
+
+  const valor = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? '';
+  const DIAS: Record<string, string> = {
+    Mon: 'LUNES',
+    Tue: 'MARTES',
+    Wed: 'MIERCOLES',
+    Thu: 'JUEVES',
+    Fri: 'VIERNES',
+    Sat: 'SABADO',
+    Sun: 'DOMINGO',
+  };
+
+  // 24 en vez de 00 aparece a medianoche con hour12:false en algunos entornos.
+  const hora = Number(valor('hour')) % 24;
+  return {
+    dia: DIAS[valor('weekday')] ?? 'LUNES',
+    minutos: hora * 60 + Number(valor('minute')),
+  };
+}

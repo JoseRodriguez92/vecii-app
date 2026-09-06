@@ -57,6 +57,17 @@ export const PERMISOS = {
   /// vive, no de quien firma la escritura—. El alcance de fila lo verifica el
   /// servicio.
   PORTERIA_INVITADOS_MI_UNIDAD: 'porteria.invitados.mi_unidad',
+
+  // --- modulo: reservas ---
+  RESERVAS_LEER: 'reservas.leer',
+  /// Crear y editar los espacios reservables y sus politicas. Es del
+  /// administrador: define QUE se puede reservar y con que reglas.
+  RESERVAS_GESTIONAR: 'reservas.gestionar',
+  /// Apartar para una unidad propia. Lo tiene cualquiera que viva ahi, salvo que
+  /// la politica del espacio diga `soloPropietarios`.
+  RESERVAS_CREAR: 'reservas.crear',
+  /// Aprobar, rechazar, cancelar la de otro y marcar que no asistio.
+  RESERVAS_ADMINISTRAR: 'reservas.administrar',
 } as const;
 
 export type CodigoPermiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -90,6 +101,18 @@ export const MODULOS = [
       { codigo: PERMISOS.USUARIOS_GESTIONAR, nombre: 'Asignar roles y ocupaciones' },
       { codigo: PERMISOS.USUARIOS_CREAR, nombre: 'Registrar gente en cualquier unidad' },
       { codigo: PERMISOS.USUARIOS_CREAR_MI_UNIDAD, nombre: 'Registrar gente en mis unidades' },
+    ],
+  },
+  {
+    codigo: 'reservas',
+    nombre: 'Reservas',
+    descripcion: 'Que se puede apartar, con que reglas, y quien lo aparto.',
+    orden: 40,
+    permisos: [
+      { codigo: PERMISOS.RESERVAS_LEER, nombre: 'Ver espacios y reservas' },
+      { codigo: PERMISOS.RESERVAS_GESTIONAR, nombre: 'Definir espacios y politicas' },
+      { codigo: PERMISOS.RESERVAS_CREAR, nombre: 'Apartar para mis unidades' },
+      { codigo: PERMISOS.RESERVAS_ADMINISTRAR, nombre: 'Aprobar, rechazar y cancelar reservas' },
     ],
   },
   {
