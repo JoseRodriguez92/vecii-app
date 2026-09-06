@@ -20,11 +20,14 @@ export class RolesController {
     summary: 'Los roles con sus permisos',
     description:
       'El catalogo es global: los cargos son los mismos en toda Colombia. `asignable: false` ' +
-      'marca los que NO se otorgan a mano — PROPIETARIO y RESIDENTE se derivan de las ' +
-      'ocupaciones, y SUPER_ADMIN es staff de Vecii.',
+      'marca los que NO se otorgan a mano: PROPIETARIO y RESIDENTE se derivan de las ' +
+      'ocupaciones.\n\n' +
+      'Los roles de PLATAFORMA solo aparecen si quien pregunta es del equipo de Vecii. Un ' +
+      'administrador de conjunto no los ve, porque no los puede otorgar ni editar y verlos en ' +
+      'el desplegable solo invita a intentarlo.',
   })
-  listar() {
-    return this.roles.listar();
+  listar(@ConjuntoActivo() a: Ctx) {
+    return this.roles.listar(a);
   }
 
   @Patch(':codigo')

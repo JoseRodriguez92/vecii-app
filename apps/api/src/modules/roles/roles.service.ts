@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PermisosService } from '../../auth/permisos.service.js';
 import { PERMISOS } from '../../common/permisos.js';
-import { ROL } from '../../common/roles.js';
+import { Ambito, ROL } from '../../common/roles.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { ActualizarRolDto, ReemplazarPermisosDto } from './dto/rol.dto.js';
 
@@ -22,8 +22,17 @@ export class RolesService {
     });
   }
 
-  async listar() {
+  /**
+   * Los roles que le tocan a quien pregunta.
+   *
+   * Un rol de PLATAFORMA no tiene nada que hacer en la pantalla del
+   * administrador de un conjunto: no lo puede otorgar, no lo puede editar, y
+   * verlo en el desplegable solo invita a intentarlo. Se filtra aqui y no en el
+   * frontend, porque la interfaz no deberia tener que saber esta regla.
+   */
+  async listar(activo: ConjuntoActivo) {
     const roles = await this.prisma.rol.findMany({
+      where: activo.esDePlataforma ? {} : { ambito: Ambito.CONJUNTO },
       orderBy: { codigo: 'asc' },
       include: { permisos: { select: { permiso: { select: { codigo: true } } } } },
     });

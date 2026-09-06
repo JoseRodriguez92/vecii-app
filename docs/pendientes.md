@@ -65,6 +65,33 @@ Ojo con lo que **no** cambia: `PROPIETARIO` y `RESIDENTE` se siguen derivando de
 
 ---
 
+## 🔴 Los permisos también necesitan ámbito
+
+Mismo problema que tuvieron los roles, un nivel más abajo.
+
+`roles.plataforma` —nombrar staff de Vecii— es un permiso como cualquier otro en
+la tabla `permisos`, así que aparece en `GET /modulos` y va a aparecer en la
+pantalla donde se edita la matriz.
+
+Hoy no pasa nada porque `PUT /roles/:codigo/permisos` está bajo llave de
+`STAFF_VECII`. **Pero el paso final del plan es justamente quitarle esa llave.**
+El día que el administrador pueda editar su matriz, va a poder marcarle
+`roles.plataforma` a su propio `CONSEJO` — y desde ahí nombrar staff de Vecii.
+
+No alcanza con esconderlo en la interfaz: tiene que rechazarlo el servicio.
+
+Dos formas:
+
+- **Una lista de permisos solo-plataforma** en `common/permisos.ts`, y
+  `reemplazarPermisos` los rechaza si quien edita no es de Vecii. Barato, y
+  suficiente si son pocos.
+- **Un `ambito` en la tabla `permisos`**, simétrico al de `roles`. Más coherente
+  y lo puede filtrar `GET /modulos` solo.
+
+Hay que resolverlo **antes** de abrir la edición de la matriz, no después.
+
+---
+
 ## 🟡 Suplantar a un usuario para ver su interfaz
 
 Que el equipo de Vecii pueda mirar la app como la ve un residente del 501, para
