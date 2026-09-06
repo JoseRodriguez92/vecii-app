@@ -46,6 +46,8 @@ async function bootstrap() {
     .addTag('reservas · espacios', 'Que se puede apartar y cuantos a la vez')
     .addTag('reservas · politicas', 'Las reglas de cada espacio')
     .addTag('reservas', 'Quien aparto que y cuando')
+    .addTag('roles', 'Que puede hacer cada cargo')
+    .addTag('roles · modulos', 'El catalogo de permisos, agrupado')
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
 

@@ -12,6 +12,7 @@ import { PERMISOS } from '../../common/permisos.js';
 import type { CodigoRol } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { CerrarVinculoDto, RegistrarUsuarioDto } from './dto/usuario.dto.js';
+import type { OtorgarRolDto, TerminarRolDto } from '../roles/dto/rol.dto.js';
 
 @Injectable()
 export class UsuariosService {
@@ -264,6 +265,94 @@ export class UsuariosService {
     });
 
     return { cerrados: abiertos.length, hasta };
+  }
+
+  /**
+   * Otorga un cargo en el conjunto.
+   *
+   * `desde` es del periodo, no del clic: al consejo se entra por periodo, y el
+   * administrador registra la eleccion despues de que paso. Por eso se puede
+   * mandar una fecha anterior.
+   */
+  async otorgarRol(conjuntoId: string, usuarioId: string, autorId: string, dto: OtorgarRolDto) {
+    const vinculo = await this.prisma.usuarioConjunto.findFirst({
+      where: { usuarioId, conjuntoId },
+      select: { id: true },
+    });
+    if (!vinculo) throw new NotFoundException('Esa persona no pertenece a este conjunto');
+
+    const rol = await this.prisma.rol.findUnique({
+      where: { codigo: dto.codigo },
+      select: { id: true, nombre: true, asignable: true },
+    });
+    if (!rol) throw new NotFoundException(`No existe el rol ${dto.codigo}`);
+    if (!rol.asignable) {
+      throw new BadRequestException(
+        `${rol.nombre} no se otorga a mano. Propietario y residente se derivan de las unidades; ` +
+          'SUPER_ADMIN es staff de Vecii.',
+      );
+    }
+
+    const desde = dto.desde ? new Date(dto.desde) : new Date();
+    if (Number.isNaN(desde.getTime())) throw new BadRequestException('Fecha invalida');
+
+    const yaLoTiene = await this.prisma.usuarioConjuntoRol.findFirst({
+      where: { usuarioConjuntoId: vinculo.id, rolId: rol.id, ...rolVigente() },
+      select: { desde: true },
+    });
+    if (yaLoTiene) {
+      throw new BadRequestException(
+        `Esa persona ya es ${rol.nombre} desde ${yaLoTiene.desde.toISOString().slice(0, 10)}`,
+      );
+    }
+
+    return this.prisma.usuarioConjuntoRol.create({
+      data: {
+        usuarioConjuntoId: vinculo.id,
+        rolId: rol.id,
+        desde,
+        asignadoPorId: autorId,
+      },
+      include: { rol: { select: { codigo: true, nombre: true } } },
+    });
+  }
+
+  /**
+   * Termina un cargo. Cierra con `hasta`, no borra.
+   *
+   * Es para lo que existe la vigencia: cuando el consejo cambia, la fila del
+   * saliente se queda, porque "quien era consejero cuando se aprobo eso" es una
+   * pregunta que se hace en cada asamblea.
+   */
+  async terminarRol(
+    conjuntoId: string,
+    usuarioId: string,
+    codigo: string,
+    dto: TerminarRolDto,
+  ) {
+    const vigentes = await this.prisma.usuarioConjuntoRol.findMany({
+      where: {
+        usuarioConjunto: { usuarioId, conjuntoId },
+        rol: { codigo: codigo as never },
+        ...rolVigente(),
+      },
+      select: { id: true, desde: true },
+    });
+    if (vigentes.length === 0) {
+      throw new NotFoundException('Esa persona no tiene ese cargo vigente en este conjunto');
+    }
+
+    const hasta = dto.hasta ? new Date(dto.hasta) : new Date();
+    if (Number.isNaN(hasta.getTime())) throw new BadRequestException('Fecha invalida');
+    if (vigentes.some((v) => hasta <= v.desde)) {
+      throw new BadRequestException('El cargo terminaria antes de empezar');
+    }
+
+    await this.prisma.usuarioConjuntoRol.updateMany({
+      where: { id: { in: vigentes.map((v) => v.id) } },
+      data: { hasta },
+    });
+    return { codigo, cerrados: vigentes.length, hasta };
   }
 
   /** Los cargos se otorgan; propietario y residente se derivan de la unidad. */

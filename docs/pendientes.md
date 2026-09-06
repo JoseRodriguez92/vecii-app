@@ -253,28 +253,6 @@ no se ha tocado:
 
 ---
 
-## 🔴 El RBAC no es administrable
-
-`usuario_conjunto_roles` se escribe en un solo lugar: al registrar a alguien.
-Después no hay endpoint. Se eligió el consejo nuevo y **no hay forma de
-nombrarlos**, ni de cerrarle el período al saliente — que era justo lo que la
-vigencia `desde`/`hasta` estaba ahí para soportar.
-
-Y `roles_permisos`, cuyo punto entero era *"cambiar quién puede hacer qué sin
-desplegar código"*, solo la escribe el seed. Hoy se edita con SQL a mano.
-
-Falta:
-
-- `POST /usuarios/:id/roles` — otorgar un cargo, con `desde`.
-- `DELETE /usuarios/:id/roles/:rolId` — cerrarlo con `hasta`, no borrarlo.
-- `GET /roles` y `PUT /roles/:codigo/permisos` — editar la matriz.
-
-Ojo con dos reglas que ya están en el código y hay que respetar: solo se otorgan
-los roles `asignable`, y `PROPIETARIO`/`RESIDENTE` nunca — se derivan de las
-ocupaciones.
-
----
-
 ## 🟢 Herramientas del repo
 
 - Podar las ~12 skills que no aplican a Vecii (`prisma-mongodb-upgrade`,

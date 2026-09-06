@@ -68,6 +68,13 @@ export const PERMISOS = {
   RESERVAS_CREAR: 'reservas.crear',
   /// Aprobar, rechazar, cancelar la de otro y marcar que no asistio.
   RESERVAS_ADMINISTRAR: 'reservas.administrar',
+
+  // --- modulo: roles ---
+  ROLES_LEER: 'roles.leer',
+  /// Editar la matriz de que puede hacer cada rol. Es el permiso mas peligroso
+  /// del sistema: con el se otorgan todos los demas. Por eso va aparte de
+  /// `usuarios.gestionar`, que solo reparte cargos ya definidos.
+  ROLES_GESTIONAR: 'roles.gestionar',
 } as const;
 
 export type CodigoPermiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -101,6 +108,16 @@ export const MODULOS = [
       { codigo: PERMISOS.USUARIOS_GESTIONAR, nombre: 'Asignar roles y ocupaciones' },
       { codigo: PERMISOS.USUARIOS_CREAR, nombre: 'Registrar gente en cualquier unidad' },
       { codigo: PERMISOS.USUARIOS_CREAR_MI_UNIDAD, nombre: 'Registrar gente en mis unidades' },
+    ],
+  },
+  {
+    codigo: 'roles',
+    nombre: 'Roles y permisos',
+    descripcion: 'Que puede hacer cada cargo. Cambiarlo no exige desplegar codigo.',
+    orden: 50,
+    permisos: [
+      { codigo: PERMISOS.ROLES_LEER, nombre: 'Ver roles, modulos y permisos' },
+      { codigo: PERMISOS.ROLES_GESTIONAR, nombre: 'Editar que puede hacer cada rol' },
     ],
   },
   {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthUser } from '../../auth/auth-user.js';
 import type { ConjuntoActivo as Ctx } from '../../auth/conjunto-activo.js';
@@ -6,6 +6,7 @@ import { ConjuntoActivo } from '../../common/decorators/conjunto-activo.decorato
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequierePermiso } from '../../common/decorators/requiere-permiso.decorator.js';
 import { PERMISOS } from '../../common/permisos.js';
+import { OtorgarRolDto, TerminarRolDto } from '../roles/dto/rol.dto.js';
 import { CerrarVinculoDto, RegistrarUsuarioDto } from './dto/usuario.dto.js';
 import { UsuariosService } from './usuarios.service.js';
 
@@ -53,6 +54,43 @@ export class UsuariosController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.usuarios.registrar(a, user.id, dto);
+  }
+
+  @Post(':id/roles')
+  @RequierePermiso(PERMISOS.USUARIOS_GESTIONAR)
+  @ApiOperation({
+    summary: 'Otorga un cargo',
+    description:
+      'Nombrar al consejo, al revisor fiscal, al comite, a un portero. `desde` acepta una ' +
+      'fecha pasada porque es la del PERIODO, no la del clic: la eleccion se registra despues ' +
+      'de que paso.\n\n' +
+      'Solo los roles `asignable`. PROPIETARIO y RESIDENTE se rechazan: se derivan de las ' +
+      'ocupaciones, y otorgarlos a mano dejaria votando en asamblea a quien ya vendio.',
+  })
+  otorgarRol(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: OtorgarRolDto,
+    @ConjuntoActivo() a: Ctx,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.usuarios.otorgarRol(a.conjuntoId, id, user.id, dto);
+  }
+
+  @Delete(':id/roles/:codigo')
+  @RequierePermiso(PERMISOS.USUARIOS_GESTIONAR)
+  @ApiOperation({
+    summary: 'Termina un cargo',
+    description:
+      'Cierra con `hasta`, no borra. Para eso existe la vigencia: "quien era consejero cuando ' +
+      'se aprobo eso" es una pregunta que se hace en cada asamblea.',
+  })
+  terminarRol(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('codigo') codigo: string,
+    @Body() dto: TerminarRolDto,
+    @ConjuntoActivo() a: Ctx,
+  ) {
+    return this.usuarios.terminarRol(a.conjuntoId, id, codigo, dto);
   }
 
   @Patch(':id/unidades/:unidadId')

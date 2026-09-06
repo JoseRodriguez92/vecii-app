@@ -35,7 +35,7 @@ tag de Swagger).
 
 ## Qué hay funcionando
 
-**13 rutas, 58 endpoints.** Todo con Swagger documentado.
+**15 rutas, 64 endpoints.** Todo con Swagger documentado.
 
 | módulo | rutas | qué resuelve |
 |---|---|---|
@@ -45,6 +45,7 @@ tag de Swagger).
 | `usuarios` | `/usuarios` | registrar personas, quién vive dónde, cerrar vínculos |
 | `porteria` | `/casilleros` `/encomiendas` `/invitados` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
 | `reservas` | `/espacios-reservables` `/politicas-reserva` `/reservas` | qué se puede apartar, con qué reglas, y quién apartó |
+| `roles` | `/roles` `/modulos` | qué puede hacer cada cargo, editable sin desplegar |
 
 **RBAC por permisos.** Módulos → permisos → roles → asignaciones. Los roles de
 propietario y residente **se derivan** de `usuarios_unidades`, no se otorgan.
@@ -54,22 +55,9 @@ de la misma transacción que inserta.
 
 ---
 
-## Los dos huecos grandes
+## El hueco que queda
 
-### 1. El RBAC no es administrable
-
-`usuario_conjunto_roles` se escribe **en un solo lugar**: al registrar a alguien.
-Después no hay endpoint.
-
-> Se eligió el consejo nuevo. **No hay forma de nombrarlos**, ni de cerrarle el
-> período al saliente.
-
-Y `roles_permisos` —la tabla cuyo punto entero era *"cambiar quién puede hacer
-qué sin desplegar código"*— solo la escribe el seed. Hoy se edita con SQL.
-
-Está **modelado y aplicándose**, pero no administrable.
-
-### 2. El inventario físico no tiene API
+### El inventario físico no tiene API
 
 Cuatro tablas se cargan a mano, y eso deja módulos completos sin nada contra qué
 trabajar:
@@ -108,9 +96,8 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 ## Orden sugerido
 
 1. **Parqueaderos y zonas comunes** — desbloquean lo que ya está construido.
-2. **Administración de roles** — el hueco más incómodo del RBAC.
-3. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
-4. **Finanzas** — al final, cuando el resto genere los hechos que hay que cobrar.
+2. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
+3. **Finanzas** — al final, cuando el resto genere los hechos que hay que cobrar.
 
 ---
 
