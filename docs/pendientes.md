@@ -229,7 +229,7 @@ petición. Es la tarea 1 del [ADR-0001](adr/0001-autenticacion-supabase.md).
 
 ---
 
-## 🟡 Encomiendas: restricciones que Prisma no expresa
+## 🟡 Restricciones que Prisma no expresa
 
 **Una encomienda no puede ir a una unidad Y a una agrupación al mismo tiempo.**
 Los dos campos son opcionales para permitir los tres destinos (unidad / torre /
@@ -244,6 +244,25 @@ ALTER TABLE encomiendas ADD CONSTRAINT entrega_destino_unico
 **El casillero tiene que ser de la misma unidad a la que va la encomienda.** Hoy se
 puede guardar el paquete del 501 en el casillero del 302 sin que nada chille.
 Cruza tablas, así que no es un CHECK: va en el servicio.
+
+---
+
+**Un rol de plataforma no puede tener conjunto, ni al revés.** Hoy la coherencia
+entre `ambito` y `conjuntoId` depende de que el código se porte bien:
+
+```sql
+ALTER TABLE roles ADD CONSTRAINT rol_ambito_coherente
+  CHECK ((ambito = 'PLATAFORMA') = ("conjuntoId" IS NULL));
+```
+
+**Y un solo rol de plataforma por código.** `@@unique([conjuntoId, codigo])` no lo
+impide: Postgres trata los NULL como distintos, así que hoy caben dos
+`STAFF_VECII`.
+
+```sql
+CREATE UNIQUE INDEX rol_plataforma_codigo_unico
+  ON roles (codigo) WHERE "conjuntoId" IS NULL;
+```
 
 ---
 
