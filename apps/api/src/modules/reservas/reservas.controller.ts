@@ -7,7 +7,13 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequierePermiso } from '../../common/decorators/requiere-permiso.decorator.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { EstadoReserva } from '../../generated/prisma/enums.js';
-import { CancelarReservaDto, CrearReservaDto, RechazarReservaDto } from './dto/reserva.dto.js';
+import {
+  AsignarCupoDto,
+  CancelarReservaDto,
+  CrearReservaDto,
+  RechazarReservaDto,
+  RegistrarSalidaDto,
+} from './dto/reserva.dto.js';
 import { ReservasService } from './reservas.service.js';
 
 @ApiTags('reservas')
@@ -23,6 +29,11 @@ export class ReservasController {
   @ApiQuery({ name: 'estado', required: false, enum: EstadoReserva })
   @ApiQuery({ name: 'desde', required: false, example: '2026-09-01T00:00:00.000Z' })
   @ApiQuery({ name: 'hasta', required: false, example: '2026-10-01T00:00:00.000Z' })
+  @ApiQuery({
+    name: 'abiertas',
+    required: false,
+    description: 'Solo las que siguen sin salida: lo que porteria tiene pendiente de cerrar.',
+  })
   @ApiOperation({ summary: 'El calendario del conjunto' })
   listar(
     @ConjuntoActivo() a: Ctx,
@@ -31,8 +42,10 @@ export class ReservasController {
     @Query('estado') estado?: EstadoReserva,
     @Query('desde') desde?: string,
     @Query('hasta') hasta?: string,
+    @Query('abiertas') abiertas?: string,
   ) {
     return this.reservas.listar(a.conjuntoId, {
+      abiertas: abiertas === 'true',
       espacioId,
       unidadId,
       estado,
@@ -65,6 +78,41 @@ export class ReservasController {
   })
   crear(@Body() dto: CrearReservaDto, @ConjuntoActivo() a: Ctx, @CurrentUser() user: AuthUser) {
     return this.reservas.crear(a, user.id, dto);
+  }
+
+  @Post(':id/cupo')
+  @RequierePermiso(PERMISOS.RESERVAS_ADMINISTRAR)
+  @ApiOperation({
+    summary: 'Asigna el cupo concreto cuando llega el carro',
+    description:
+      'La reserva aparta "un espacio del pool"; esto dice cual le toco. Verifica que el cupo ' +
+      'sea de ese pool, este activo y no lo tenga otra reserva en la misma franja — es lo que ' +
+      'impide entregar el V-12 dos veces.',
+  })
+  asignarCupo(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AsignarCupoDto,
+    @ConjuntoActivo() a: Ctx,
+  ) {
+    return this.reservas.asignarCupo(a.conjuntoId, id, dto);
+  }
+
+  @Post(':id/salida')
+  @RequierePermiso(PERMISOS.RESERVAS_ADMINISTRAR)
+  @ApiOperation({
+    summary: 'Registra la salida y libera el cupo',
+    description:
+      'Solo para las reservas ABIERTAS —las de parqueadero, sin `fin`—. Cierra con la hora de ' +
+      'salida y devuelve los minutos, que es de donde saldra el cobro.\n\n' +
+      'El valor NO se guarda aqui: el hecho son las dos horas y el cargo lo genera finanzas. ' +
+      'Si manana corrigen una hora mal digitada, el valor se recalcula solo.',
+  })
+  salida(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RegistrarSalidaDto,
+    @ConjuntoActivo() a: Ctx,
+  ) {
+    return this.reservas.registrarSalida(a.conjuntoId, id, dto);
   }
 
   @Post(':id/aprobar')

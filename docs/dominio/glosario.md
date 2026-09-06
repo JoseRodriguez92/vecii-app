@@ -34,6 +34,20 @@ dos veces la misma cosa creyendo que son distintas.
 dura meses o años ("el P-101 es del 501"); la reserva dura horas ("el sábado de
 2 a 6").
 
+**Una reserva se cierra de dos formas, y depende de qué se apartó:**
+
+| | qué se hace | `fin` |
+|---|---|---|
+| zona común | se **aparta una franja** — el salón de 2 a 6 | obligatorio al crear |
+| pool de parqueaderos | se **ocupa un lugar** — hasta que la visita se vaya | null hasta la salida |
+
+Es **derivado**, no configurable: nadie sabe a qué hora se va su mamá, y obligar
+un `fin` ahí sería obligar a inventar un dato. Mientras `fin` es null el cupo
+sigue ocupado y la cuenta corre; `POST /reservas/:id/salida` lo cierra.
+
+Con el fin abierto, **la reserva es la visita**: por eso no existe una tabla
+`visitas` aparte.
+
 **Invitado vs. visitante** son dos conjuntos distintos, y no sinónimos:
 
 | | quién es | ejemplo |

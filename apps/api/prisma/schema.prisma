@@ -410,6 +410,7 @@ model Parqueadero {
   agrupacion  Agrupacion?              @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   unidad      Unidad?                  @relation("ParqueaderoEsUnidad", fields: [unidadId], references: [id], onDelete: SetNull)
   asignaciones AsignacionParqueadero[]
+  reservas     Reserva[]
 
   @@unique([conjuntoId, identificador])
   /// Habilita la FK compuesta desde Reserva.
@@ -584,8 +585,31 @@ model Reserva {
   solicitadaPorId String @db.Uuid
 
   inicio DateTime
-  fin    DateTime
+  /// NULL = todavia esta ocupado y la cuenta corre.
+  ///
+  /// Se DERIVA de a que apunta el espacio si es obligatorio o no, porque son dos
+  /// cosas distintas: una zona comun se aparta POR FRANJA —reservo el salon de 2
+  /// a 6, y ahi el fin se sabe y se exige—; un cupo de parqueadero se OCUPA, y
+  /// nadie sabe a que hora se va su mama. Obligar el fin ahi seria obligar a
+  /// inventar un dato y despues corregirlo.
+  ///
+  /// Con el fin abierto, la reserva ES la visita: se abre cuando llega y se
+  /// cierra cuando sale. De ese cierre sale cuanto se cobra.
+  ///
+  /// Ojo: una reserva abierta que nadie cierra se come el cupo para siempre. Lo
+  /// acota `duracionMaximaMinutos` de la politica. Ver docs/pendientes.md.
+  fin    DateTime?
   estado EstadoReserva @default(SOLICITADA)
+
+  /// Para quien es. Solo en el parqueadero de visitantes: en el salon comunal la
+  /// reserva es de la unidad y no hay una persona concreta.
+  invitadoId    String? @db.Uuid
+  /// El cupo CONCRETO que asigno porteria. La reserva apunta al pool —"un
+  /// espacio de visitantes"—; esto dice cual le toco.
+  parqueaderoId String? @db.Uuid
+  /// La placa del momento. Puede no ser la que tiene registrada el invitado: la
+  /// misma persona viene otro dia en otro carro.
+  placa         String?
 
   aprobadaPorId String?   @db.Uuid
   aprobadaEn    DateTime?
@@ -599,11 +623,16 @@ model Reserva {
   espacio       EspacioReservable @relation(fields: [espacioId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   unidad        Unidad            @relation("UnidadReserva", fields: [unidadId], references: [id], onDelete: Cascade)
   solicitadaPor Usuario      @relation("ReservasSolicitadas", fields: [solicitadaPorId], references: [id], onDelete: Restrict)
+  invitado      Invitado?         @relation(fields: [invitadoId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  parqueadero   Parqueadero?      @relation(fields: [parqueaderoId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   aprobadaPor   Usuario?     @relation("ReservasAprobadas", fields: [aprobadaPorId], references: [id], onDelete: SetNull)
 
   @@index([conjuntoId])
   @@index([espacioId, inicio])
   @@index([unidadId])
+  /// Las abiertas: lo que porteria tiene que cerrar.
+  @@index([conjuntoId, fin])
+  @@index([parqueaderoId])
   @@map("reservas")
 }
 
@@ -1083,7 +1112,10 @@ model Invitado {
   conjunto    Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
   unidad      Unidad   @relation("InvitadosUnidad", fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   invitadoPor Usuario  @relation("InvitadosAutorizados", fields: [invitadoPorId], references: [id], onDelete: Restrict)
+  reservas    Reserva[]
 
+  /// Habilita la FK compuesta desde Reserva.
+  @@unique([id, conjuntoId])
   /// La consulta de porteria: quien puede entrar ahora mismo.
   @@index([conjuntoId, hasta])
   @@index([unidadId])

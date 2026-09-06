@@ -95,6 +95,11 @@ las reservas del mismo espacio.
 
 Lo que sigue pendiente de este módulo:
 
+- **La reserva abierta que nadie cierra.** Sin `fin`, el cupo queda tomado para
+  siempre y la cuenta de esa unidad crece sola. Hace falta cerrarlas: una tarea
+  que las corte a las `duracionMaximaMinutos` de la política, o al menos una
+  alerta de "abiertas hace más de 12 horas". Hoy solo existe el filtro
+  `GET /reservas?abiertas=true`, que depende de que alguien lo mire.
 - **`bloqueaConMora` se guarda pero no bloquea.** Necesita la consulta de mora,
   que es de finanzas.
 - **Nadie marca `CUMPLIDA`.** Una reserva confirmada que pasó se queda en

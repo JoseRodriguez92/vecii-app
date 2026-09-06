@@ -5,7 +5,13 @@ import { PERMISOS } from '../../common/permisos.js';
 import { rolVigente } from '../../common/rol-vigente.js';
 import { EstadoReserva } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import type { CancelarReservaDto, CrearReservaDto, RechazarReservaDto } from './dto/reserva.dto.js';
+import type {
+  AsignarCupoDto,
+  CancelarReservaDto,
+  CrearReservaDto,
+  RechazarReservaDto,
+  RegistrarSalidaDto,
+} from './dto/reserva.dto.js';
 
 /** Estados que ocupan cupo. Una cancelada o rechazada libera el espacio. */
 const OCUPAN: EstadoReserva[] = [EstadoReserva.SOLICITADA, EstadoReserva.CONFIRMADA];
@@ -18,7 +24,14 @@ export class ReservasService {
 
   listar(
     conjuntoId: string,
-    f: { espacioId?: string; unidadId?: string; estado?: EstadoReserva; desde?: Date; hasta?: Date },
+    f: {
+      espacioId?: string;
+      unidadId?: string;
+      estado?: EstadoReserva;
+      desde?: Date;
+      hasta?: Date;
+      abiertas?: boolean;
+    },
   ) {
     return this.prisma.reserva.findMany({
       where: {
@@ -27,13 +40,18 @@ export class ReservasService {
         ...(f.unidadId ? { unidadId: f.unidadId } : {}),
         ...(f.estado ? { estado: f.estado } : {}),
         ...(f.hasta ? { inicio: { lt: f.hasta } } : {}),
-        ...(f.desde ? { fin: { gt: f.desde } } : {}),
+        // Una reserva abierta (fin null) sigue vigente hoy: no se puede filtrar
+        // por `fin > desde` sin dejarlas afuera.
+        ...(f.desde ? { OR: [{ fin: null }, { fin: { gt: f.desde } }] } : {}),
+        ...(f.abiertas ? { fin: null, estado: { in: OCUPAN } } : {}),
       },
       orderBy: { inicio: 'asc' },
       include: {
         espacio: { select: { id: true, nombre: true, capacidad: true } },
         unidad: { select: { id: true, identificador: true } },
         solicitadaPor: { select: { id: true, nombres: true, apellidos: true } },
+        invitado: { select: { id: true, nombre: true, numeroDocumento: true } },
+        parqueadero: { select: { id: true, identificador: true } },
       },
     });
   }
@@ -59,11 +77,16 @@ export class ReservasService {
    * El choque se resuelve con UNA regla, la misma para el salon comunal y para
    * los 50 cupos de visitantes: `reservas solapadas < capacidad`. El salon es
    * simplemente capacidad 1.
+   *
+   * El `fin` es obligatorio o no segun a que apunte el espacio, y eso NO es una
+   * preferencia: una zona comun se aparta por franja —el salon de 2 a 6— y un
+   * cupo de parqueadero se ocupa hasta que la visita se va. Sin `fin` la reserva
+   * queda ABIERTA y el cupo sigue tomado hasta que porteria registre la salida.
    */
   async crear(activo: ConjuntoActivo, usuarioId: string, dto: CrearReservaDto) {
     const inicio = new Date(dto.inicio);
-    const fin = new Date(dto.fin);
-    if (fin <= inicio) throw new BadRequestException('El fin va despues del inicio');
+    const fin = dto.fin ? new Date(dto.fin) : null;
+    if (fin && fin <= inicio) throw new BadRequestException('El fin va despues del inicio');
 
     const espacio = await this.prisma.espacioReservable.findFirst({
       where: { id: dto.espacioId, conjuntoId: activo.conjuntoId },
@@ -71,6 +94,13 @@ export class ReservasService {
     });
     if (!espacio) throw new NotFoundException('Ese espacio reservable no existe en este conjunto');
     if (!espacio.activo) throw new BadRequestException(`"${espacio.nombre}" esta fuera de servicio`);
+
+    // Derivado, no configurado: una sala se aparta por franja, un cupo se ocupa.
+    if (espacio.zonaComunId && !fin) {
+      throw new BadRequestException(
+        `"${espacio.nombre}" es una zona comun: se aparta por franja y hay que decir hasta cuando`,
+      );
+    }
 
     const relacion = await this.exigirAlcance(activo, usuarioId, dto.unidadId);
     const politica = espacio.politica;
@@ -80,8 +110,9 @@ export class ReservasService {
     }
 
     this.validarPolitica(espacio.nombre, politica, inicio, fin);
-    this.validarHorario(espacio.zonaComun, inicio, fin);
+    if (fin) this.validarHorario(espacio.zonaComun, inicio, fin);
     await this.validarCuposDeLaUnidad(politica, dto.unidadId, dto.espacioId, inicio);
+    if (dto.invitadoId) await this.validarInvitado(activo.conjuntoId, dto.invitadoId, dto.unidadId);
 
     const estado = politica?.requiereAprobacion
       ? EstadoReserva.SOLICITADA
@@ -89,7 +120,7 @@ export class ReservasService {
 
     return this.prisma.$transaction(async (tx) => {
       // Sin este candado, dos residentes que aparten el ultimo cupo en el mismo
-      // segundo cuentan los dos "quedan 1" y los dos crean su fila. Contar y
+      // segundo cuentan los dos "queda 1" y los dos crean su fila. Contar y
       // luego insertar NO es atomico por si solo.
       //
       // Es un lock de TRANSACCION: se suelta solo al terminar, asi que funciona
@@ -98,12 +129,7 @@ export class ReservasService {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${dto.espacioId}::text, 0::bigint))`;
 
       const solapadas = await tx.reserva.count({
-        where: {
-          espacioId: dto.espacioId,
-          estado: { in: OCUPAN },
-          inicio: { lt: fin },
-          fin: { gt: inicio },
-        },
+        where: { espacioId: dto.espacioId, estado: { in: OCUPAN }, ...this.solapa(inicio, fin) },
       });
       if (solapadas >= espacio.capacidad) {
         throw new BadRequestException(
@@ -113,12 +139,19 @@ export class ReservasService {
         );
       }
 
+      if (dto.parqueaderoId) {
+        await this.validarCupoLibre(tx, activo.conjuntoId, espacio, dto.parqueaderoId, inicio, fin);
+      }
+
       return tx.reserva.create({
         data: {
           conjuntoId: activo.conjuntoId,
           espacioId: dto.espacioId,
           unidadId: dto.unidadId,
           solicitadaPorId: usuarioId,
+          invitadoId: dto.invitadoId ?? null,
+          parqueaderoId: dto.parqueaderoId ?? null,
+          placa: this.normalizarPlaca(dto.placa),
           inicio,
           fin,
           estado,
@@ -126,6 +159,69 @@ export class ReservasService {
         },
       });
     });
+  }
+
+  /**
+   * Le asigna el cupo concreto cuando llega el carro. La reserva apartaba "un
+   * espacio del pool"; esto dice cual le toco.
+   */
+  async asignarCupo(conjuntoId: string, id: string, dto: AsignarCupoDto) {
+    const reserva = await this.exigirEnCurso(conjuntoId, id);
+    const espacio = await this.prisma.espacioReservable.findFirstOrThrow({
+      where: { id: reserva.espacioId },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${reserva.espacioId}::text, 0::bigint))`;
+      await this.validarCupoLibre(
+        tx,
+        conjuntoId,
+        espacio,
+        dto.parqueaderoId,
+        reserva.inicio,
+        reserva.fin,
+        id,
+      );
+      return tx.reserva.update({
+        where: { id },
+        data: {
+          parqueaderoId: dto.parqueaderoId,
+          ...(dto.placa ? { placa: this.normalizarPlaca(dto.placa) } : {}),
+        },
+      });
+    });
+  }
+
+  /**
+   * La salida: cierra una reserva abierta y libera el cupo.
+   *
+   * De aqui sale cuanto se cobra —desde `inicio` hasta ahora—, pero el valor NO
+   * se guarda: el hecho son las dos horas, y el cargo lo genera finanzas. Si
+   * manana corrigen una hora mal digitada, el valor se recalcula solo.
+   */
+  async registrarSalida(conjuntoId: string, id: string, dto: RegistrarSalidaDto) {
+    const reserva = await this.exigirEnCurso(conjuntoId, id);
+    if (reserva.fin) {
+      throw new BadRequestException(
+        'Esa reserva tiene fin definido: no se cierra con una salida, se cumple o se cancela',
+      );
+    }
+
+    const salida = dto.salidaEn ? new Date(dto.salidaEn) : new Date();
+    if (Number.isNaN(salida.getTime())) throw new BadRequestException('Fecha invalida');
+    if (salida <= reserva.inicio) {
+      throw new BadRequestException('La salida seria anterior a la entrada');
+    }
+
+    const actualizada = await this.prisma.reserva.update({
+      where: { id },
+      data: { fin: salida, estado: EstadoReserva.CUMPLIDA },
+    });
+
+    return {
+      ...actualizada,
+      minutos: Math.ceil((salida.getTime() - reserva.inicio.getTime()) / 60000),
+    };
   }
 
   async aprobar(conjuntoId: string, usuarioId: string, id: string) {
@@ -206,6 +302,11 @@ export class ReservasService {
     if (reserva.estado !== EstadoReserva.CONFIRMADA) {
       throw new BadRequestException('Solo una reserva confirmada puede quedar como no asistida');
     }
+    if (!reserva.fin) {
+      throw new BadRequestException(
+        'Esa reserva esta abierta: si nadie llego, se cancela; no aplica "no asistio"',
+      );
+    }
     if (reserva.fin > new Date()) {
       throw new BadRequestException('Esa reserva todavia no ha terminado');
     }
@@ -225,7 +326,7 @@ export class ReservasService {
     nombre: string,
     politica: { anticipacionMinimaHoras: number | null; anticipacionMaximaDias: number | null; duracionMinimaMinutos: number | null; duracionMaximaMinutos: number | null } | null,
     inicio: Date,
-    fin: Date,
+    fin: Date | null,
   ) {
     if (inicio.getTime() < Date.now()) {
       throw new BadRequestException('No se puede reservar hacia atras');
@@ -244,6 +345,9 @@ export class ReservasService {
       );
     }
 
+    // Una reserva abierta no tiene duracion todavia. `duracionMaximaMinutos`
+    // igual sirve: es el tope al que hay que cerrarla. Ver docs/pendientes.md.
+    if (!fin) return;
     const minutos = (fin.getTime() - inicio.getTime()) / 60000;
     if (politica.duracionMinimaMinutos && minutos < politica.duracionMinimaMinutos) {
       throw new BadRequestException(`Minimo ${politica.duracionMinimaMinutos} minutos`);
@@ -326,6 +430,88 @@ export class ReservasService {
           `Esa unidad ya lleva ${delMes} reserva(s) este mes y el maximo es ${politica.maxMensualesPorUnidad}`,
         );
       }
+    }
+  }
+
+  /**
+   * Filtro de solapamiento con intervalos abiertos.
+   *
+   * Dos franjas chocan si `A.inicio < B.fin` Y `B.inicio < A.fin`. Un `fin` en
+   * null es "hasta siempre", asi que esa mitad de la condicion se cumple sola.
+   */
+  private solapa(inicio: Date, fin: Date | null) {
+    return {
+      ...(fin ? { inicio: { lt: fin } } : {}),
+      OR: [{ fin: null }, { fin: { gt: inicio } }],
+    };
+  }
+
+  private normalizarPlaca(placa?: string) {
+    return placa ? placa.toUpperCase().replace(/[\s-]/g, '') : null;
+  }
+
+  /** El invitado tiene que ser de la misma unidad que responde por la reserva. */
+  private async validarInvitado(conjuntoId: string, invitadoId: string, unidadId: string) {
+    const invitado = await this.prisma.invitado.findFirst({
+      where: { id: invitadoId, conjuntoId },
+      select: { unidadId: true, nombre: true, hasta: true },
+    });
+    if (!invitado) throw new NotFoundException('Ese invitado no existe en este conjunto');
+    if (invitado.unidadId !== unidadId) {
+      throw new BadRequestException(`${invitado.nombre} esta autorizado en otra unidad`);
+    }
+    if (invitado.hasta && invitado.hasta <= new Date()) {
+      throw new BadRequestException(`La autorizacion de ${invitado.nombre} ya termino`);
+    }
+  }
+
+  /**
+   * El cupo concreto tiene que pertenecer al pool del espacio y estar libre.
+   *
+   * Esto es lo que impide que porteria entregue el V-12 dos veces. Va DENTRO del
+   * candado del espacio, por la misma razon que la cuenta de capacidad.
+   */
+  private async validarCupoLibre(
+    tx: { parqueadero: { findFirst: (a: unknown) => Promise<Record<string, unknown> | null> }; reserva: { findFirst: (a: unknown) => Promise<Record<string, unknown> | null> } },
+    conjuntoId: string,
+    espacio: { id: string; nombre: string; naturalezaParqueadero: string | null; agrupacionId: string | null },
+    parqueaderoId: string,
+    inicio: Date,
+    fin: Date | null,
+    ignorarReservaId?: string,
+  ) {
+    if (!espacio.naturalezaParqueadero) {
+      throw new BadRequestException(`"${espacio.nombre}" no es un pool de parqueaderos`);
+    }
+
+    const cupo = (await tx.parqueadero.findFirst({
+      where: { id: parqueaderoId, conjuntoId },
+      select: { identificador: true, naturaleza: true, agrupacionId: true, activo: true },
+    })) as { identificador: string; naturaleza: string; agrupacionId: string | null; activo: boolean } | null;
+
+    if (!cupo) throw new NotFoundException('Ese cupo no existe en este conjunto');
+    if (!cupo.activo) throw new BadRequestException(`El cupo ${cupo.identificador} esta fuera de servicio`);
+    if (cupo.naturaleza !== espacio.naturalezaParqueadero) {
+      throw new BadRequestException(
+        `El cupo ${cupo.identificador} no es de "${espacio.nombre}": es ${cupo.naturaleza}`,
+      );
+    }
+    if (espacio.agrupacionId && cupo.agrupacionId !== espacio.agrupacionId) {
+      throw new BadRequestException(`El cupo ${cupo.identificador} es de otra parte del conjunto`);
+    }
+
+    const ocupado = (await tx.reserva.findFirst({
+      where: {
+        parqueaderoId,
+        estado: { in: OCUPAN },
+        ...(ignorarReservaId ? { NOT: { id: ignorarReservaId } } : {}),
+        ...this.solapa(inicio, fin),
+      },
+      select: { id: true },
+    })) as { id: string } | null;
+
+    if (ocupado) {
+      throw new BadRequestException(`El cupo ${cupo.identificador} ya esta ocupado en esa franja`);
     }
   }
 

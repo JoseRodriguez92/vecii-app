@@ -48,7 +48,9 @@ export class EspaciosService {
         espacioId: id,
         estado: { in: ['SOLICITADA', 'CONFIRMADA'] },
         inicio: { lt: fin },
-        fin: { gt: desde },
+        // Una reserva abierta (fin null) ocupa el cupo hasta que porteria
+        // registre la salida: cuenta como ocupada siempre.
+        OR: [{ fin: null }, { fin: { gt: desde } }],
       },
     });
 
@@ -59,7 +61,7 @@ export class EspaciosService {
       reservados: ocupados,
       disponibles: Math.max(0, espacio.capacidad - ocupados),
       advertencia:
-        'Cuenta reservas, no ocupacion real: sin control de ingreso no se sabe que entro sin reservar.',
+        'Incluye las reservas abiertas, que ocupan hasta que porteria registre la salida.',
     };
   }
 
