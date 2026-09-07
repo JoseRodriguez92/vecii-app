@@ -57,7 +57,7 @@ puede cuidar, no que Prisma guarde ni que Nest enrute.
 
 ## Qué hay funcionando
 
-**20 rutas, 83 endpoints.** Todo con Swagger documentado.
+**22 rutas, 93 endpoints.** Todo con Swagger documentado.
 
 | módulo | rutas | qué resuelve |
 |---|---|---|
@@ -66,7 +66,7 @@ puede cuidar, no que Prisma guarde ni que Nest enrute.
 | `estructura` | `/agrupaciones` `/tipologias` `/unidades` | torres y etapas anidadas, plantas, unidades con carga masiva y chequeo de coeficientes |
 | `usuarios` | `/usuarios` | registrar personas, quién vive dónde, cerrar vínculos |
 | `instalaciones` | `/zonas-comunes` `/zonas-comunes/:id/horarios` `/parqueaderos` `/parqueaderos/:id/asignaciones` | los bienes comunes y a qué horas abren; los cupos y quién tiene derecho a cada uno |
-| `porteria` | `/casilleros` `/encomiendas` `/invitados` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
+| `porteria` | `/casilleros` `/encomiendas` `/invitados` `/vehiculos` `/bicicletas` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
 | `reservas` | `/espacios-reservables` `/politicas-reserva` `/reservas` | qué se puede apartar, con qué reglas, y quién apartó |
 | `roles` | `/roles` `/modulos` | qué puede hacer cada cargo. **Cada conjunto crea y administra los suyos** |
 | `plataforma` | `/usuarios-plataforma` | el equipo de Vecii y su acceso a todos los conjuntos |
@@ -151,6 +151,14 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 - **Un reparto masivo es UNA fila,** no una por unidad.
 - **Los cupos de visitantes no se asignan a nadie** y no llevan filas en
   `asignaciones_parqueadero`.
+- **Los vehículos van en `porteria`, no en `instalaciones`.** El carro de un
+  residente no es un bien del conjunto: es suyo. Lo que el conjunto hace con él
+  es dejarlo entrar, y eso es la puerta.
+- **Carros y bicicletas en tablas distintas.** Se identifican distinto: una placa
+  es única, pública y la puso el Estado; el serial de una bicicleta lo sabe el
+  dueño si tiene suerte. Una sola tabla habría obligado a que la placa fuera
+  opcional, y entonces deja de servir para lo único que sirve — que portería
+  teclee tres letras y sepa de quién es.
 - **La persona se separó de la cuenta.** `usuarios.id` era el `sub` de Supabase,
   así que anotar a alguien exigía crearle cuenta — y el administrador tiene que
   poder registrar al copropietario que no gestiona y al dueño que vive afuera,

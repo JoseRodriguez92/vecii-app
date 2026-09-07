@@ -60,6 +60,8 @@ async function bootstrap() {
     .addTag('porteria · casilleros', 'La casilla fisica de cada unidad')
     .addTag('porteria · encomiendas', 'Lo que llega para las unidades y quien lo retira')
     .addTag('porteria · invitados', 'A quien autorizo cada unidad a entrar')
+    .addTag('porteria · vehiculos', 'Los carros y motos de cada unidad')
+    .addTag('porteria · bicicletas', 'Las bicicletas registradas, para poder reclamar una robada')
     .addTag('instalaciones · zonas comunes', 'Bienes comunes: salon, piscina, gimnasio, BBQ')
     .addTag('instalaciones · horarios zona comun', 'A que horas abre cada zona, dia por dia')
     .addTag('instalaciones · parqueaderos', 'Los cupos, como cosa fisica')

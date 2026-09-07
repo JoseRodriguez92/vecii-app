@@ -167,6 +167,21 @@ enum EstadoConjunto {
   CANCELADO
 }
 
+/// Lo que rueda y tiene placa: carro o moto.
+///
+/// Va aparte de `bicicletas` porque se identifican distinto, y esa diferencia
+/// no es cosmetica: la placa es unica, publica y esta impuesta por el Estado;
+/// el serial de una bicicleta lo sabe el dueno si tiene suerte. Una sola tabla
+/// obligaria a que la placa fuera opcional, y entonces dejaria de servir para
+/// lo unico que sirve: que porteria teclee tres letras y sepa de quien es.
+///
+/// (La patineta electrica no cae en ninguna de las dos. Cuando aparezca el caso
+/// —y en Bogota va a aparecer— se renombra `bicicletas`.)
+enum TipoVehiculo {
+  CARRO
+  MOTO
+}
+
 /// Que llego a porteria. Solo cosas que porteria CUSTODIA o anuncia.
 ///
 /// No hay DOMICILIO ni MERCADO: las porterias no reciben comida. El domiciliario
@@ -241,6 +256,8 @@ model Conjunto {
   casilleros   Casillero[]
   encomiendas  Encomienda[]
   invitados    Invitado[]
+  vehiculos    Vehiculo[]
+  bicicletas   Bicicleta[]
 
   @@map("conjuntos")
 }
@@ -350,6 +367,8 @@ model Unidad {
   casillero     Casillero?
   encomiendas   Encomienda[]            @relation("EncomiendasUnidad")
   invitados     Invitado[]              @relation("InvitadosUnidad")
+  vehiculos     Vehiculo[]              @relation("VehiculosUnidad")
+  bicicletas    Bicicleta[]             @relation("BicicletasUnidad")
 
   /// El identificador es unico DENTRO de su agrupacion, no del conjunto: cada
   /// torre tiene su 101. Antes estaba como [conjuntoId, identificador] y eso
@@ -814,6 +833,8 @@ model Usuario {
   encomiendasRecibidas  Encomienda[]         @relation("EncomiendasRecibidas")
   encomiendasEntregadas Encomienda[]         @relation("EncomiendasEntregadas")
   invitadosAutorizados  Invitado[]           @relation("InvitadosAutorizados")
+  vehiculos             Vehiculo[]           @relation("VehiculosPropios")
+  bicicletas            Bicicleta[]          @relation("BicicletasPropias")
 
   @@unique([tipoDocumento, numeroDocumento])
   @@map("usuarios")
@@ -1147,6 +1168,90 @@ model Encomienda {
   @@index([agrupacionId])
   @@index([casilleroId])
   @@map("encomiendas")
+}
+
+/// El carro o la moto de una unidad.
+///
+/// Cuelga de la UNIDAD y no de la persona, igual que el parqueadero y que la
+/// deuda: si el arrendatario se va, el cupo sigue siendo del 501. El dueno
+/// concreto es opcional porque muchas veces no se sabe —o el carro es de la
+/// empresa, o del papa— y exigirlo llevaria a inventarlo.
+///
+/// Tiene vigencia por la misma razon que todo lo demas en este esquema: la gente
+/// vende el carro. Cerrar con `hasta` deja el historial, que es lo que se
+/// pregunta cuando algo pasa en el parqueadero el mes pasado.
+///
+/// NO es lo mismo que `Invitado.placa`. Aquel es la placa que anoto porteria de
+/// alguien que vino una vez; este es un vehiculo REGISTRADO por la unidad. La
+/// palabra se repite, los conjuntos son distintos.
+model Vehiculo {
+  id         String       @id @default(uuid()) @db.Uuid
+  conjuntoId String       @map("conjunto_id") @db.Uuid
+  unidadId   String       @map("unidad_id") @db.Uuid
+  tipo       TipoVehiculo
+  /// Sin espacios ni guiones y en mayusculas, como la teclea porteria en la
+  /// puerta. Normalizarla es lo que hace que la busqueda funcione: nadie escribe
+  /// "ABC 123" dos veces igual.
+  placa      String
+  marca      String?
+  color      String?
+  /// De quien es, si se sabe. Tiene que ser alguien registrado en el conjunto.
+  propietarioId String?   @map("propietario_id") @db.Uuid
+
+  desde       DateTime  @default(now())
+  /// Null = vigente. Con fecha = se vendio o se fue, pero queda el registro.
+  hasta       DateTime?
+  observacion String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  conjunto    Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  unidad      Unidad   @relation("VehiculosUnidad", fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  propietario Usuario? @relation("VehiculosPropios", fields: [propietarioId], references: [id], onDelete: SetNull)
+
+  /// La consulta de porteria: teclear una placa y ver de quien es.
+  @@index([conjuntoId, placa])
+  @@index([unidadId])
+  @@map("vehiculos")
+}
+
+/// La bicicleta de una unidad.
+///
+/// Existe por una razon muy concreta y muy colombiana: se las roban. Un registro
+/// con serial y color es lo que permite reclamar, y es lo que pide el
+/// bicicletero —que en este modelo es una `ZonaComun`, no un parqueadero: no es
+/// un cupo individual—.
+///
+/// El serial es opcional a proposito. Esta grabado en el marco y mucha gente no
+/// lo tiene a mano; exigirlo dejaria la mitad de las bicicletas sin registrar,
+/// que es peor que registrarlas a medias.
+model Bicicleta {
+  id         String @id @default(uuid()) @db.Uuid
+  conjuntoId String @map("conjunto_id") @db.Uuid
+  unidadId   String @map("unidad_id") @db.Uuid
+  /// Como se reconoce: "Trek negra rin 29", "azul de nina con canasta".
+  descripcion String
+  /// El del marco, si el dueno lo tiene. Es lo unico que sirve para reclamar
+  /// una robada.
+  serial      String?
+  marca       String?
+  color       String?
+  propietarioId String? @map("propietario_id") @db.Uuid
+
+  desde       DateTime  @default(now())
+  /// Null = vigente.
+  hasta       DateTime?
+  observacion String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  conjunto    Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  unidad      Unidad   @relation("BicicletasUnidad", fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  propietario Usuario? @relation("BicicletasPropias", fields: [propietarioId], references: [id], onDelete: SetNull)
+
+  @@index([conjuntoId])
+  @@index([unidadId])
+  @@map("bicicletas")
 }
 
 /// Alguien a quien una unidad autorizo a entrar al conjunto.

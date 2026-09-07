@@ -22,7 +22,9 @@ dos veces la misma cosa creyendo que son distintas.
 | Las reglas de un espacio | **política** | `politicas_reserva` | no lleva tarifas: eso es finanzas |
 | La casilla física de una unidad | **casillero** | `casilleros` | no "buzón" — no tiene llave |
 | Lo que le encomiendan a portería | **encomienda** | `encomiendas` | no "entrega" — eso es uno de sus estados |
-| Persona con cuenta en Vecii | **usuario** | `usuarios` | no "persona", no "residente" a secas |
+| Carro o moto de una unidad | **vehículo** | `vehiculos` | no "carro" — la moto también; y no es la placa de un invitado |
+| Bicicleta registrada por una unidad | **bicicleta** | `bicicletas` | va aparte: se identifica por serial, no por placa |
+| Persona, tenga cuenta o no | **usuario** | `usuarios` | no "persona" a secas, no "residente" — residente es un *rol* |
 
 Toda tabla tiene que aparecer en alguna de estas listas. Lo verifica
 `apps/api/scripts/verificar-vocabulario.mjs`.
@@ -242,6 +244,7 @@ sistema. Por eso van aquí. (`DiaSemana` es la única excepción declarada, en
 | `RelacionUnidad` | `PROPIETARIO` · `ARRENDATARIO` · `RESIDENTE_AUTORIZADO` | de aquí se **derivan** los roles propietario y residente |
 | `AmbitoRol` | `PLATAFORMA` · `CONJUNTO` | **dónde** se otorga un rol. No confundir con `asignable`, que dice **si** alguien lo otorga. El default es `CONJUNTO`, el menos peligroso |
 | `TipoEncomienda` | `PAQUETE` · `CORRESPONDENCIA` · `CERTIFICADO` · `OTRO` | **no hay domicilios**: las porterías no reciben comida, y sin custodia no hay encomienda |
+| `TipoVehiculo` | `CARRO` · `MOTO` | solo lo que tiene placa. La bicicleta va en su propia tabla, y la patineta eléctrica todavía no cae en ninguna |
 | `EstadoEncomienda` | `RECIBIDA` → `NOTIFICADA` → `ENTREGADA` / `DEVUELTA` | solo estados que **el sistema provoca**. No existe `REPARTIDA` porque nadie verifica que llenaron los casilleros |
 | `EstadoReserva` | `SOLICITADA` · `CONFIRMADA` · `CANCELADA` · `CUMPLIDA` · `NO_ASISTIO` | `NO_ASISTIO` existe porque muchos reglamentos sancionan la inasistencia, y sin el dato no hay cómo aplicarlo |
 | `EstadoVinculo`… | — | *(no existe: la vigencia se dice con `desde`/`hasta`, no con un estado)* |

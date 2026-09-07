@@ -42,6 +42,8 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
     PERMISOS.PORTERIA_LEER,
     PERMISOS.PORTERIA_ENCOMIENDAS_REGISTRAR,
     PERMISOS.PORTERIA_INVITADOS_GESTIONAR,
+    // El portero es quien ve entrar los carros: los registra y los consulta.
+    PERMISOS.PORTERIA_VEHICULOS_GESTIONAR,
     // Necesita ver las zonas y los parqueaderos: son el mapa de lo que cuida.
     PERMISOS.INSTALACIONES_LEER,
     PERMISOS.RESERVAS_LEER,
@@ -53,6 +55,7 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
     PERMISOS.USUARIOS_CREAR_MI_UNIDAD,
     PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD,
     PERMISOS.PORTERIA_INVITADOS_MI_UNIDAD,
+    PERMISOS.PORTERIA_VEHICULOS_MI_UNIDAD,
     PERMISOS.INSTALACIONES_LEER,
     PERMISOS.RESERVAS_LEER,
     PERMISOS.RESERVAS_CREAR,
@@ -61,6 +64,7 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
     PERMISOS.CONJUNTOS_LEER,
     PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD,
     PERMISOS.PORTERIA_INVITADOS_MI_UNIDAD,
+    PERMISOS.PORTERIA_VEHICULOS_MI_UNIDAD,
     // Sin esto no puede ver a que horas abre la piscina, que es justo lo que
     // mas se pregunta en un conjunto.
     PERMISOS.INSTALACIONES_LEER,

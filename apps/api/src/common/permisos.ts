@@ -60,6 +60,14 @@ export const PERMISOS = {
   /// servicio.
   PORTERIA_INVITADOS_MI_UNIDAD: 'porteria.invitados.mi_unidad',
 
+  /// Registrar los vehiculos y bicicletas de CUALQUIER unidad. Es de la
+  /// administracion y de porteria, que es quien los ve entrar.
+  PORTERIA_VEHICULOS_GESTIONAR: 'porteria.vehiculos.gestionar',
+  /// Registrar los de las unidades propias. Lo tiene cualquiera que viva ahi:
+  /// el carro es de quien lo maneja, no de quien firma la escritura. El alcance
+  /// de fila lo verifica el servicio.
+  PORTERIA_VEHICULOS_MI_UNIDAD: 'porteria.vehiculos.mi_unidad',
+
   // --- modulo: instalaciones ---
   /// Lo FISICO que el conjunto tiene y la gente usa: zonas comunes con sus
   /// horarios, y parqueaderos. Se llama asi y no `bienes_comunes` porque un
@@ -189,6 +197,8 @@ export const MODULOS: ModuloDeclarado[] = [
       { codigo: PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD, nombre: 'Ver las encomiendas de mis unidades' },
       { codigo: PERMISOS.PORTERIA_INVITADOS_GESTIONAR, nombre: 'Autorizar invitados en cualquier unidad' },
       { codigo: PERMISOS.PORTERIA_INVITADOS_MI_UNIDAD, nombre: 'Autorizar invitados en mis unidades' },
+      { codigo: PERMISOS.PORTERIA_VEHICULOS_GESTIONAR, nombre: 'Registrar vehiculos y bicicletas' },
+      { codigo: PERMISOS.PORTERIA_VEHICULOS_MI_UNIDAD, nombre: 'Registrar los de mis unidades' },
     ],
   },
   {
