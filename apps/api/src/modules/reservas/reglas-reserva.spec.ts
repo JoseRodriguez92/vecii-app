@@ -11,7 +11,7 @@
  * El 12 de septiembre de 2026 es sabado.
  */
 import { describe, expect, it } from 'vitest';
-import { normalizarPlaca, solapa, validarHorario, validarPolitica } from './reglas-reserva.js';
+import { solapa, validarHorario, validarPolitica } from './reglas-reserva.js';
 
 /** 8:00 a. m. del sabado, en Bogota. */
 const SABADO_8AM = new Date('2026-09-12T13:00:00.000Z');
@@ -140,18 +140,5 @@ describe('el filtro de solapamiento', () => {
 
   it('sin fin, "hasta siempre": esa mitad de la condicion se cumple sola', () => {
     expect(solapa(inicio, null)).toEqual({ OR: [{ fin: null }, { fin: { gt: inicio } }] });
-  });
-});
-
-describe('la placa', () => {
-  it('se guarda como la teclea porteria: mayusculas y sin separadores', () => {
-    expect(normalizarPlaca('abc 123')).toBe('ABC123');
-    expect(normalizarPlaca('abc-123')).toBe('ABC123');
-    expect(normalizarPlaca('ABC123')).toBe('ABC123');
-  });
-
-  it('sin placa es null, no cadena vacia: no vino el dato', () => {
-    expect(normalizarPlaca(undefined)).toBeNull();
-    expect(normalizarPlaca('')).toBeNull();
   });
 });

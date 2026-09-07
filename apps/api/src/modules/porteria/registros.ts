@@ -1,18 +1,19 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { rolVigente } from '../../common/rol-vigente.js';
 import type { PrismaService } from '../../prisma/prisma.service.js';
 
 /**
- * El alcance de FILA de porteria, en un solo lugar.
+ * Lo que comparten los tres registros de porteria —invitados, vehiculos y
+ * bicicletas—, que son la misma forma: algo que pertenece a una unidad, que
+ * estuvo vigente entre dos fechas y que porteria consulta en la puerta.
  *
- * El guard razona a nivel de CONJUNTO: sabe si alguien tiene un permiso aqui
- * adentro, no si esa unidad concreta es suya. Eso es mas fino y tiene que
- * resolverlo el servicio.
+ * Son tres preguntas: quien puede tocar esa unidad, que sigue vigente hoy, y
+ * con que contexto se lee la fila.
  *
- * Estaba escrito dentro de `invitados` y lo iban a copiar dos servicios mas.
- * Tres copias de una regla de autorizacion es como se abre un hueco: se corrige
- * una y las otras dos siguen abiertas.
+ * El alcance estaba escrito dentro de `invitados` y lo iban a copiar dos
+ * servicios mas. Tres copias de una regla de autorizacion es como se abre un
+ * hueco: se corrige una y las otras dos siguen abiertas.
  */
 
 /** Las unidades donde vive quien pregunta, en este conjunto. */
@@ -65,7 +66,27 @@ export function vigentes() {
   return { desde: { lte: ahora }, OR: [{ hasta: null }, { hasta: { gt: ahora } }] };
 }
 
-/** La placa como la teclea porteria: en mayusculas y sin separadores. */
-export function normalizarPlaca(placa: string): string {
-  return placa.toUpperCase().replace(/[\s-]/g, '');
+/**
+ * El propietario del carro o de la bicicleta tiene que estar registrado aqui.
+ *
+ * Es opcional a proposito: el carro puede ser del papa que no usa la app. Pero
+ * si viene, no puede ser cualquier id: seria un dueno de otro conjunto.
+ */
+export async function exigirPropietario(
+  prisma: PrismaService,
+  conjuntoId: string,
+  propietarioId?: string | null,
+): Promise<void> {
+  if (!propietarioId) return;
+  const esta = await prisma.usuarioConjunto.findFirst({
+    where: { usuarioId: propietarioId, conjuntoId, activo: true },
+    select: { id: true },
+  });
+  if (!esta) throw new BadRequestException('Esa persona no esta registrada en este conjunto');
 }
+
+/** De quien es y donde vive: lo que porteria necesita ver junto a la fila. */
+export const CON_CONTEXTO = {
+  unidad: { select: { id: true, identificador: true } },
+  propietario: { select: { id: true, nombres: true, apellidos: true } },
+} as const;

@@ -2,13 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { exigirAlcance, misUnidades, vigentes } from './alcance-unidad.js';
+import { CON_CONTEXTO, exigirAlcance, exigirPropietario, misUnidades, vigentes } from './registros.js';
 import type { ActualizarBicicletaDto, RegistrarBicicletaDto } from './dto/bicicleta.dto.js';
-
-const CON_CONTEXTO = {
-  unidad: { select: { id: true, identificador: true } },
-  propietario: { select: { id: true, nombres: true, apellidos: true } },
-} as const;
 
 const NO_PUEDE = 'Solo puedes registrar bicicletas en una unidad tuya';
 
@@ -55,7 +50,7 @@ export class BicicletasService {
       NO_PUEDE,
     );
     await this.exigirSerialLibre(activo.conjuntoId, dto.serial);
-    await this.exigirPropietario(activo.conjuntoId, dto.propietarioId);
+    await exigirPropietario(this.prisma, activo.conjuntoId, dto.propietarioId);
 
     return this.prisma.bicicleta.create({
       data: {
@@ -92,7 +87,7 @@ export class BicicletasService {
       await this.exigirSerialLibre(activo.conjuntoId, dto.serial);
     }
     if (dto.propietarioId !== undefined) {
-      await this.exigirPropietario(activo.conjuntoId, dto.propietarioId);
+      await exigirPropietario(this.prisma, activo.conjuntoId, dto.propietarioId);
     }
 
     return this.prisma.bicicleta.update({
@@ -148,14 +143,5 @@ export class BicicletasService {
         `Ese serial ya esta registrado en la unidad "${repetido.unidad.identificador}"`,
       );
     }
-  }
-
-  private async exigirPropietario(conjuntoId: string, propietarioId?: string | null) {
-    if (!propietarioId) return;
-    const esta = await this.prisma.usuarioConjunto.findFirst({
-      where: { usuarioId: propietarioId, conjuntoId, activo: true },
-      select: { id: true },
-    });
-    if (!esta) throw new BadRequestException('Esa persona no esta registrada en este conjunto');
   }
 }

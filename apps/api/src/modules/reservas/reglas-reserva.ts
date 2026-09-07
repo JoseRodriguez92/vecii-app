@@ -105,7 +105,3 @@ export function solapa(inicio: Date, fin: Date | null) {
     OR: [{ fin: null }, { fin: { gt: inicio } }],
   };
 }
-
-export function normalizarPlaca(placa?: string) {
-  return placa ? placa.toUpperCase().replace(/[\s-]/g, '') : null;
-}

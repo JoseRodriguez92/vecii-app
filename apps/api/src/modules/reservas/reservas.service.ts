@@ -5,13 +5,8 @@ import { rolVigente } from '../../common/rol-vigente.js';
 import { EstadoReserva, TipoNotificacion } from '../../generated/prisma/enums.js';
 import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
 import { OCUPAN, exigirEnCurso, validarCupoLibre } from './ocupacion.js';
-import {
-  HORA,
-  normalizarPlaca,
-  solapa,
-  validarHorario,
-  validarPolitica,
-} from './reglas-reserva.js';
+import { normalizarPlacaOpcional } from '../../common/placa.js';
+import { HORA, solapa, validarHorario, validarPolitica } from './reglas-reserva.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type {
   CancelarReservaDto,
@@ -155,7 +150,7 @@ export class ReservasService {
           solicitadaPorId: usuarioId,
           invitadoId: dto.invitadoId ?? null,
           parqueaderoId: dto.parqueaderoId ?? null,
-          placa: normalizarPlaca(dto.placa),
+          placa: normalizarPlacaOpcional(dto.placa),
           inicio,
           fin,
           estado,

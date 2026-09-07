@@ -4,7 +4,8 @@ import { PERMISOS } from '../../common/permisos.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { TipoNotificacion } from '../../generated/prisma/enums.js';
 import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
-import { exigirAlcance, misUnidades, normalizarPlaca, vigentes } from './alcance-unidad.js';
+import { normalizarPlaca } from '../../common/placa.js';
+import { exigirAlcance, misUnidades, vigentes } from './registros.js';
 import type { ActualizarInvitadoDto, AutorizarInvitadoDto } from './dto/invitado.dto.js';
 
 @Injectable()
@@ -143,7 +144,7 @@ export class InvitadosService {
   }
 
   /**
-   * Alcance de FILA, delegado a `alcance-unidad.ts`.
+   * Alcance de FILA, delegado a `registros.ts`.
    *
    * Aqui NO se exige ser propietario, a diferencia de registrar usuarios: los
    * amigos son de quien vive en la unidad, no de quien firma la escritura. Un

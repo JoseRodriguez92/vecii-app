@@ -2,13 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { exigirAlcance, misUnidades, normalizarPlaca, vigentes } from './alcance-unidad.js';
+import { normalizarPlaca } from '../../common/placa.js';
+import { CON_CONTEXTO, exigirAlcance, exigirPropietario, misUnidades, vigentes } from './registros.js';
 import type { ActualizarVehiculoDto, RegistrarVehiculoDto } from './dto/vehiculo.dto.js';
-
-const CON_CONTEXTO = {
-  unidad: { select: { id: true, identificador: true } },
-  propietario: { select: { id: true, nombres: true, apellidos: true } },
-} as const;
 
 const NO_PUEDE = 'Solo puedes registrar vehiculos en una unidad tuya';
 
@@ -61,7 +57,7 @@ export class VehiculosService {
     );
     const placa = normalizarPlaca(dto.placa);
     await this.exigirPlacaLibre(activo.conjuntoId, placa);
-    await this.exigirPropietario(activo.conjuntoId, dto.propietarioId);
+    await exigirPropietario(this.prisma, activo.conjuntoId, dto.propietarioId);
 
     return this.prisma.vehiculo.create({
       data: {
@@ -100,7 +96,7 @@ export class VehiculosService {
       await this.exigirPlacaLibre(activo.conjuntoId, placa);
     }
     if (dto.propietarioId !== undefined) {
-      await this.exigirPropietario(activo.conjuntoId, dto.propietarioId);
+      await exigirPropietario(this.prisma, activo.conjuntoId, dto.propietarioId);
     }
 
     return this.prisma.vehiculo.update({
@@ -166,14 +162,5 @@ export class VehiculosService {
           'Si el vehiculo cambio de dueno, dale de baja alla primero.',
       );
     }
-  }
-
-  private async exigirPropietario(conjuntoId: string, propietarioId?: string | null) {
-    if (!propietarioId) return;
-    const esta = await this.prisma.usuarioConjunto.findFirst({
-      where: { usuarioId: propietarioId, conjuntoId, activo: true },
-      select: { id: true },
-    });
-    if (!esta) throw new BadRequestException('Esa persona no esta registrada en este conjunto');
   }
 }

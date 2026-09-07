@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { EstadoReserva } from '../../generated/prisma/enums.js';
+import { normalizarPlaca } from '../../common/placa.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { AsignarCupoDto, RegistrarSalidaDto } from './dto/reserva.dto.js';
 import { exigirEnCurso, validarCupoLibre } from './ocupacion.js';
-import { normalizarPlaca } from './reglas-reserva.js';
 
 /**
  * Lo que hace porteria cuando el carro ya esta en la puerta.
