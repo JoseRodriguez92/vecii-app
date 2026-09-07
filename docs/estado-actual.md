@@ -57,7 +57,7 @@ puede cuidar, no que Prisma guarde ni que Nest enrute.
 
 ## Qué hay funcionando
 
-**20 rutas, 82 endpoints.** Todo con Swagger documentado.
+**20 rutas, 83 endpoints.** Todo con Swagger documentado.
 
 | módulo | rutas | qué resuelve |
 |---|---|---|
@@ -151,6 +151,12 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 - **Un reparto masivo es UNA fila,** no una por unidad.
 - **Los cupos de visitantes no se asignan a nadie** y no llevan filas en
   `asignaciones_parqueadero`.
+- **La persona se separó de la cuenta.** `usuarios.id` era el `sub` de Supabase,
+  así que anotar a alguien exigía crearle cuenta — y el administrador tiene que
+  poder registrar al copropietario que no gestiona y al dueño que vive afuera,
+  porque la Ley 675 le exige el registro de propietarios y residentes. Ahora se
+  identifica por **correo o documento**, y basta uno. El documento es la
+  identidad de verdad: todo el mundo tiene, no todo el mundo tiene correo.
 - **`zonas_comunes.reservable` se borró.** Decía lo mismo que tener un espacio
   reservable apuntando a la zona, y las dos podían contradecirse sin que nada lo
   impidiera —cruza dos tablas, ningún CHECK lo ve—. El seed lo mostraba en vivo:

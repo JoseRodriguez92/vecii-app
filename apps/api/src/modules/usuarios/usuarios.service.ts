@@ -82,7 +82,26 @@ export class UsuariosService {
    * con "olvide mi contrasena" — la cuenta ya esta creada.
    */
   async registrar(activo: ConjuntoActivo, autorId: string, dto: RegistrarUsuarioDto) {
-    const email = dto.email.trim().toLowerCase();
+    const email = dto.email?.trim().toLowerCase();
+
+    // Una persona se identifica por su correo o por su documento, y de los dos
+    // el que nunca falta es el documento: cedula, cedula de extranjeria,
+    // pasaporte, PPT o NIT. El correo solo hace falta si ademas va a ENTRAR a la
+    // app, y hay gente que tiene que estar registrada sin entrar nunca: el
+    // copropietario que no gestiona, el dueno que vive afuera, la empresa que
+    // compro el local. Ver docs/dominio/glosario.md.
+    const tipoDocumento = dto.tipoDocumento;
+    const numeroDocumento = dto.numeroDocumento?.trim();
+    const celular = dto.celular?.trim();
+    if (Boolean(tipoDocumento) !== Boolean(numeroDocumento)) {
+      throw new BadRequestException('El documento va completo: tipo y numero, o ninguno de los dos');
+    }
+    if (!email && !numeroDocumento && !celular) {
+      throw new BadRequestException(
+        'Hace falta al menos uno: correo, documento o celular. Sin ninguno no hay como ' +
+          'identificar a la persona, y un dato inventado seria peor que no tenerlo.',
+      );
+    }
 
     if (dto.unidadId && !dto.relacion) {
       throw new BadRequestException('Si indicas unidad, tienes que indicar la relacion');
@@ -130,40 +149,55 @@ export class UsuariosService {
     // nuestra base: no hay forma de deshacerla con un rollback. Si algo falla
     // despues, queda una cuenta huerfana que el proximo intento reutiliza —
     // `crearCuenta` devuelve el mismo id si el correo ya existe.
-    const cuenta = await this.supabase.crearCuenta(email);
+    //
+    // Sin correo no se crea nada: la persona queda registrada y sin acceso.
+    const cuenta = email ? await this.supabase.crearCuenta(email) : null;
 
-    const yaVigentes = await this.prisma.usuarioUnidad.findMany({
-      where: { usuarioId: cuenta.id, unidad: { conjuntoId: activo.conjuntoId }, ...rolVigente() },
-      select: { relacion: true, unidad: { select: { id: true, identificador: true } } },
+    const encontrada = await this.buscarPersona({
+      cuentaId: cuenta?.id,
+      email,
+      tipoDocumento,
+      numeroDocumento,
     });
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.usuario.upsert({
-        where: { id: cuenta.id },
-        create: {
-          id: cuenta.id,
-          email,
-          nombres: dto.nombres ?? null,
-          apellidos: dto.apellidos ?? null,
-          tipoDocumento: dto.tipoDocumento ?? null,
-          numeroDocumento: dto.numeroDocumento ?? null,
-          celular: dto.celular ?? null,
-        },
-        // Solo rellena lo que venga: registrar de nuevo a alguien no le borra
-        // los datos que el mismo ya corrigio en su perfil.
-        update: {
-          email,
-          ...(dto.nombres ? { nombres: dto.nombres } : {}),
-          ...(dto.apellidos ? { apellidos: dto.apellidos } : {}),
-          ...(dto.tipoDocumento ? { tipoDocumento: dto.tipoDocumento } : {}),
-          ...(dto.numeroDocumento ? { numeroDocumento: dto.numeroDocumento } : {}),
-          ...(dto.celular ? { celular: dto.celular } : {}),
-        },
-      });
+    // El documento manda sobre el correo. Si esa cedula ya esta a nombre de otra
+    // cuenta, no es un registro nuevo: es la misma persona con dos correos, o un
+    // error de digitacion. Fusionarlas en silencio dejaria a alguien con el
+    // acceso de otro.
+    if (encontrada && cuenta && encontrada.cuentaId && encontrada.cuentaId !== cuenta.id) {
+      throw new BadRequestException(
+        `Ese documento ya esta registrado con otra cuenta (${encontrada.email ?? 'sin correo'}). ` +
+          'Si es la misma persona, corrige el correo en su perfil en vez de registrarla de nuevo.',
+      );
+    }
+
+    const yaVigentes = encontrada
+      ? await this.prisma.usuarioUnidad.findMany({
+          where: { usuarioId: encontrada.id, unidad: { conjuntoId: activo.conjuntoId }, ...rolVigente() },
+          select: { relacion: true, unidad: { select: { id: true, identificador: true } } },
+        })
+      : [];
+
+    const usuarioId = await this.prisma.$transaction(async (tx) => {
+      // Solo rellena lo que venga: registrar de nuevo a alguien no le borra los
+      // datos que el mismo ya corrigio en su perfil.
+      const cambios = {
+        ...(email ? { email } : {}),
+        ...(cuenta ? { cuentaId: cuenta.id } : {}),
+        ...(dto.nombres ? { nombres: dto.nombres } : {}),
+        ...(dto.apellidos ? { apellidos: dto.apellidos } : {}),
+        ...(tipoDocumento ? { tipoDocumento } : {}),
+        ...(numeroDocumento ? { numeroDocumento } : {}),
+        ...(celular ? { celular } : {}),
+      };
+
+      const persona = encontrada
+        ? await tx.usuario.update({ where: { id: encontrada.id }, data: cambios })
+        : await tx.usuario.create({ data: cambios });
 
       const vinculo = await tx.usuarioConjunto.upsert({
-        where: { usuarioId_conjuntoId: { usuarioId: cuenta.id, conjuntoId: activo.conjuntoId } },
-        create: { usuarioId: cuenta.id, conjuntoId: activo.conjuntoId },
+        where: { usuarioId_conjuntoId: { usuarioId: persona.id, conjuntoId: activo.conjuntoId } },
+        create: { usuarioId: persona.id, conjuntoId: activo.conjuntoId },
         update: { activo: true },
       });
 
@@ -195,7 +229,7 @@ export class UsuariosService {
         // cerrarle una automaticamente le borraria el parqueadero.
         const existe = await tx.usuarioUnidad.findFirst({
           where: {
-            usuarioId: cuenta.id,
+            usuarioId: persona.id,
             unidadId: dto.unidadId,
             relacion: dto.relacion,
             ...rolVigente(),
@@ -205,7 +239,7 @@ export class UsuariosService {
         if (!existe) {
           await tx.usuarioUnidad.create({
             data: {
-              usuarioId: cuenta.id,
+              usuarioId: persona.id,
               unidadId: dto.unidadId,
               relacion: dto.relacion,
               desde,
@@ -213,16 +247,19 @@ export class UsuariosService {
           });
         }
       }
+
+      return persona.id;
     });
 
-    if (cuenta.enlace) {
+    if (cuenta?.enlace) {
       // TODO: enviarlo por SMTP propio cuando exista el modulo de notificaciones.
       this.logger.log(`Cuenta creada para ${email}. Falta enviar el enlace de acceso.`);
     }
 
     return {
-      usuarioId: cuenta.id,
-      yaTeniaCuenta: cuenta.yaTeniaCuenta,
+      usuarioId,
+      tieneAcceso: Boolean(cuenta),
+      yaTeniaCuenta: cuenta?.yaTeniaCuenta ?? false,
       correoEnviado: false,
       /** Unidades donde ya estaba vigente ANTES de este registro. */
       yaVigenteEn: yaVigentes.map((v) => ({
@@ -230,10 +267,94 @@ export class UsuariosService {
         identificador: v.unidad.identificador,
         relacion: v.relacion,
       })),
-      mensaje: cuenta.yaTeniaCuenta
-        ? 'Esa persona ya tenia cuenta en Vecii. Quedo vinculada al conjunto.'
-        : 'Usuario creado. Todavia no se le envio el correo de acceso: puede entrar con "olvide mi contrasena".',
+      mensaje: !cuenta
+        ? 'Persona registrada por su documento, sin acceso a la app. Cuando entregue un correo se le puede dar acceso.'
+        : cuenta.yaTeniaCuenta
+          ? 'Esa persona ya tenia cuenta en Vecii. Quedo vinculada al conjunto.'
+          : 'Usuario creado. Todavia no se le envio el correo de acceso: puede entrar con "olvide mi contrasena".',
     };
+  }
+
+  /**
+   * Le da acceso a alguien que ya esta registrado.
+   *
+   * Es la otra mitad de haber separado la persona de la cuenta: la
+   * administracion carga el padron un lunes con puros documentos, y la gente va
+   * entregando su correo con los meses. Esto no crea una persona nueva —crearla
+   * de nuevo la duplicaria— sino que le engancha una cuenta a la que ya existe.
+   */
+  async darAcceso(conjuntoId: string, usuarioId: string, correo: string) {
+    const email = correo.trim().toLowerCase();
+
+    const persona = await this.prisma.usuario.findFirst({
+      where: { id: usuarioId, conjuntos: { some: { conjuntoId } } },
+    });
+    if (!persona) throw new NotFoundException('Esa persona no esta registrada en este conjunto');
+    if (persona.cuentaId) {
+      throw new BadRequestException(
+        `Esa persona ya tiene acceso${persona.email ? ` con ${persona.email}` : ''}`,
+      );
+    }
+
+    const cuenta = await this.supabase.crearCuenta(email);
+
+    // Ese correo podria pertenecer a otra persona ya registrada. Enganchar la
+    // cuenta igual dejaria a dos personas compartiendo un acceso.
+    const dueno = await this.prisma.usuario.findFirst({
+      where: { cuentaId: cuenta.id, NOT: { id: usuarioId } },
+      select: { id: true },
+    });
+    if (dueno) {
+      throw new BadRequestException('Ese correo ya es el acceso de otra persona registrada');
+    }
+
+    await this.prisma.usuario.update({
+      where: { id: usuarioId },
+      data: { cuentaId: cuenta.id, email },
+    });
+
+    if (cuenta.enlace) {
+      this.logger.log(`Acceso creado para ${email}. Falta enviar el enlace.`);
+    }
+
+    return {
+      usuarioId,
+      tieneAcceso: true,
+      yaTeniaCuenta: cuenta.yaTeniaCuenta,
+      correoEnviado: false,
+      mensaje: 'Acceso creado. Puede entrar con "olvide mi contrasena" mientras no exista el SMTP.',
+    };
+  }
+
+  /**
+   * Encuentra a la persona por cualquiera de sus identidades, en orden de
+   * confianza: la cuenta que acaba de resolver Supabase, el documento, el correo.
+   */
+  private async buscarPersona(datos: {
+    cuentaId?: string;
+    email?: string;
+    tipoDocumento?: RegistrarUsuarioDto['tipoDocumento'];
+    numeroDocumento?: string;
+  }) {
+    if (datos.cuentaId) {
+      const porCuenta = await this.prisma.usuario.findUnique({
+        where: { cuentaId: datos.cuentaId },
+      });
+      if (porCuenta) return porCuenta;
+    }
+    if (datos.tipoDocumento && datos.numeroDocumento) {
+      // findFirst y no findUnique: Prisma no acepta nulos dentro de una clave
+      // unica compuesta, y los dos campos son opcionales en la tabla.
+      const porDocumento = await this.prisma.usuario.findFirst({
+        where: { tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento },
+      });
+      if (porDocumento) return porDocumento;
+    }
+    if (datos.email) {
+      const porCorreo = await this.prisma.usuario.findFirst({ where: { email: datos.email } });
+      if (porCorreo) return porCorreo;
+    }
+    return null;
   }
 
   /**

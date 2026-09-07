@@ -726,14 +726,34 @@ model ZonaComun {
   @@map("zonas_comunes")
 }
 
-/// Espejo de auth.users de Supabase. El id coincide con el sub del JWT.
+/// Una PERSONA. Puede tener cuenta en la app, o no.
+///
+/// Antes esta tabla era el espejo de `auth.users`: su `id` ERA el `sub` del JWT,
+/// asi que una persona no podia existir sin cuenta de Supabase. Y el
+/// administrador tiene que poder anotar a gente que nunca va a abrir la app —la
+/// copropietaria que no gestiona, el dueno que vive afuera, la empresa que
+/// compro el local— porque la Ley 675 (art. 51, num. 2) le exige llevar el
+/// registro de propietarios y residentes. La unica salida era inventarles un
+/// correo, que es guardar una mentira.
+///
+/// Ahora son dos cosas: la persona vive aqui con su propio id, y `cuentaId`
+/// dice si ademas tiene con que entrar. Se identifica por correo o por
+/// documento, y de los dos el que nunca falta es el documento: cedula,
+/// pasaporte, PPT o NIT.
 model Usuario {
-  id String @id @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
-  /// Opcional porque Supabase permite registrarse solo con telefono. Antes era
-  /// obligatorio y el codigo inventaba correos falsos (`uuid@sin-email.local`)
-  /// para poder guardar la fila. Nullable + unique convive bien: Postgres
-  /// considera los NULL distintos entre si.
+  /// El `sub` del JWT de Supabase, si esta persona tiene cuenta. Null = esta
+  /// registrada pero no puede entrar todavia.
+  ///
+  /// Va aparte del `id` y no en su lugar: si la persona se creara con el id de
+  /// Supabase, anotar a alguien sin cuenta obligaria a cambiarle el id el dia
+  /// que la abra, y siete tablas apuntan a ese id.
+  cuentaId String? @unique @map("cuenta_id") @db.Uuid
+
+  /// Opcional: hay gente registrada que no lo dio. Nullable + unique convive
+  /// bien porque Postgres considera los NULL distintos entre si, asi que caben
+  /// muchas personas sin correo.
   email     String? @unique
   /// Como en la cedula: NOMBRES y APELLIDOS. Dos campos y no cuatro: partirlo en
   /// mas se rompe con quien tiene un solo nombre, un solo apellido, o con
@@ -741,9 +761,11 @@ model Usuario {
   nombres   String?
   apellidos String?
 
-  /// Necesarios para emitir paz y salvos, cruzar contra la escritura e
-  /// identificar sin ambiguedad en un acta. Dos personas se llaman igual; dos
-  /// documentos no.
+  /// LA identidad, y no un dato mas. Todo el mundo tiene documento —cedula,
+  /// cedula de extranjeria, pasaporte, PPT o NIT si es empresa— y no todo el
+  /// mundo tiene correo. Hacen falta para emitir paz y salvos, cruzar contra la
+  /// escritura e identificar sin ambiguedad en un acta: dos personas se llaman
+  /// igual; dos documentos no.
   tipoDocumento   TipoDocumento? @map("tipo_documento")
   numeroDocumento String?        @map("numero_documento")
 

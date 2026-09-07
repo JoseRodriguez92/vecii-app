@@ -1,7 +1,7 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
-import type { AuthUser, SupabaseJwtPayload } from './auth-user.js';
+import type { SesionSupabase, SupabaseJwtPayload } from './auth-user.js';
 
 /**
  * Verifica los access tokens que emite Supabase Auth.
@@ -29,7 +29,7 @@ export class SupabaseJwtService {
     });
   }
 
-  async verify(token: string): Promise<AuthUser> {
+  async verify(token: string): Promise<SesionSupabase> {
     let payload: SupabaseJwtPayload;
 
     try {
@@ -48,6 +48,6 @@ export class SupabaseJwtService {
       throw new UnauthorizedException('Token invalido: falta el sujeto (sub)');
     }
 
-    return { id: payload.sub, email: payload.email, phone: payload.phone };
+    return { cuentaId: payload.sub, email: payload.email, phone: payload.phone };
   }
 }

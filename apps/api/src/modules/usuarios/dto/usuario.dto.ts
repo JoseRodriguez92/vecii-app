@@ -12,10 +12,29 @@ import {
 import { RelacionUnidad, TipoDocumento } from '../../../generated/prisma/enums.js';
 import { ROLES_DEL_SISTEMA } from '../../../common/roles.js';
 
-export class RegistrarUsuarioDto {
-  @ApiProperty({ example: 'jose@correo.com' })
+export class DarAccesoDto {
+  @ApiProperty({
+    description:
+      'El correo con el que va a entrar. Se le crea la cuenta y se le engancha a la persona ' +
+      'que ya existe — no se crea una persona nueva, que la duplicaria.',
+    example: 'marta@correo.com',
+  })
   @IsEmail()
   email!: string;
+}
+
+export class RegistrarUsuarioDto {
+  @ApiPropertyOptional({
+    description:
+      'Si viene, se le crea la cuenta y podra entrar a la app. Si no viene, la persona queda ' +
+      'registrada por su documento y sin acceso — que es el caso del copropietario que no ' +
+      'gestiona, del dueno que vive afuera, o de la empresa que compro el local. ' +
+      'Hace falta esto **o** el documento; los dos a la vez tambien vale.',
+    example: 'jose@correo.com',
+  })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 
   @ApiPropertyOptional({ example: 'Jose Manuel', maxLength: 80 })
   @IsOptional()
@@ -29,7 +48,13 @@ export class RegistrarUsuarioDto {
   @MaxLength(80)
   apellidos?: string;
 
-  @ApiPropertyOptional({ enum: TipoDocumento })
+  @ApiPropertyOptional({
+    enum: TipoDocumento,
+    description:
+      'Junto al numero, es LA identidad de la persona. Todo el mundo tiene documento y no todo ' +
+      'el mundo tiene correo. `PPT` es el permiso por proteccion temporal, y `NIT` cuando la ' +
+      'unidad la compro una empresa.',
+  })
   @IsOptional()
   @IsEnum(TipoDocumento)
   tipoDocumento?: TipoDocumento;
@@ -40,7 +65,14 @@ export class RegistrarUsuarioDto {
   @MaxLength(20)
   numeroDocumento?: string;
 
-  @ApiPropertyOptional({ example: '3001234567', maxLength: 20 })
+  @ApiPropertyOptional({
+    description:
+      'El celular. Sirve como identidad —basta correo, documento o celular— y es la puerta de ' +
+      'entrada de verdad: el dia que exista el OTP, la persona entra con este numero y el ' +
+      'sistema la reconoce sin que haya dado correo nunca.',
+    example: '3001234567',
+    maxLength: 20,
+  })
   @IsOptional()
   @IsString()
   @MaxLength(20)

@@ -171,6 +171,46 @@ mentir. Tampoco se llama `inventario`: en propiedad horizontal esa palabra ya
 nombra otra cosa —el inventario de bienes que el administrador entrega al
 salir— y la vamos a necesitar libre.
 
+## Persona y cuenta no son lo mismo
+
+| Palabra | Qué es | Dónde vive |
+|---|---|---|
+| **persona** | alguien del mundo real: un propietario, un residente, una empresa | una fila en `usuarios` |
+| **cuenta** | con qué entra a la app | `usuarios.cuenta_id`, que apunta a Supabase |
+
+Fueron la misma cosa hasta el 7 de septiembre: `usuarios.id` **era** el `sub` del
+JWT, la tabla era un espejo de `auth.users`, y por lo tanto **una persona no
+podía existir sin cuenta**.
+
+Eso no aguanta un conjunto real. La administración carga el padrón desde las
+escrituras, y de esos propietarios entran a la app una parte: los demás son el
+copropietario que no gestiona, el dueño que vive afuera, y la empresa que compró
+el local. A todos hay que anotarlos igual, porque la Ley 675 (art. 51, num. 2) le
+exige al administrador llevar el **registro de propietarios y residentes**, y de
+ahí salen el paz y salvo, la citación a la asamblea y saber quién responde por
+una unidad.
+
+La única salida era inventarles un correo. Y este proyecto no guarda mentiras:
+es la misma razón por la que `coeficiente` es `null` en vez de `0`.
+
+**La identidad es el documento, no el correo.** Todo el mundo tiene cédula,
+cédula de extranjería, pasaporte, PPT o NIT; no todo el mundo tiene correo. Por
+eso `@@unique([tipoDocumento, numeroDocumento])` y por eso `POST /usuarios` pide
+**correo o documento**, y basta uno.
+
+Tres consecuencias que conviene tener presentes:
+
+- `user.id` en el código es el id de la **persona**. La traducción desde el `sub`
+  del token la hace `SupabaseAuthGuard`, una sola vez por petición.
+- Enlazar una cuenta a una persona **nunca se hace por correo**. Sería cómodo y
+  sería un hueco: bastaría registrarse con el correo de otro para quedarse con su
+  identidad. Es un acto de la administración: `POST /usuarios/:id/acceso`.
+- Registrar a alguien y **darle acceso** son dos cosas distintas. Una unidad
+  puede tener dos propietarios registrados y un solo gestor con cuenta — que
+  además es como funciona la asamblea: [cada unidad la representa una sola
+  persona](https://www.ambitojuridico.com/noticias/general/para-el-ejercicio-del-derecho-al-voto-en-la-asamblea-general-de-propietarios-cada)
+  y el coeficiente no se divide.
+
 ## La familia de la propiedad
 
 Tres palabras con la misma raíz, en tres ejes distintos. **No son sinónimos:**

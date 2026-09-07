@@ -8,42 +8,6 @@ no tienen ADR propio.
 
 ---
 
-## 🔴 Una persona no puede existir sin cuenta
-
-**Es el que más pesa antes de construir la interfaz.**
-
-`Usuario.id` es el `sub` de Supabase —la tabla es un espejo de `auth.users`— y
-`POST /usuarios` exige `@IsEmail()` y crea la cuenta con `generateLink`. O sea
-que **registrar a alguien y darle acceso a la app son el mismo acto**, y hoy no
-hay forma de separarlos.
-
-Eso no aguanta un conjunto real. La administración carga el padrón desde las
-escrituras: 200 unidades, y de esos propietarios entran a la app tal vez 40. Los
-demás son señoras de 80 años, gente que vive en Miami, y empresas con NIT. A
-todos hay que poder registrarlos igual, porque de ellos dependen tres cosas que
-no son opcionales:
-
-- **cobrarles** — la cuota es de la unidad, pero el paz y salvo va a nombre del
-  propietario;
-- **citarlos y contar el quórum** en asamblea, ponderado por coeficiente
-  (Ley 675);
-- **saber quién responde** por una unidad cuando pasa algo.
-
-Hoy la única salida es inventarles un correo, que es exactamente lo que hacía el
-código viejo (`uuid@sin-email.local`) y que ya decidimos que estaba mal.
-
-→ **Separar la persona de la cuenta.** `Usuario.id` pasa a `@default(uuid())` y
-gana un campo aparte —nulo mientras no exista— con el `sub` de Supabase. Una
-persona se registra sin correo; el día que quiera entrar, se le crea la cuenta y
-se enlaza.
-
-**Por qué va antes de la interfaz:** `usuarios` es la tabla más referenciada del
-esquema —siete tablas apuntan a ella— y toda pantalla de residentes, de cobro y
-de asamblea se va a amarrar a esa forma. Hoy es una migración; después de la app
-es una migración con pantallas encima.
-
----
-
 ## 🟡 Suplantar a un usuario para ver su interfaz
 
 Que el equipo de Vecii pueda mirar la app como la ve un residente del 501, para
@@ -128,6 +92,42 @@ Lo que sigue pendiente de este módulo:
 - **Una reserva que cruza la medianoche** se rechaza cuando el espacio tiene
   horario: hay que partirla en dos. Si aparece el caso de verdad —una fiesta que
   termina a las 2am— toca validar contra dos franjas.
+
+---
+
+## 🔴 El ingreso de verdad: OTP al celular
+
+Hoy se entra con correo y contraseña, y eso deja por fuera a media Colombia: todo
+el mundo tiene celular y contesta WhatsApp; el correo mucha gente ni lo abre. El
+ingreso va a ser **las dos puertas** — correo con contraseña, o celular con un
+código— sobre **una sola cuenta**.
+
+Tres cosas hay que resolver, y en este orden:
+
+**1. El proveedor.** Supabase no manda SMS por su cuenta: hay que conectar
+Twilio, MessageBird, Vonage o TextLocal. **WhatsApp solo funciona a través de
+Twilio.** Vale la pena mirarlo antes que SMS: en Colombia sale más barato y la
+gente lo lee. Tiene costo por mensaje en cada ingreso.
+
+**2. Las dos puertas tienen que vivir en la MISMA cuenta de Supabase.** Hoy
+`crearCuenta` solo le pone el correo. Si la persona después entra por OTP con su
+celular, ese número no está en ninguna cuenta y Supabase le crearía una nueva con
+otro `sub` — o sea la misma persona dos veces, cada una con sus unidades a
+medias. Al registrar hay que ponerle el celular a esa misma cuenta.
+**Confirmarlo en un ambiente de prueba antes de creerlo**: la documentación no
+dice qué pasa con un teléfono que no está en ningún usuario.
+
+**3. El documento como segundo factor en el primer ingreso.** El OTP prueba que
+quien entra controla ese número; **no** prueba que el administrador lo tecleó
+bien. Si se equivocó en un dígito, el código llega al número de otra persona y
+funciona perfecto. Contra eso: después del OTP, pedirle el número de documento y
+enlazar solo si coincide. Dos factores independientes —el celular prueba
+posesión, el documento prueba identidad— y quien se equivocó tecleando no puede
+acertar los dos.
+
+Mientras tanto el guard ya enlaza por teléfono verificado
+(`SupabaseAuthGuard.personaDeLaCuenta`), y se abstiene si hay dos personas
+anotadas con el mismo número.
 
 ---
 

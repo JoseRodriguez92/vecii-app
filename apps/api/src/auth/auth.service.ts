@@ -10,26 +10,16 @@ export class AuthService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Sincroniza el usuario de Supabase con la tabla local y devuelve su perfil.
+   * El perfil de quien entro, con sus conjuntos.
    *
-   * No aplica ningun tramite pendiente: cuando el administrador registra a
+   * Ya no sincroniza nada: crear la persona a partir de la cuenta lo hace
+   * `SupabaseAuthGuard`, y lo hace para cualquier ruta y no solo para esta.
+   *
+   * Tampoco aplica ningun tramite pendiente: cuando el administrador registra a
    * alguien, sus vinculos con el conjunto y sus unidades se crean en ese
    * momento. Entrar por primera vez no cambia nada, solo lo lee.
-   *
-   * El email puede venir vacio: Supabase permite registrarse solo con telefono.
    */
   async syncAndGetProfile(user: AuthUser) {
-    const email = user.email?.trim().toLowerCase() ?? null;
-
-    await this.prisma.usuario.upsert({
-      where: { id: user.id },
-      create: { id: user.id, email, celular: user.phone ?? null },
-      update: {
-        ...(email ? { email } : {}),
-        ...(user.phone ? { celular: user.phone } : {}),
-      },
-    });
-
     return this.prisma.usuario.findUniqueOrThrow({
       where: { id: user.id },
       include: {
