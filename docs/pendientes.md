@@ -95,6 +95,34 @@ Lo que sigue pendiente de este módulo:
 
 ---
 
+## 🟡 El tiempo real, y por qué no lo hace Supabase
+
+Las 25 tablas tienen RLS habilitado **sin ninguna política**, así que la API REST
+de Supabase no las expone: la puerta está cerrada con llave, no con portero. Eso
+cierra un hueco que se abría solo el día del primer build —la llave publicable es
+pública por diseño y viaja dentro de la app— y lo cuida `verificar-rls.mjs`, que
+falla si aparece una tabla sin RLS.
+
+**La consecuencia asumida:** Supabase Realtime deja de servir directo al cliente,
+porque quien decide qué ve cada quien ahí es RLS. La alternativa habría sido
+escribir unas cien políticas —25 tablas por `SELECT`/`INSERT`/`UPDATE`/`DELETE`—
+replicando en SQL los 27 permisos y la matriz de roles. Dos sistemas de
+autorización que hay que mantener de acuerdo para siempre, que es el problema de
+`reservable` pero en el peor lugar posible.
+
+Así que el tiempo real se construye en Nest, donde el guard ya resuelve conjunto,
+roles y permisos. Y ahí la decisión es **SSE**, no WebSocket:
+
+- Todo lo que Vecii necesita empujar va en **una sola dirección** — llegó tu
+  encomienda, autorizaron un invitado, te confirmaron la reserva. Lo que el
+  usuario hace va por la API REST normal.
+- SSE es HTTP puro: **el mismo Bearer y el mismo guard**, reconexión automática
+  del protocolo, y Nest lo trae de fábrica con `@Sse()`. Autenticar un WebSocket
+  es un problema aparte, porque el handshake no lleva headers con facilidad.
+- El costo: **React Native no trae `EventSource`** —"Can't find variable:
+  EventSource"— así que el cliente necesita `react-native-sse`. Cuatro kilobytes
+  contra resolver la autenticación de un socket a mano.
+
 ## 🔴 El ingreso de verdad: OTP al celular
 
 Hoy se entra con correo y contraseña, y eso deja por fuera a media Colombia: todo

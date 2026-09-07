@@ -14,7 +14,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "lint": "oxlint src/ test/ && node scripts/verificar-schema.mjs prisma/schema.prisma && node scripts/verificar-vocabulario.mjs && node scripts/verificar-cliente.mjs",
+    "lint": "oxlint src/ test/ && node scripts/verificar-schema.mjs prisma/schema.prisma && node scripts/verificar-vocabulario.mjs && node scripts/verificar-rls.mjs && node scripts/verificar-cliente.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",

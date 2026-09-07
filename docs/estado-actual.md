@@ -41,12 +41,14 @@ npx tsc --noEmit     # tipos
 pnpm test            # las pruebas de dominio
 ```
 
-`pnpm lint` corre tres scripts propios: `verificar-schema.mjs` (campos duplicados,
+`pnpm lint` corre cuatro scripts propios: `verificar-schema.mjs` (campos duplicados,
 relaciones sin inversa, modelos sin `@@map`, columnas sin `@map`),
 `verificar-vocabulario.mjs` (que una misma cosa se llame igual en la tabla, la
-carpeta, la ruta, el permiso y el tag de Swagger), y `verificar-cliente.mjs` (que
-el cliente de Prisma no haya quedado viejo respecto al schema — el error que si
-no aparece como un "Unknown argument" que no dice que falta un `migrate dev`).
+carpeta, la ruta, el permiso y el tag de Swagger), `verificar-rls.mjs` (que
+ninguna tabla quede expuesta por la API de Supabase), y `verificar-cliente.mjs`
+(que el cliente de Prisma no haya quedado viejo respecto al schema — el error que
+si no aparece como un "Unknown argument" que no dice que falta un `migrate
+dev`).
 
 `pnpm test` corre Vitest. Hoy son 28 pruebas y todas son de **dominio puro**: la
 matriz de qué origen de derecho admite cada naturaleza de cupo. Ese es el
