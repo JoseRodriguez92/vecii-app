@@ -7,14 +7,14 @@ import { PERMISOS } from '../../common/permisos.js';
 import { ReemplazarHorariosDto } from './dto/horario.dto.js';
 import { HorariosService } from './horarios.service.js';
 
-@ApiTags('inventario · horarios zona comun')
+@ApiTags('instalaciones · horarios zona comun')
 @ApiBearerAuth()
 @Controller('zonas-comunes/:zonaId/horarios')
 export class HorariosController {
   constructor(private readonly horarios: HorariosService) {}
 
   @Get()
-  @RequierePermiso(PERMISOS.INVENTARIO_LEER)
+  @RequierePermiso(PERMISOS.INSTALACIONES_LEER)
   @ApiOperation({
     summary: 'A que horas abre',
     description:
@@ -26,7 +26,7 @@ export class HorariosController {
   }
 
   @Put()
-  @RequierePermiso(PERMISOS.INVENTARIO_GESTIONAR)
+  @RequierePermiso(PERMISOS.INSTALACIONES_GESTIONAR)
   @ApiOperation({
     summary: 'Reemplaza la semana entera',
     description:

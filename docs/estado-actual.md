@@ -51,7 +51,7 @@ quedado viejo respecto al schema — el error que si no aparece como un
 | `conjuntos` | `/conjuntos` | la copropiedad y su configuración |
 | `estructura` | `/agrupaciones` `/tipologias` `/unidades` | torres y etapas anidadas, plantas, unidades con carga masiva y chequeo de coeficientes |
 | `usuarios` | `/usuarios` | registrar personas, quién vive dónde, cerrar vínculos |
-| `inventario` | `/zonas-comunes` `/zonas-comunes/:id/horarios` | los bienes comunes y a que horas abren |
+| `instalaciones` | `/zonas-comunes` `/zonas-comunes/:id/horarios` | los bienes comunes y a que horas abren |
 | `porteria` | `/casilleros` `/encomiendas` `/invitados` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
 | `reservas` | `/espacios-reservables` `/politicas-reserva` `/reservas` | qué se puede apartar, con qué reglas, y quién apartó |
 | `roles` | `/roles` `/modulos` | qué puede hacer cada cargo. **Cada conjunto crea y administra los suyos** |
@@ -67,18 +67,18 @@ de la misma transacción que inserta.
 
 ## El hueco que queda
 
-### El inventario físico no tiene API
+### Los parqueaderos no tienen API
 
-Cuatro tablas se cargan a mano, y eso deja módulos completos sin nada contra qué
-trabajar:
+Las zonas comunes ya la tienen (módulo `instalaciones`). Faltan las otras dos
+tablas de ese mismo módulo, que hoy se cargan a mano:
 
 | tabla | consecuencia |
 |---|---|
-| `zonas_comunes` + `horarios_zona_comun` | **el salón comunal no se puede ni crear** — hoy un espacio solo puede apuntar a un pool de parqueaderos |
 | `parqueaderos` | los cupos V-01…V-50 no existen, así que `POST /reservas/:id/cupo` no tiene qué asignar |
 | `asignaciones_parqueadero` | no hay cómo decir "el P-101 es del 501" ni correr el sorteo anual |
 
-**Reservas está completo pero vacío.**
+Y falta la validación que cruza las dos: qué origen de asignación es válido para
+qué naturaleza de cupo. La tabla está escrita en [`pendientes.md`](pendientes.md).
 
 ---
 
@@ -144,9 +144,9 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 
 En [`pendientes.md`](pendientes.md), ordenados por urgencia. **No queda ninguno
 en rojo** fuera de los de facturación, que no aplican hasta que haya finanzas.
-El siguiente en la fila es el inventario físico: `zonas_comunes` y
-`parqueaderos` existen como tablas pero no tienen API, y sin ellas no se puede
-crear el salón comunal ni asignarle cupo a una reserva.
+El siguiente en la fila son los `parqueaderos` y sus asignaciones: existen como
+tablas pero no tienen API, y sin ellas `POST /reservas/:id/cupo` no tiene qué
+asignar.
 
 ---
 

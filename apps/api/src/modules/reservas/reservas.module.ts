@@ -10,8 +10,8 @@ import { ReservasService } from './reservas.service.js';
  * Apartar cosas del conjunto. Tres piezas: QUE se puede apartar (espacios), con
  * QUE reglas (politicas) y QUIEN aparto (reservas).
  *
- * El inventario fisico vive en `modules/inventario`. De ahi ya estan las zonas
- * comunes con sus horarios; faltan los parqueaderos, que hoy se cargan a mano.
+ * Lo fisico vive en `modules/instalaciones`. De ahi ya estan las zonas comunes
+ * con sus horarios; faltan los parqueaderos, que hoy se cargan a mano.
  */
 @Module({
   controllers: [EspaciosController, PoliticasController, ReservasController],

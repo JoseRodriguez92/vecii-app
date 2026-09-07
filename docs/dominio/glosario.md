@@ -145,7 +145,7 @@ módulo que existe**: `usuarios.crear`, `porteria.encomiendas.registrar`. Eso lo
 verifica el script, igual que verifica que el tag de Swagger termine en un nombre
 de tabla.
 
-## Estructura, inventario y reservas
+## Estructura, instalaciones y reservas
 
 Tres módulos que la gente confunde porque los tres hablan de "lo que hay en el
 conjunto". La diferencia es jurídica, no de tamaño:
@@ -153,14 +153,23 @@ conjunto". La diferencia es jurídica, no de tamaño:
 | Módulo | Qué agrupa | La prueba |
 |---|---|---|
 | `estructura` | la propiedad **privada** | tiene coeficiente y se vende |
-| `inventario` | los bienes **comunes** | no se venden y no pagan administración |
+| `instalaciones` | lo físico que se **usa** | el salón, la piscina, los cupos |
 | `reservas` | cómo se **reparte** lo que existe | no es una cosa, es un turno |
 
 Por eso una piscina no va en `unidades` aunque sea una cosa del conjunto: meterla
 ahí termina, tarde o temprano, en un recibo a nombre de la piscina.
 
-`inventario` cubre `zonas_comunes` con sus `horarios_zona_comun`, y
+`instalaciones` cubre `zonas_comunes` con sus `horarios_zona_comun`, y
 `parqueaderos` con sus `asignaciones_parqueadero`.
+
+**No se llama `bienes_comunes`, y es a propósito.** Ese es el término de la Ley
+675 y sería el más preciso si el contenido lo aguantara, pero no lo aguanta: un
+parqueadero `PRIVADO` no es un bien común —tiene matrícula y coeficiente, y
+existe además como `unidad`— y vive en la misma tabla que los de visitantes.
+`instalaciones` no afirma nada sobre quién es dueño, así que cubre a los dos sin
+mentir. Tampoco se llama `inventario`: en propiedad horizontal esa palabra ya
+nombra otra cosa —el inventario de bienes que el administrador entrega al
+salir— y la vamos a necesitar libre.
 
 ## La familia de la propiedad
 

@@ -7,14 +7,14 @@ import { PERMISOS } from '../../common/permisos.js';
 import { ActualizarZonaComunDto, CrearZonaComunDto } from './dto/zona-comun.dto.js';
 import { ZonasService } from './zonas.service.js';
 
-@ApiTags('inventario · zonas comunes')
+@ApiTags('instalaciones · zonas comunes')
 @ApiBearerAuth()
 @Controller('zonas-comunes')
 export class ZonasController {
   constructor(private readonly zonas: ZonasService) {}
 
   @Get()
-  @RequierePermiso(PERMISOS.INVENTARIO_LEER)
+  @RequierePermiso(PERMISOS.INSTALACIONES_LEER)
   @ApiQuery({ name: 'incluirInactivas', required: false })
   @ApiQuery({ name: 'agrupacionId', required: false })
   @ApiQuery({ name: 'soloReservables', required: false })
@@ -39,7 +39,7 @@ export class ZonasController {
   }
 
   @Get(':id')
-  @RequierePermiso(PERMISOS.INVENTARIO_LEER)
+  @RequierePermiso(PERMISOS.INSTALACIONES_LEER)
   @ApiOperation({
     summary: 'Una zona con sus horarios',
     description:
@@ -51,7 +51,7 @@ export class ZonasController {
   }
 
   @Post()
-  @RequierePermiso(PERMISOS.INVENTARIO_GESTIONAR)
+  @RequierePermiso(PERMISOS.INSTALACIONES_GESTIONAR)
   @ApiOperation({
     summary: 'Crea una zona comun',
     description:
@@ -64,7 +64,7 @@ export class ZonasController {
   }
 
   @Patch(':id')
-  @RequierePermiso(PERMISOS.INVENTARIO_GESTIONAR)
+  @RequierePermiso(PERMISOS.INSTALACIONES_GESTIONAR)
   @ApiOperation({
     summary: 'Actualiza una zona comun',
     description:

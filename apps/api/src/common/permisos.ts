@@ -60,18 +60,21 @@ export const PERMISOS = {
   /// servicio.
   PORTERIA_INVITADOS_MI_UNIDAD: 'porteria.invitados.mi_unidad',
 
-  // --- modulo: inventario ---
-  /// El inventario FISICO del conjunto: zonas comunes con sus horarios, y
-  /// parqueaderos. Es distinto de `estructura`, que es la propiedad privada
+  // --- modulo: instalaciones ---
+  /// Lo FISICO que el conjunto tiene y la gente usa: zonas comunes con sus
+  /// horarios, y parqueaderos. Se llama asi y no `bienes_comunes` porque un
+  /// parqueadero PRIVADO no es un bien comun —tiene matricula y coeficiente— y
+  /// vive en la misma tabla; `instalaciones` no afirma nada sobre quien es
+  /// dueno. Es distinto de `estructura`, que es la propiedad privada
   /// —lo que tiene coeficiente y se vende—; y distinto de `reservas`, que dice
   /// como se reparte lo que aqui existe. Un bien comun no se vende y no paga
   /// administracion: por eso no cabe en ninguno de los dos.
-  INVENTARIO_LEER: 'inventario.leer',
-  /// Crear y editar zonas comunes, sus horarios y los parqueaderos. Es del
+  INSTALACIONES_LEER: 'instalaciones.leer',
+  /// Crear y editar las zonas comunes, sus horarios y los parqueaderos. Es del
   /// administrador. Lo pusimos junto y no separado por recurso porque es la
   /// misma persona la que carga las dos cosas, y separarlo hoy solo agregaria
   /// una casilla mas a la pantalla de permisos sin que nadie la use distinto.
-  INVENTARIO_GESTIONAR: 'inventario.gestionar',
+  INSTALACIONES_GESTIONAR: 'instalaciones.gestionar',
 
   // --- modulo: reservas ---
   RESERVAS_LEER: 'reservas.leer',
@@ -200,13 +203,13 @@ export const MODULOS: ModuloDeclarado[] = [
     ],
   },
   {
-    codigo: 'inventario',
-    nombre: 'Inventario fisico',
+    codigo: 'instalaciones',
+    nombre: 'Instalaciones',
     descripcion: 'Zonas comunes con sus horarios, y parqueaderos.',
     orden: 25,
     permisos: [
-      { codigo: PERMISOS.INVENTARIO_LEER, nombre: 'Ver el inventario fisico' },
-      { codigo: PERMISOS.INVENTARIO_GESTIONAR, nombre: 'Crear y editar el inventario fisico' },
+      { codigo: PERMISOS.INSTALACIONES_LEER, nombre: 'Ver las instalaciones' },
+      { codigo: PERMISOS.INSTALACIONES_GESTIONAR, nombre: 'Crear y editar las instalaciones' },
     ],
   },
 ] as const;
