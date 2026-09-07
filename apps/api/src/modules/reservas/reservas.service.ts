@@ -1,6 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
-import { diaYMinutos, formatearHora } from '../../common/hora-minutos.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { rolVigente } from '../../common/rol-vigente.js';
 import type { Prisma } from '../../generated/prisma/client.js';
@@ -10,6 +9,13 @@ import {
   TipoNotificacion,
 } from '../../generated/prisma/enums.js';
 import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
+import {
+  HORA,
+  normalizarPlaca,
+  solapa,
+  validarHorario,
+  validarPolitica,
+} from './reglas-reserva.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type {
   AsignarCupoDto,
@@ -22,7 +28,6 @@ import type {
 /** Estados que ocupan cupo. Una cancelada o rechazada libera el espacio. */
 const OCUPAN: EstadoReserva[] = [EstadoReserva.SOLICITADA, EstadoReserva.CONFIRMADA];
 
-const HORA = 60 * 60 * 1000;
 
 @Injectable()
 export class ReservasService {
@@ -118,8 +123,8 @@ export class ReservasService {
       throw new ForbiddenException(`"${espacio.nombre}" solo lo pueden reservar los propietarios`);
     }
 
-    this.validarPolitica(espacio.nombre, politica, inicio, fin);
-    if (fin) this.validarHorario(espacio.zonaComun, inicio, fin);
+    validarPolitica(espacio.nombre, politica, inicio, fin);
+    if (fin) validarHorario(espacio.zonaComun, inicio, fin);
     await this.validarCuposDeLaUnidad(politica, dto.unidadId, dto.espacioId, inicio);
     if (dto.invitadoId) await this.validarInvitado(activo.conjuntoId, dto.invitadoId, dto.unidadId);
 
@@ -138,7 +143,7 @@ export class ReservasService {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${dto.espacioId}::text, 0::bigint))`;
 
       const solapadas = await tx.reserva.count({
-        where: { espacioId: dto.espacioId, estado: { in: OCUPAN }, ...this.solapa(inicio, fin) },
+        where: { espacioId: dto.espacioId, estado: { in: OCUPAN }, ...solapa(inicio, fin) },
       });
       if (solapadas >= espacio.capacidad) {
         throw new BadRequestException(
@@ -160,7 +165,7 @@ export class ReservasService {
           solicitadaPorId: usuarioId,
           invitadoId: dto.invitadoId ?? null,
           parqueaderoId: dto.parqueaderoId ?? null,
-          placa: this.normalizarPlaca(dto.placa),
+          placa: normalizarPlaca(dto.placa),
           inicio,
           fin,
           estado,
@@ -248,7 +253,7 @@ export class ReservasService {
         where: { id },
         data: {
           parqueaderoId: dto.parqueaderoId,
-          ...(dto.placa ? { placa: this.normalizarPlaca(dto.placa) } : {}),
+          ...(dto.placa ? { placa: normalizarPlaca(dto.placa) } : {}),
         },
       });
     });
@@ -419,79 +424,6 @@ export class ReservasService {
     return activo.permisos.has(PERMISOS.RESERVAS_ADMINISTRAR);
   }
 
-  private validarPolitica(
-    nombre: string,
-    politica: { anticipacionMinimaHoras: number | null; anticipacionMaximaDias: number | null; duracionMinimaMinutos: number | null; duracionMaximaMinutos: number | null } | null,
-    inicio: Date,
-    fin: Date | null,
-  ) {
-    if (inicio.getTime() < Date.now()) {
-      throw new BadRequestException('No se puede reservar hacia atras');
-    }
-    if (!politica) return;
-
-    const horasDeAnticipacion = (inicio.getTime() - Date.now()) / HORA;
-    if (politica.anticipacionMinimaHoras && horasDeAnticipacion < politica.anticipacionMinimaHoras) {
-      throw new BadRequestException(
-        `"${nombre}" se reserva con al menos ${politica.anticipacionMinimaHoras} horas de anticipacion`,
-      );
-    }
-    if (politica.anticipacionMaximaDias && horasDeAnticipacion > politica.anticipacionMaximaDias * 24) {
-      throw new BadRequestException(
-        `"${nombre}" no se puede reservar con mas de ${politica.anticipacionMaximaDias} dias de anticipacion`,
-      );
-    }
-
-    // Una reserva abierta no tiene duracion todavia. `duracionMaximaMinutos`
-    // igual sirve: es el tope al que hay que cerrarla. Ver docs/pendientes.md.
-    if (!fin) return;
-    const minutos = (fin.getTime() - inicio.getTime()) / 60000;
-    if (politica.duracionMinimaMinutos && minutos < politica.duracionMinimaMinutos) {
-      throw new BadRequestException(`Minimo ${politica.duracionMinimaMinutos} minutos`);
-    }
-    if (politica.duracionMaximaMinutos && minutos > politica.duracionMaximaMinutos) {
-      throw new BadRequestException(`Maximo ${politica.duracionMaximaMinutos} minutos`);
-    }
-  }
-
-  /**
-   * La reserva tiene que caber dentro de una franja de apertura.
-   *
-   * Solo aplica a los espacios que SON una zona comun: el pool de parqueaderos
-   * de visitantes no tiene horario, esta abierto siempre.
-   */
-  private validarHorario(
-    zona: { nombre: string; horarios: { dia: string; apertura: number; cierre: number }[] } | null,
-    inicio: Date,
-    fin: Date,
-  ) {
-    if (!zona || zona.horarios.length === 0) return;
-
-    const a = diaYMinutos(inicio);
-    const b = diaYMinutos(fin);
-
-    // Una reserva que cruza la medianoche tocaria dos dias y dos franjas. Se
-    // valida solo el dia de inicio y se exige que termine ese mismo dia: un
-    // evento que pasa de medianoche se parte en dos reservas.
-    if (a.dia !== b.dia && b.minutos !== 0) {
-      throw new BadRequestException(
-        `"${zona.nombre}" tiene horario: la reserva tiene que terminar el mismo dia`,
-      );
-    }
-    const finEnMinutos = a.dia === b.dia ? b.minutos : 1440;
-
-    const cabe = zona.horarios.some(
-      (h) => h.dia === a.dia && a.minutos >= h.apertura && finEnMinutos <= h.cierre,
-    );
-    if (!cabe) {
-      const delDia = zona.horarios.filter((h) => h.dia === a.dia);
-      const detalle = delDia.length
-        ? delDia.map((h) => `${formatearHora(h.apertura)}–${formatearHora(h.cierre)}`).join(', ')
-        : 'cerrado ese dia';
-      throw new BadRequestException(`"${zona.nombre}" ese dia: ${detalle}`);
-    }
-  }
-
   private async validarCuposDeLaUnidad(
     politica: { maxSimultaneasPorUnidad: number | null; maxMensualesPorUnidad: number | null } | null,
     unidadId: string,
@@ -528,23 +460,6 @@ export class ReservasService {
         );
       }
     }
-  }
-
-  /**
-   * Filtro de solapamiento con intervalos abiertos.
-   *
-   * Dos franjas chocan si `A.inicio < B.fin` Y `B.inicio < A.fin`. Un `fin` en
-   * null es "hasta siempre", asi que esa mitad de la condicion se cumple sola.
-   */
-  private solapa(inicio: Date, fin: Date | null) {
-    return {
-      ...(fin ? { inicio: { lt: fin } } : {}),
-      OR: [{ fin: null }, { fin: { gt: inicio } }],
-    };
-  }
-
-  private normalizarPlaca(placa?: string) {
-    return placa ? placa.toUpperCase().replace(/[\s-]/g, '') : null;
   }
 
   /** El invitado tiene que ser de la misma unidad que responde por la reserva. */
@@ -607,7 +522,7 @@ export class ReservasService {
         parqueaderoId,
         estado: { in: OCUPAN },
         ...(ignorarReservaId ? { NOT: { id: ignorarReservaId } } : {}),
-        ...this.solapa(inicio, fin),
+        ...solapa(inicio, fin),
       },
       select: { id: true },
     });
