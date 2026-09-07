@@ -6,21 +6,38 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
-import { SupabaseAdminService } from '../../auth/supabase-admin.service.js';
 import { rolVigente } from '../../common/rol-vigente.js';
-import { Ambito } from '../../common/roles.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { AccesoService } from './acceso.service.js';
+import { CargosService } from './cargos.service.js';
 import type { CerrarVinculoDto, RegistrarUsuarioDto } from './dto/usuario.dto.js';
-import type { OtorgarRolDto, TerminarRolDto } from '../roles/dto/rol.dto.js';
 
+/** Con que se identifica una persona. Al menos uno de los tres. */
+interface Identidad {
+  email?: string;
+  tipoDocumento?: RegistrarUsuarioDto['tipoDocumento'];
+  numeroDocumento?: string;
+  celular?: string;
+}
+
+/**
+ * Quien esta en el conjunto y en que unidad vive.
+ *
+ * Solo eso. Lo que era este archivo hacia ademas dos cosas que no se le
+ * parecen, y se fueron a sus propios servicios: enganchar la persona con su
+ * cuenta de Supabase (`AccesoService`) y repartir cargos (`CargosService`).
+ * Tres preguntas distintas, que las hace gente distinta y cambian por motivos
+ * distintos.
+ */
 @Injectable()
 export class UsuariosService {
   private readonly logger = new Logger(UsuariosService.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly supabase: SupabaseAdminService,
+    private readonly acceso: AccesoService,
+    private readonly cargos: CargosService,
   ) {}
 
   /** Quien esta en el conjunto, con sus roles vigentes y sus unidades. */
@@ -82,95 +99,17 @@ export class UsuariosService {
    * con "olvide mi contrasena" — la cuenta ya esta creada.
    */
   async registrar(activo: ConjuntoActivo, autorId: string, dto: RegistrarUsuarioDto) {
-    const email = dto.email?.trim().toLowerCase();
+    const { email, tipoDocumento, numeroDocumento, celular } = this.identidadDe(dto);
+    await this.exigirAlcance(activo, autorId, dto);
+    const roles = await this.cargos.validarRolesOtorgables(activo.conjuntoId, dto.roles);
 
-    // Una persona se identifica por su correo o por su documento, y de los dos
-    // el que nunca falta es el documento: cedula, cedula de extranjeria,
-    // pasaporte, PPT o NIT. El correo solo hace falta si ademas va a ENTRAR a la
-    // app, y hay gente que tiene que estar registrada sin entrar nunca: el
-    // copropietario que no gestiona, el dueno que vive afuera, la empresa que
-    // compro el local. Ver docs/dominio/glosario.md.
-    const tipoDocumento = dto.tipoDocumento;
-    const numeroDocumento = dto.numeroDocumento?.trim();
-    const celular = dto.celular?.trim();
-    if (Boolean(tipoDocumento) !== Boolean(numeroDocumento)) {
-      throw new BadRequestException('El documento va completo: tipo y numero, o ninguno de los dos');
-    }
-    if (!email && !numeroDocumento && !celular) {
-      throw new BadRequestException(
-        'Hace falta al menos uno: correo, documento o celular. Sin ninguno no hay como ' +
-          'identificar a la persona, y un dato inventado seria peor que no tenerlo.',
-      );
-    }
 
-    if (dto.unidadId && !dto.relacion) {
-      throw new BadRequestException('Si indicas unidad, tienes que indicar la relacion');
-    }
-    if (dto.relacion && !dto.unidadId) {
-      throw new BadRequestException('La relacion solo tiene sentido junto a una unidad');
-    }
-
-    // Alcance de FILA: quien no es administrador solo registra gente en SUS
-    // unidades. El guard razona a nivel de conjunto, esto es mas fino.
-    const puedeTodo = activo.permisos.has(PERMISOS.USUARIOS_CREAR);
-    if (!puedeTodo) {
-      if (!dto.unidadId) {
-        throw new ForbiddenException('Solo puedes registrar gente en una unidad tuya');
-      }
-      const esDuenno = await this.prisma.usuarioUnidad.findFirst({
-        where: {
-          usuarioId: autorId,
-          unidadId: dto.unidadId,
-          relacion: 'PROPIETARIO',
-          unidad: { conjuntoId: activo.conjuntoId },
-          ...rolVigente(),
-        },
-        select: { id: true },
-      });
-      if (!esDuenno) throw new ForbiddenException('No eres propietario vigente de esa unidad');
-      if (dto.roles?.length) {
-        throw new ForbiddenException(
-          'Solo la administracion puede otorgar cargos. Puedes registrar gente en tu unidad, no nombrar roles.',
-        );
-      }
-    }
-
-    if (dto.unidadId) {
-      const unidad = await this.prisma.unidad.findFirst({
-        where: { id: dto.unidadId, conjuntoId: activo.conjuntoId },
-        select: { id: true },
-      });
-      if (!unidad) throw new NotFoundException('Esa unidad no existe en este conjunto');
-    }
-
-    const roles = await this.validarRolesOtorgables(activo.conjuntoId, dto.roles);
-
-    // La cuenta se crea ANTES de la transaccion porque vive en Supabase, no en
-    // nuestra base: no hay forma de deshacerla con un rollback. Si algo falla
-    // despues, queda una cuenta huerfana que el proximo intento reutiliza —
-    // `crearCuenta` devuelve el mismo id si el correo ya existe.
-    //
-    // Sin correo no se crea nada: la persona queda registrada y sin acceso.
-    const cuenta = email ? await this.supabase.crearCuenta(email) : null;
-
-    const encontrada = await this.buscarPersona({
-      cuentaId: cuenta?.id,
+    const { cuenta, encontrada } = await this.resolverPersona(dto, {
       email,
       tipoDocumento,
       numeroDocumento,
+      celular,
     });
-
-    // El documento manda sobre el correo. Si esa cedula ya esta a nombre de otra
-    // cuenta, no es un registro nuevo: es la misma persona con dos correos, o un
-    // error de digitacion. Fusionarlas en silencio dejaria a alguien con el
-    // acceso de otro.
-    if (encontrada && cuenta && encontrada.cuentaId && encontrada.cuentaId !== cuenta.id) {
-      throw new BadRequestException(
-        `Ese documento ya esta registrado con otra cuenta (${encontrada.email ?? 'sin correo'}). ` +
-          'Si es la misma persona, corrige el correo en su perfil en vez de registrarla de nuevo.',
-      );
-    }
-
     const yaVigentes = encontrada
       ? await this.prisma.usuarioUnidad.findMany({
           where: { usuarioId: encontrada.id, unidad: { conjuntoId: activo.conjuntoId }, ...rolVigente() },
@@ -276,85 +215,125 @@ export class UsuariosService {
   }
 
   /**
-   * Le da acceso a alguien que ya esta registrado.
+   * La cuenta si hay correo, y la persona si ya existia.
    *
-   * Es la otra mitad de haber separado la persona de la cuenta: la
-   * administracion carga el padron un lunes con puros documentos, y la gente va
-   * entregando su correo con los meses. Esto no crea una persona nueva —crearla
-   * de nuevo la duplicaria— sino que le engancha una cuenta a la que ya existe.
+   * El documento manda sobre el correo: si esa cedula ya esta a nombre de otra
+   * cuenta, no es un registro nuevo sino la misma persona con dos correos o un
+   * error de digitacion, y fusionarlas en silencio le daria a alguien el acceso
+   * de otro.
    */
-  async darAcceso(conjuntoId: string, usuarioId: string, correo: string) {
-    const email = correo.trim().toLowerCase();
+  private async resolverPersona(dto: RegistrarUsuarioDto, identidad: Identidad) {
+    const { email, tipoDocumento, numeroDocumento } = identidad;
 
-    const persona = await this.prisma.usuario.findFirst({
-      where: { id: usuarioId, conjuntos: { some: { conjuntoId } } },
+    // La cuenta se crea ANTES de la transaccion porque vive en Supabase, no en
+    // nuestra base: no hay forma de deshacerla con un rollback. Si algo falla
+    // despues, queda una cuenta huerfana que el proximo intento reutiliza —
+    // `crearCuenta` devuelve el mismo id si el correo ya existe.
+    //
+    // Sin correo no se crea nada: la persona queda registrada y sin acceso.
+    const cuenta = await this.acceso.cuentaPara(email);
+
+    const encontrada = await this.acceso.buscarPersona({
+      cuentaId: cuenta?.id,
+      email,
+      tipoDocumento,
+      numeroDocumento,
     });
-    if (!persona) throw new NotFoundException('Esa persona no esta registrada en este conjunto');
-    if (persona.cuentaId) {
+
+    if (encontrada && cuenta && encontrada.cuentaId && encontrada.cuentaId !== cuenta.id) {
       throw new BadRequestException(
-        `Esa persona ya tiene acceso${persona.email ? ` con ${persona.email}` : ''}`,
+        `Ese documento ya esta registrado con otra cuenta (${encontrada.email ?? 'sin correo'}). ` +
+          'Si es la misma persona, corrige el correo en su perfil en vez de registrarla de nuevo.',
       );
     }
 
-    const cuenta = await this.supabase.crearCuenta(email);
-
-    // Ese correo podria pertenecer a otra persona ya registrada. Enganchar la
-    // cuenta igual dejaria a dos personas compartiendo un acceso.
-    const dueno = await this.prisma.usuario.findFirst({
-      where: { cuentaId: cuenta.id, NOT: { id: usuarioId } },
-      select: { id: true },
-    });
-    if (dueno) {
-      throw new BadRequestException('Ese correo ya es el acceso de otra persona registrada');
-    }
-
-    await this.prisma.usuario.update({
-      where: { id: usuarioId },
-      data: { cuentaId: cuenta.id, email },
-    });
-
-    if (cuenta.enlace) {
-      this.logger.log(`Acceso creado para ${email}. Falta enviar el enlace.`);
-    }
-
-    return {
-      usuarioId,
-      tieneAcceso: true,
-      yaTeniaCuenta: cuenta.yaTeniaCuenta,
-      correoEnviado: false,
-      mensaje: 'Acceso creado. Puede entrar con "olvide mi contrasena" mientras no exista el SMTP.',
-    };
+    return { cuenta, encontrada };
   }
 
   /**
-   * Encuentra a la persona por cualquiera de sus identidades, en orden de
-   * confianza: la cuenta que acaba de resolver Supabase, el documento, el correo.
+   * Con que se identifica esta persona, y si alcanza.
+   *
+   * Correo, documento o celular: basta uno. El documento es el que nunca falta
+   * —cedula, cedula de extranjeria, pasaporte, PPT o NIT— y el correo solo hace
+   * falta si ademas va a ENTRAR a la app.
    */
-  private async buscarPersona(datos: {
-    cuentaId?: string;
-    email?: string;
-    tipoDocumento?: RegistrarUsuarioDto['tipoDocumento'];
-    numeroDocumento?: string;
-  }) {
-    if (datos.cuentaId) {
-      const porCuenta = await this.prisma.usuario.findUnique({
-        where: { cuentaId: datos.cuentaId },
+  private identidadDe(dto: RegistrarUsuarioDto): Identidad {
+    const email = dto.email?.trim().toLowerCase();
+
+    // Una persona se identifica por su correo o por su documento, y de los dos
+    // el que nunca falta es el documento: cedula, cedula de extranjeria,
+    // pasaporte, PPT o NIT. El correo solo hace falta si ademas va a ENTRAR a la
+    // app, y hay gente que tiene que estar registrada sin entrar nunca: el
+    // copropietario que no gestiona, el dueno que vive afuera, la empresa que
+    // compro el local. Ver docs/dominio/glosario.md.
+    const tipoDocumento = dto.tipoDocumento;
+    const numeroDocumento = dto.numeroDocumento?.trim();
+    const celular = dto.celular?.trim();
+    if (Boolean(tipoDocumento) !== Boolean(numeroDocumento)) {
+      throw new BadRequestException('El documento va completo: tipo y numero, o ninguno de los dos');
+    }
+    if (!email && !numeroDocumento && !celular) {
+      throw new BadRequestException(
+        'Hace falta al menos uno: correo, documento o celular. Sin ninguno no hay como ' +
+          'identificar a la persona, y un dato inventado seria peor que no tenerlo.',
+      );
+    }
+
+    return { email, tipoDocumento, numeroDocumento, celular };
+  }
+
+  /**
+   * Alcance de FILA: en que unidades puede registrar gente quien pregunta.
+   *
+   * El guard razona a nivel de CONJUNTO —sabe si alguien tiene `usuarios.crear`
+   * aqui adentro— y eso no alcanza: el propietario del 501 solo puede registrar
+   * en el 501. A diferencia de porteria, aqui SI se exige ser propietario: meter
+   * gente a una unidad es decir quien vive ahi, y eso lo responde la escritura.
+   */
+  private async exigirAlcance(
+    activo: ConjuntoActivo,
+    autorId: string,
+    dto: RegistrarUsuarioDto,
+  ): Promise<void> {
+    if (dto.unidadId && !dto.relacion) {
+      throw new BadRequestException('Si indicas unidad, tienes que indicar la relacion');
+    }
+    if (dto.relacion && !dto.unidadId) {
+      throw new BadRequestException('La relacion solo tiene sentido junto a una unidad');
+    }
+
+    // Alcance de FILA: quien no es administrador solo registra gente en SUS
+    // unidades. El guard razona a nivel de conjunto, esto es mas fino.
+    const puedeTodo = activo.permisos.has(PERMISOS.USUARIOS_CREAR);
+    if (!puedeTodo) {
+      if (!dto.unidadId) {
+        throw new ForbiddenException('Solo puedes registrar gente en una unidad tuya');
+      }
+      const esDuenno = await this.prisma.usuarioUnidad.findFirst({
+        where: {
+          usuarioId: autorId,
+          unidadId: dto.unidadId,
+          relacion: 'PROPIETARIO',
+          unidad: { conjuntoId: activo.conjuntoId },
+          ...rolVigente(),
+        },
+        select: { id: true },
       });
-      if (porCuenta) return porCuenta;
+      if (!esDuenno) throw new ForbiddenException('No eres propietario vigente de esa unidad');
+      if (dto.roles?.length) {
+        throw new ForbiddenException(
+          'Solo la administracion puede otorgar cargos. Puedes registrar gente en tu unidad, no nombrar roles.',
+        );
+      }
     }
-    if (datos.tipoDocumento && datos.numeroDocumento) {
-      // findFirst y no findUnique: Prisma no acepta nulos dentro de una clave
-      // unica compuesta, y los dos campos son opcionales en la tabla.
-      const porDocumento = await this.prisma.usuario.findFirst({
-        where: { tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento },
+
+    if (dto.unidadId) {
+      const unidad = await this.prisma.unidad.findFirst({
+        where: { id: dto.unidadId, conjuntoId: activo.conjuntoId },
+        select: { id: true },
       });
-      if (porDocumento) return porDocumento;
+      if (!unidad) throw new NotFoundException('Esa unidad no existe en este conjunto');
     }
-    if (datos.email) {
-      const porCorreo = await this.prisma.usuario.findFirst({ where: { email: datos.email } });
-      if (porCorreo) return porCorreo;
-    }
-    return null;
   }
 
   /**
@@ -386,141 +365,5 @@ export class UsuariosService {
     });
 
     return { cerrados: abiertos.length, hasta };
-  }
-
-  /**
-   * Otorga un cargo en el conjunto.
-   *
-   * `desde` es del periodo, no del clic: al consejo se entra por periodo, y el
-   * administrador registra la eleccion despues de que paso. Por eso se puede
-   * mandar una fecha anterior.
-   */
-  async otorgarRol(conjuntoId: string, usuarioId: string, autorId: string, dto: OtorgarRolDto) {
-    const vinculo = await this.prisma.usuarioConjunto.findFirst({
-      where: { usuarioId, conjuntoId },
-      select: { id: true },
-    });
-    if (!vinculo) throw new NotFoundException('Esa persona no pertenece a este conjunto');
-
-    // TODO (paso 2): cuando los roles sean por conjunto, `conjuntoId: null` pasa
-    // a ser el conjunto activo. Hoy todos los roles son globales.
-    // Un cargo estandar (sin conjunto) o uno que este conjunto invento. Los de
-    // OTRO conjunto no existen para el.
-    const rol = await this.prisma.rol.findFirst({
-      where: { codigo: dto.codigo, OR: [{ conjuntoId: null }, { conjuntoId }] },
-      select: { id: true, nombre: true, asignable: true, ambito: true },
-    });
-    if (!rol) throw new NotFoundException(`No existe el rol ${dto.codigo}`);
-    // Un rol de plataforma se nombra en `usuarios_plataforma`, no desde aqui.
-    // Sin esta comprobacion, cualquiera con `usuarios.gestionar` podria nombrar
-    // staff de Vecii desde su propio conjunto.
-    if (rol.ambito !== Ambito.CONJUNTO) {
-      throw new ForbiddenException(
-        `${rol.nombre} es un rol de plataforma: se nombra desde el equipo de Vecii, no aqui.`,
-      );
-    }
-    if (!rol.asignable) {
-      throw new BadRequestException(
-        `${rol.nombre} no se otorga a mano. Propietario y residente se derivan de las unidades; ` +
-          'SUPER_ADMIN es staff de Vecii.',
-      );
-    }
-
-    const desde = dto.desde ? new Date(dto.desde) : new Date();
-    if (Number.isNaN(desde.getTime())) throw new BadRequestException('Fecha invalida');
-
-    const yaLoTiene = await this.prisma.usuarioConjuntoRol.findFirst({
-      where: { usuarioConjuntoId: vinculo.id, rolId: rol.id, ...rolVigente() },
-      select: { desde: true },
-    });
-    if (yaLoTiene) {
-      throw new BadRequestException(
-        `Esa persona ya es ${rol.nombre} desde ${yaLoTiene.desde.toISOString().slice(0, 10)}`,
-      );
-    }
-
-    return this.prisma.usuarioConjuntoRol.create({
-      data: {
-        usuarioConjuntoId: vinculo.id,
-        rolId: rol.id,
-        desde,
-        asignadoPorId: autorId,
-      },
-      include: { rol: { select: { codigo: true, nombre: true } } },
-    });
-  }
-
-  /**
-   * Termina un cargo. Cierra con `hasta`, no borra.
-   *
-   * Es para lo que existe la vigencia: cuando el consejo cambia, la fila del
-   * saliente se queda, porque "quien era consejero cuando se aprobo eso" es una
-   * pregunta que se hace en cada asamblea.
-   */
-  async terminarRol(
-    conjuntoId: string,
-    usuarioId: string,
-    codigo: string,
-    dto: TerminarRolDto,
-  ) {
-    const vigentes = await this.prisma.usuarioConjuntoRol.findMany({
-      where: {
-        usuarioConjunto: { usuarioId, conjuntoId },
-        rol: { codigo },
-        ...rolVigente(),
-      },
-      select: { id: true, desde: true },
-    });
-    if (vigentes.length === 0) {
-      throw new NotFoundException('Esa persona no tiene ese cargo vigente en este conjunto');
-    }
-
-    const hasta = dto.hasta ? new Date(dto.hasta) : new Date();
-    if (Number.isNaN(hasta.getTime())) throw new BadRequestException('Fecha invalida');
-    if (vigentes.some((v) => hasta <= v.desde)) {
-      throw new BadRequestException('El cargo terminaria antes de empezar');
-    }
-
-    await this.prisma.usuarioConjuntoRol.updateMany({
-      where: { id: { in: vigentes.map((v) => v.id) } },
-      data: { hasta },
-    });
-    return { codigo, cerrados: vigentes.length, hasta };
-  }
-
-  /**
-   * Los cargos que se pueden otorgar AL REGISTRAR a alguien en un conjunto.
-   *
-   * Dos filtros, y hacen falta los dos: `asignable` saca los derivados, y
-   * `ambito` saca los de plataforma. Antes bastaba con el primero porque
-   * STAFF_VECII estaba marcado no-asignable; ahora que si lo es —lo otorga Vecii
-   * en su propia pantalla— sin el segundo se podria nombrar staff desde aqui.
-   */
-  private async validarRolesOtorgables(conjuntoId: string, roles?: string[]) {
-    if (!roles?.length) return [];
-    const encontrados = await this.prisma.rol.findMany({
-      where: { codigo: { in: roles }, OR: [{ conjuntoId: null }, { conjuntoId }] },
-      select: { id: true, codigo: true, asignable: true, nombre: true, ambito: true },
-    });
-
-    const dePlataforma = encontrados.filter((r) => r.ambito !== Ambito.CONJUNTO);
-    if (dePlataforma.length > 0) {
-      throw new ForbiddenException(
-        `Estos son roles de plataforma y se nombran desde el equipo de Vecii: ` +
-          `${dePlataforma.map((r) => r.nombre).join(', ')}.`,
-      );
-    }
-
-    const noOtorgables = encontrados.filter((r) => !r.asignable);
-    if (noOtorgables.length > 0) {
-      throw new BadRequestException(
-        `Estos roles no se otorgan a mano: ${noOtorgables.map((r) => r.nombre).join(', ')}. ` +
-          'Propietario y residente se derivan de las unidades.',
-      );
-    }
-    if (encontrados.length !== roles.length) {
-      throw new BadRequestException('Alguno de los roles indicados no existe');
-    }
-    return encontrados;
   }
 }

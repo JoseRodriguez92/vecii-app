@@ -8,13 +8,19 @@ import { RequierePermiso } from '../../common/decorators/requiere-permiso.decora
 import { PERMISOS } from '../../common/permisos.js';
 import { OtorgarRolDto, TerminarRolDto } from '../roles/dto/rol.dto.js';
 import { CerrarVinculoDto, DarAccesoDto, RegistrarUsuarioDto } from './dto/usuario.dto.js';
+import { AccesoService } from './acceso.service.js';
+import { CargosService } from './cargos.service.js';
 import { UsuariosService } from './usuarios.service.js';
 
 @ApiTags('usuarios')
 @ApiBearerAuth()
 @Controller('usuarios')
 export class UsuariosController {
-  constructor(private readonly usuarios: UsuariosService) {}
+  constructor(
+    private readonly usuarios: UsuariosService,
+    private readonly acceso: AccesoService,
+    private readonly cargos: CargosService,
+  ) {}
 
   @Get()
   @RequierePermiso(PERMISOS.USUARIOS_LEER)
@@ -77,7 +83,7 @@ export class UsuariosController {
     @Body() dto: DarAccesoDto,
     @ConjuntoActivo() a: Ctx,
   ) {
-    return this.usuarios.darAcceso(a.conjuntoId, id, dto.email);
+    return this.acceso.darAcceso(a.conjuntoId, id, dto.email);
   }
 
   @Post(':id/roles')
@@ -97,7 +103,7 @@ export class UsuariosController {
     @ConjuntoActivo() a: Ctx,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.usuarios.otorgarRol(a.conjuntoId, id, user.id, dto);
+    return this.cargos.otorgarRol(a.conjuntoId, id, user.id, dto);
   }
 
   @Delete(':id/roles/:codigo')
@@ -114,7 +120,7 @@ export class UsuariosController {
     @Body() dto: TerminarRolDto,
     @ConjuntoActivo() a: Ctx,
   ) {
-    return this.usuarios.terminarRol(a.conjuntoId, id, codigo, dto);
+    return this.cargos.terminarRol(a.conjuntoId, id, codigo, dto);
   }
 
   @Patch(':id/unidades/:unidadId')
