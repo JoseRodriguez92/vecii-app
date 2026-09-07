@@ -10,12 +10,17 @@ if (!connectionString) throw new Error('Falta DIRECT_URL / DATABASE_URL');
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
+/** El NIT del conjunto de ejemplo. Es lo que lo hace reconocible entre corridas. */
+const NIT_DEMO = '900123456-7';
+
 /**
  * El catalogo de roles es dato de SISTEMA: sin el, la API no puede asignarle un
- * rol a nadie. Se siembra siempre.
+ * rol a nadie. Se siembra SIEMPRE, y por eso este script se corre cada vez que
+ * se agrega un permiso.
  *
  * Los datos de ejemplo solo se crean si se define SEED_USER_ID con el id (sub)
- * de un usuario real de Supabase Auth.
+ * de un usuario real de Supabase Auth. Y se crean UNA vez: si ya estan, el seed
+ * los deja quietos y sigue.
  */
 async function main() {
   await sembrarRoles(prisma);
@@ -23,6 +28,23 @@ async function main() {
   const usuarioDemoId = process.env.SEED_USER_ID;
   if (!usuarioDemoId) {
     console.log('SEED_USER_ID vacio: no se crean datos de ejemplo.');
+    return;
+  }
+
+  // Sin esto, la segunda corrida del seed explota con un P2002 sobre el NIT — y
+  // el seed hay que correrlo cada vez que se agrega un permiso, no solo la
+  // primera vez. Sembrar los permisos y morirse despues deja la sensacion de que
+  // fallo todo, cuando en realidad lo importante ya paso.
+  //
+  // No se hace upsert de los datos de ejemplo a proposito: son una demostracion,
+  // no un estado que haya que reconciliar. Rehacerlos es borrarlos.
+  const yaEsta = await prisma.conjunto.findUnique({
+    where: { nit: NIT_DEMO },
+    select: { id: true, nombre: true },
+  });
+  if (yaEsta) {
+    console.log(`Datos de ejemplo: ya existen — ${yaEsta.nombre} (${yaEsta.id}).`);
+    console.log(`  Para rehacerlos: DELETE FROM conjuntos WHERE nit = '${NIT_DEMO}';`);
     return;
   }
 
@@ -43,7 +65,7 @@ async function main() {
   const conjunto = await prisma.conjunto.create({
     data: {
       nombre: 'Conjunto Residencial Los Almendros',
-      nit: '900123456-7',
+      nit: NIT_DEMO,
       direccion: 'Calle 100 # 15-20',
       ciudad: 'Bogota',
       departamento: 'Cundinamarca',
