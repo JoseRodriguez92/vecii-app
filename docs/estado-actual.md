@@ -51,7 +51,7 @@ quedado viejo respecto al schema — el error que si no aparece como un
 
 ## Qué hay funcionando
 
-**18 rutas, 75 endpoints.** Todo con Swagger documentado.
+**20 rutas, 82 endpoints.** Todo con Swagger documentado.
 
 | módulo | rutas | qué resuelve |
 |---|---|---|
@@ -59,7 +59,7 @@ quedado viejo respecto al schema — el error que si no aparece como un
 | `conjuntos` | `/conjuntos` | la copropiedad y su configuración |
 | `estructura` | `/agrupaciones` `/tipologias` `/unidades` | torres y etapas anidadas, plantas, unidades con carga masiva y chequeo de coeficientes |
 | `usuarios` | `/usuarios` | registrar personas, quién vive dónde, cerrar vínculos |
-| `instalaciones` | `/zonas-comunes` `/zonas-comunes/:id/horarios` | los bienes comunes y a que horas abren |
+| `instalaciones` | `/zonas-comunes` `/zonas-comunes/:id/horarios` `/parqueaderos` `/parqueaderos/:id/asignaciones` | los bienes comunes y a qué horas abren; los cupos y quién tiene derecho a cada uno |
 | `porteria` | `/casilleros` `/encomiendas` `/invitados` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
 | `reservas` | `/espacios-reservables` `/politicas-reserva` `/reservas` | qué se puede apartar, con qué reglas, y quién apartó |
 | `roles` | `/roles` `/modulos` | qué puede hacer cada cargo. **Cada conjunto crea y administra los suyos** |
@@ -73,20 +73,17 @@ de la misma transacción que inserta.
 
 ---
 
-## El hueco que queda
+## El hueco se cerró
 
-### Los parqueaderos no tienen API
+**Las 23 tablas tienen API.** Ya no queda nada que solo se pueda cargar a mano en
+DBeaver, que fue el estado del proyecto durante casi toda su vida.
 
-Las zonas comunes ya la tienen (módulo `instalaciones`). Faltan las otras dos
-tablas de ese mismo módulo, que hoy se cargan a mano:
+Lo último en entrar fueron los parqueaderos y sus asignaciones, con la regla que
+cruza las dos cosas: qué origen de derecho es válido para qué naturaleza de cupo.
+Vive en `reglas-parqueadero.ts`, en funciones puras, y tiene **las primeras
+pruebas del repo** — las 20 celdas de esa matriz, sin base de datos ni mocks.
 
-| tabla | consecuencia |
-|---|---|
-| `parqueaderos` | los cupos V-01…V-50 no existen, así que `POST /reservas/:id/cupo` no tiene qué asignar |
-| `asignaciones_parqueadero` | no hay cómo decir "el P-101 es del 501" ni correr el sorteo anual |
-
-Y falta la validación que cruza las dos: qué origen de asignación es válido para
-qué naturaleza de cupo. La tabla está escrita en [`pendientes.md`](pendientes.md).
+Lo que falta ya no son tablas sin API: son **sistemas enteros**.
 
 ---
 
@@ -112,9 +109,15 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 
 ## Orden sugerido
 
-1. **Parqueaderos y zonas comunes** — desbloquean lo que ya está construido.
-2. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
-3. **Finanzas** — al final, cuando el resto genere los hechos que hay que cobrar.
+1. **La interfaz.** `apps/vecii` es la plantilla de Expo con una pantalla de
+   login. Hoy los 82 endpoints solo se usan desde Swagger, así que ningún
+   conjunto puede usar esto todavía, por bien modelado que esté.
+2. **Comunicación.** No hay ningún canal de aviso en todo el backend: el estado
+   `NOTIFICADA` de una encomienda cambia la fila y no le avisa a nadie. De esto
+   dependen cosas que ya están construidas.
+3. **Finanzas** — cuando el resto genere los hechos que hay que cobrar.
+4. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
+5. **Asambleas** — es para lo que existen los coeficientes, junto con cobrar.
 
 ---
 

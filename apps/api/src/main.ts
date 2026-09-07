@@ -62,6 +62,8 @@ async function bootstrap() {
     .addTag('porteria · invitados', 'A quien autorizo cada unidad a entrar')
     .addTag('instalaciones · zonas comunes', 'Bienes comunes: salon, piscina, gimnasio, BBQ')
     .addTag('instalaciones · horarios zona comun', 'A que horas abre cada zona, dia por dia')
+    .addTag('instalaciones · parqueaderos', 'Los cupos, como cosa fisica')
+    .addTag('instalaciones · asignaciones parqueadero', 'Quien tiene derecho a cada cupo, y desde cuando')
     .addTag('reservas · espacios', 'Que se puede apartar y cuantos a la vez')
     .addTag('reservas · politicas', 'Las reglas de cada espacio')
     .addTag('reservas', 'Quien aparto que y cuando')

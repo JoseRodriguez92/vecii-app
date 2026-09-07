@@ -113,22 +113,6 @@ confirmada y el visitante en portería.
 
 ## 🟡 Validaciones del servicio
 
-**Asignaciones de parqueadero: qué origen es válido para qué naturaleza.**
-Hoy nada lo impide y son incoherencias que la base no puede ver, porque cruzan
-la naturaleza del cupo con el origen del derecho. Va en el servicio cuando se
-construya el módulo de parqueaderos:
-
-| naturaleza | orígenes válidos | qué hay que rechazar |
-|---|---|---|
-| `PRIVADO` | `PROPIEDAD`, `PRESTAMO`, `ARRIENDO` | `SORTEO` y `REGLAMENTO`: un bien privado no se sortea ni lo reparte el reglamento |
-| `USO_EXCLUSIVO` | `REGLAMENTO`, `PRESTAMO` | `PROPIEDAD`: no es de nadie |
-| `ROTATIVO` | `SORTEO`, `PRESTAMO` | `PROPIEDAD` |
-| `VISITANTES` | **ninguno** | cualquier asignación. Un cupo de visitantes no se asigna: se usa por turnos vía `espacios_reservables` |
-
-Además: un `PRIVADO` sin `unidadId` en `parqueaderos` está a medio crear —le falta
-la unidad que le da matrícula y coeficiente— y al revés, un cupo que no es
-`PRIVADO` no debería tenerlo.
-
 **`unidadId` significa cosas opuestas en dos tablas.** En `parqueaderos` el cupo
 **es** esa unidad (solo `PRIVADO`); en `asignaciones_parqueadero` esa unidad
 **usa** el cupo. Mismo nombre, relación invertida. Hoy se salva con el nombre de
