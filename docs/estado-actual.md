@@ -26,16 +26,18 @@ pnpm lint                                      # oxlint + los dos verificadores
 npx tsc --noEmit
 ```
 
-`pnpm lint` corre dos scripts propios: `verificar-schema.mjs` (campos duplicados,
+`pnpm lint` corre tres scripts propios: `verificar-schema.mjs` (campos duplicados,
 relaciones sin inversa, modelos sin `@@map`) y `verificar-vocabulario.mjs` (que
 una misma cosa se llame igual en la tabla, la carpeta, la ruta, el permiso y el
-tag de Swagger).
+tag de Swagger), y `verificar-cliente.mjs` (que el cliente de Prisma no haya
+quedado viejo respecto al schema — el error que si no aparece como un
+"Unknown argument" que no dice que falta un `db:push`).
 
 ---
 
 ## Qué hay funcionando
 
-**15 rutas, 64 endpoints.** Todo con Swagger documentado.
+**16 rutas, 69 endpoints.** Todo con Swagger documentado.
 
 | módulo | rutas | qué resuelve |
 |---|---|---|
@@ -45,7 +47,8 @@ tag de Swagger).
 | `usuarios` | `/usuarios` | registrar personas, quién vive dónde, cerrar vínculos |
 | `porteria` | `/casilleros` `/encomiendas` `/invitados` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
 | `reservas` | `/espacios-reservables` `/politicas-reserva` `/reservas` | qué se puede apartar, con qué reglas, y quién apartó |
-| `roles` | `/roles` `/modulos` | qué puede hacer cada cargo, editable sin desplegar |
+| `roles` | `/roles` `/modulos` | qué puede hacer cada cargo. **Cada conjunto crea y administra los suyos** |
+| `plataforma` | `/usuarios-plataforma` | el equipo de Vecii y su acceso a todos los conjuntos |
 
 **RBAC por permisos.** Módulos → permisos → roles → asignaciones. Los roles de
 propietario y residente **se derivan** de `usuarios_unidades`, no se otorgan.
@@ -96,8 +99,10 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 ## Orden sugerido
 
 1. **Parqueaderos y zonas comunes** — desbloquean lo que ya está construido.
-2. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
-3. **Finanzas** — al final, cuando el resto genere los hechos que hay que cobrar.
+2. **La línea base de migraciones** — lleva en rojo desde el primer día y ya
+   costó dos ratos: la conversión de enum a texto no la pudo hacer `db push`.
+3. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
+4. **Finanzas** — al final, cuando el resto genere los hechos que hay que cobrar.
 
 ---
 
