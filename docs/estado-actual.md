@@ -141,9 +141,11 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 
 ## Pendientes
 
-En [`pendientes.md`](pendientes.md), ordenados por urgencia. El rojo que queda:
-
-1. **Rotar la contraseña de la base de datos**, que se expuso en un chat.
+En [`pendientes.md`](pendientes.md), ordenados por urgencia. **No queda ninguno
+en rojo** fuera de los de facturación, que no aplican hasta que haya finanzas.
+El siguiente en la fila es el inventario físico: `zonas_comunes` y
+`parqueaderos` existen como tablas pero no tienen API, y sin ellas no se puede
+crear el salón comunal ni asignarle cupo a una reserva.
 
 ---
 

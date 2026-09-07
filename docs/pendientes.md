@@ -251,5 +251,3 @@ haya datos de clientes reales, porque es una migración larga.
 - Evaluar `nestjs-expert` (comunidad; ninguna de las candidatas cubre ESM)
 - Escribir la skill de dominio de Vecii: ESM con `.js`, Vitest, `conjuntoId`,
   `x-conjunto-id`
-- **Commiteado pero sin pushear** — hay una veintena de commits locales.
-- Rotar la contraseña de la base de datos (quedó expuesta en una conversación)
