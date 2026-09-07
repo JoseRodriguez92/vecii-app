@@ -17,7 +17,11 @@ export class ZonasController {
   @RequierePermiso(PERMISOS.INSTALACIONES_LEER)
   @ApiQuery({ name: 'incluirInactivas', required: false })
   @ApiQuery({ name: 'agrupacionId', required: false })
-  @ApiQuery({ name: 'soloReservables', required: false })
+  @ApiQuery({
+    name: 'soloReservables',
+    required: false,
+    description: 'Solo las que tienen un espacio reservable apuntandolas, o sea las que se apartan.',
+  })
   @ApiOperation({
     summary: 'Los bienes comunes del conjunto',
     description:
@@ -55,9 +59,9 @@ export class ZonasController {
   @ApiOperation({
     summary: 'Crea una zona comun',
     description:
-      'Marcar `reservable` dice que la zona REQUIERE reserva, no la vuelve apartable: para eso ' +
-      'hace falta ademas un espacio reservable que apunte aqui, donde viven la capacidad y las ' +
-      'reglas.',
+      'Crearla NO la vuelve apartable. Para que se pueda reservar hace falta ademas un espacio ' +
+      'reservable que apunte aqui (`POST /espacios-reservables`), que es donde viven la ' +
+      'capacidad y las reglas. Que traiga espacio es la unica respuesta a "se reserva?".'
   })
   crear(@Body() dto: CrearZonaComunDto, @ConjuntoActivo() a: Ctx) {
     return this.zonas.crear(a.conjuntoId, dto);

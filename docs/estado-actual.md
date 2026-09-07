@@ -134,6 +134,11 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 - **Un reparto masivo es UNA fila,** no una por unidad.
 - **Los cupos de visitantes no se asignan a nadie** y no llevan filas en
   `asignaciones_parqueadero`.
+- **`zonas_comunes.reservable` se borró.** Decía lo mismo que tener un espacio
+  reservable apuntando a la zona, y las dos podían contradecirse sin que nada lo
+  impidiera —cruza dos tablas, ningún CHECK lo ve—. El seed lo mostraba en vivo:
+  un Salón Social con `reservable: true` y sin espacio. Ahora la pregunta "¿se
+  aparta?" tiene una sola respuesta: si trae espacio.
 - **Las restricciones van en su propia migración, no pegadas a la línea base.**
   La línea base se marca como aplicada sin ejecutarse —la base ya existía— así
   que todo lo que se le pegue encima nunca llega a Postgres.

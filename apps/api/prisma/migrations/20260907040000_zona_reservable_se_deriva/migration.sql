@@ -1,0 +1,11 @@
+-- `zonas_comunes.reservable` se va: era la segunda voz.
+--
+-- Decia lo mismo que la existencia de una fila en `espacios_reservables` con
+-- `zona_comun_id` apuntando aqui, y las dos podian contradecirse sin que nada lo
+-- impidiera: un CHECK solo ve la fila donde vive, y esto cruza dos tablas.
+--
+-- No hay que migrar nada hacia el otro lado. La columna decia una INTENCION
+-- ("esta zona deberia requerir reserva"); el espacio dice un HECHO ("por aqui se
+-- aparta"). Convertir intenciones en hechos crearia espacios sin capacidad ni
+-- politica que nadie pidio.
+ALTER TABLE "zonas_comunes" DROP COLUMN "reservable";

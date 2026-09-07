@@ -22,7 +22,8 @@ export class ZonasService {
         conjuntoId,
         ...(opciones.incluirInactivas ? {} : { activo: true }),
         ...(opciones.agrupacionId ? { agrupacionId: opciones.agrupacionId } : {}),
-        ...(opciones.soloReservables ? { reservable: true } : {}),
+        // "Se reserva" no es un campo: es tener un espacio reservable apuntando aca.
+        ...(opciones.soloReservables ? { espacio: { isNot: null } } : {}),
       },
       orderBy: [{ tipo: 'asc' }, { nombre: 'asc' }],
       include: { ...CON_ESPACIO, _count: { select: { horarios: true } } },
@@ -57,21 +58,14 @@ export class ZonasService {
     const zona = await this.exigir(conjuntoId, id);
     await this.validar(conjuntoId, dto, id);
 
-    // El campo `reservable` y la existencia de un espacio reservable dicen lo
-    // mismo con dos voces, y nada en la base impide que se contradigan (cruza
-    // tablas, asi que no hay CHECK que valga). Mientras el campo exista, esto
-    // es lo unico que evita una zona "no reservable" con reservas encima.
+    // Sacar de servicio una zona que todavia se puede apartar dejaria a la gente
+    // reservando algo que esta en mantenimiento. Cruza dos tablas, asi que no hay
+    // CHECK que lo vea: va aca.
     const espacio = await this.prisma.espacioReservable.findFirst({
       where: { zonaComunId: id },
       select: { nombre: true, activo: true },
     });
 
-    if (dto.reservable === false && espacio) {
-      throw new BadRequestException(
-        `No se puede marcar como no reservable: es el espacio "${espacio.nombre}". ` +
-          'Quita primero el espacio reservable.',
-      );
-    }
     if (dto.activo === false && zona.activo && espacio?.activo) {
       throw new BadRequestException(
         `No se puede sacar de servicio mientras el espacio "${espacio.nombre}" siga activo: ` +

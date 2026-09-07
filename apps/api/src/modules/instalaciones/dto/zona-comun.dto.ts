@@ -39,18 +39,6 @@ export class CrearZonaComunDto {
   agrupacionId?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Si requiere reserva. Un gimnasio suele ser de entrada libre; un salon comunal no. ' +
-      'OJO: marcarlo no crea nada. Para que se pueda apartar de verdad hace falta ademas un ' +
-      'espacio reservable que apunte aqui (`POST /espacios-reservables`), que es donde viven ' +
-      'la capacidad y las reglas.',
-    default: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  reservable?: boolean;
-
-  @ApiPropertyOptional({
     description: 'Capacidad maxima de personas. Omitido = sin limite declarado.',
     example: 60,
     minimum: 1,

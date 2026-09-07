@@ -687,6 +687,14 @@ model Tipologia {
 ///
 /// `agrupacionId` permite que sea de una parte del conjunto y no de todo:
 /// la piscina de la Etapa 1 la usan —y la pagan— solo sus unidades.
+///
+/// NO tiene un campo `reservable`. Lo tuvo, y decia lo mismo que la existencia
+/// de un `EspacioReservable` apuntando aqui — con la diferencia de que ese
+/// campo lo escribia una persona y el espacio lo usa el motor de reservas. En el
+/// seed convivian un Salon Social con `reservable: true` y sin espacio: la tabla
+/// afirmaba que se reservaba y no habia por donde. Ningun CHECK podia impedirlo,
+/// porque cruza dos tablas. Ahora la pregunta tiene una sola respuesta: se
+/// aparta si trae espacio.
 model ZonaComun {
   id           String        @id @default(uuid()) @db.Uuid
   conjuntoId   String        @map("conjunto_id") @db.Uuid
@@ -695,11 +703,6 @@ model ZonaComun {
   tipo         TipoZonaComun
   /// Como la llama el conjunto: "Salon Social", "BBQ Terraza Norte".
   nombre       String
-  /// Si requiere reserva. Un gimnasio suele ser de entrada libre; un salon
-  /// comunal no. Las REGLAS de reserva —tarifas, depositos, anticipacion, cupos
-  /// por unidad, y la consulta de mora— son del modulo de reservas. Aqui solo
-  /// vive lo que la zona ES, no como se reparte.
-  reservable   Boolean       @default(false)
   /// Capacidad maxima de personas. Null = sin limite declarado.
   aforo        Int?
   /// Reglas de uso en texto libre, tal como las redacto el conjunto.
