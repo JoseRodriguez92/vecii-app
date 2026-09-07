@@ -31,10 +31,19 @@ Si suman 99.87%, el conjunto recauda menos de lo presupuestado todos los meses.
 No se puede hacer con una restricción de base (cruza filas): va en el servicio,
 y como chequeo de salud visible del conjunto.
 
-**Falta el coeficiente sectorial**
-Una unidad tiene participación en el conjunto (gastos generales) **y** en su
-etapa (expensas sectoriales). Hoy solo cabe una. Sin la segunda no se puede
-cobrar la piscina de la Etapa 1 solo a esa etapa.
+**Faltan los sectores y sus módulos de contribución**
+Se dice **módulo de contribución**, no "coeficiente sectorial" — así lo llama la
+Ley 675 y así hay que decírselo a un administrador. Es el segundo reparto: el
+mantenimiento de los dos ascensores de la Torre B lo pagan solo las unidades de
+esa torre, y no las casas que no pueden usarlos.
+
+Y **no es una columna más en `unidades`**: una misma unidad puede estar en varios
+módulos a la vez —el ascensor de su torre *y* la piscina de su etapa— así que una
+segunda columna solo aguantaría uno. Son dos tablas: los sectores que definió el
+reglamento, y cuánto le toca a cada unidad en cada uno.
+
+Como son tablas nuevas y no cambian ninguna existente, **no bloquean nada**: van
+con finanzas, que es quien las va a usar.
 Ver [`dominio/expensas-y-coeficientes.md`](dominio/expensas-y-coeficientes.md).
 
 ---

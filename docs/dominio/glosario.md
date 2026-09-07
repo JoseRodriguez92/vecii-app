@@ -214,6 +214,28 @@ Tres consecuencias que conviene tener presentes:
   persona](https://www.ambitojuridico.com/noticias/general/para-el-ejercicio-del-derecho-al-voto-en-la-asamblea-general-de-propietarios-cada)
   y el coeficiente no se divide.
 
+## Los dos repartos
+
+Dos palabras que se confunden, y una de ellas la veníamos diciendo mal.
+
+| Palabra | Reparte | Sobre |
+|---|---|---|
+| **coeficiente de copropiedad** | las expensas **comunes** | el conjunto entero |
+| **módulo de contribución** | las expensas de **un sector** | solo las unidades de ese sector |
+
+**No se dice "coeficiente sectorial"**, aunque se oiga por todos lados. La Ley
+675 lo llama *módulo de contribución*: lo define en el artículo 3 y le dedica el
+artículo 31 completo, titulado "Sectores y módulos de contribución". Es el
+término que hay que usar frente a un administrador.
+
+El caso que lo explica solo: un conjunto de casas más una torre con ascensores.
+Si todo se repartiera por coeficiente, las casas estarían pagando un ascensor que
+no pueden usar.
+
+`coeficiente` sí existe hoy, en `unidades`. Los módulos no —van con finanzas, y
+son dos tablas, no una columna—. Ver
+[`expensas-y-coeficientes.md`](expensas-y-coeficientes.md).
+
 ## La familia de la propiedad
 
 Tres palabras con la misma raíz, en tres ejes distintos. **No son sinónimos:**
