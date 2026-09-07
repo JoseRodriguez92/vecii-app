@@ -15,7 +15,12 @@ const TTL_CACHE_MS = 5 * 60 * 1000;
 @Injectable()
 export class PermisosService implements OnModuleInit {
   private readonly logger = new Logger(PermisosService.name);
+  /** rolId -> permisos. Por ID y no por codigo: dos conjuntos pueden tener
+   *  cada uno su rol "COMITE_DEPORTES", y el codigo solo no los distingue. */
   private mapa = new Map<string, Set<string>>();
+  /** codigo -> rolId, solo de los roles globales. Los roles derivados
+   *  (PROPIETARIO, RESIDENTE) llegan como codigo, no como id. */
+  private idsGlobales = new Map<string, string>();
   private cargadoEn = 0;
 
   constructor(private readonly prisma: PrismaService) {}
@@ -53,31 +58,51 @@ export class PermisosService implements OnModuleInit {
     this.logger.log(`Catalogo de permisos verificado: ${TODOS_LOS_PERMISOS.length}`);
   }
 
-  private async mapaVigente(): Promise<Map<string, Set<string>>> {
-    if (Date.now() - this.cargadoEn < TTL_CACHE_MS && this.mapa.size > 0) return this.mapa;
+  private async cargar() {
+    if (Date.now() - this.cargadoEn < TTL_CACHE_MS && this.mapa.size > 0) return;
 
     const filas = await this.prisma.rolPermiso.findMany({
-      select: { rol: { select: { codigo: true } }, permiso: { select: { codigo: true } } },
+      select: { rolId: true, permiso: { select: { codigo: true } } },
     });
 
     const nuevo = new Map<string, Set<string>>();
     for (const fila of filas) {
-      const set = nuevo.get(fila.rol.codigo) ?? new Set<string>();
+      const set = nuevo.get(fila.rolId) ?? new Set<string>();
       set.add(fila.permiso.codigo);
-      nuevo.set(fila.rol.codigo, set);
+      nuevo.set(fila.rolId, set);
     }
 
+    const globales = await this.prisma.rol.findMany({
+      where: { conjuntoId: null },
+      select: { id: true, codigo: true },
+    });
+
     this.mapa = nuevo;
+    this.idsGlobales = new Map(globales.map((r) => [r.codigo, r.id]));
     this.cargadoEn = Date.now();
-    return this.mapa;
   }
 
-  /** Union de los permisos de todos esos roles. */
-  async permisosDe(codigosRol: string[]): Promise<Set<string>> {
-    const mapa = await this.mapaVigente();
+  /**
+   * Union de los permisos de unos roles.
+   *
+   * Recibe IDS y no codigos porque un codigo no identifica un rol: Parques de
+   * Castilla y Torres del Parque pueden tener cada uno su "COMITE_DEPORTES", y
+   * son roles distintos con permisos distintos.
+   *
+   * `codigosGlobales` es la excepcion: los roles derivados —PROPIETARIO,
+   * RESIDENTE— llegan como codigo desde `rolDeRelacion`, y esos si son globales.
+   */
+  async permisosDe(rolIds: string[], codigosGlobales: string[] = []): Promise<Set<string>> {
+    await this.cargar();
+
+    const ids = [
+      ...rolIds,
+      ...codigosGlobales.map((c) => this.idsGlobales.get(c)).filter((id): id is string => !!id),
+    ];
+
     const union = new Set<string>();
-    for (const rol of codigosRol) {
-      for (const permiso of mapa.get(rol) ?? []) union.add(permiso);
+    for (const id of ids) {
+      for (const permiso of this.mapa.get(id) ?? []) union.add(permiso);
     }
     return union;
   }

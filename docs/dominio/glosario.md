@@ -97,6 +97,16 @@ Los tres comparten el catálogo `roles`, y ahí `conjuntoId` separa los dos
 primeros: **null = de plataforma**. La misma persona tiene los tres sin conflicto:
 quien trabaja en Vecii también vive en algún lado.
 
+**Un conjunto puede crear sus propios cargos** —"Comité de Deportes"— y ponerles
+los permisos que ya existen. Lo que **no** puede es inventar permisos: esos son el
+espejo de lo que el código sabe hacer, y uno inventado no haría nada porque
+ningún endpoint lo verifica.
+
+Y edita **sus** cargos, no los estándar. `CONSEJO` sale de la Ley 675 y lo
+comparten los 400 conjuntos; si uno necesita algo distinto, crea el suyo. Por eso
+`roles_permisos` no necesitó saber de conjuntos: **el aislamiento lo trae el rol**,
+que ya nace con su `conjuntoId`.
+
 Meter `STAFF_VECII` en `usuario_conjunto_roles` era el error: un rol global en una
 tabla que es por conjunto, y por eso solo servía donde se otorgó.
 

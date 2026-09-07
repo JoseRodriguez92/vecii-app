@@ -1,6 +1,34 @@
+import { Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ArrayUnique, IsArray, IsDateString, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { ROLES_DEL_SISTEMA } from '../../../common/roles.js';
+
+export class CrearRolDto {
+  @ApiProperty({
+    description:
+      'Codigo del cargo, en MAYUSCULAS con guion bajo. Es como lo nombra el sistema y no ' +
+      'cambia despues. No puede ser uno de los reservados (CONSEJO, PORTERIA, etc.).',
+    example: 'COMITE_DEPORTES',
+    maxLength: 40,
+  })
+  @IsString()
+  @Matches(/^[A-Z][A-Z0-9_]{2,39}$/, {
+    message: 'El codigo va en MAYUSCULAS, sin espacios ni tildes. Ej: COMITE_DEPORTES',
+  })
+  codigo!: string;
+
+  @ApiProperty({ description: 'Como lo ve la gente.', example: 'Comite de Deportes', maxLength: 60 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  nombre!: string;
+
+  @ApiPropertyOptional({ maxLength: 300 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  descripcion?: string;
+}
 
 export class ActualizarRolDto {
   @ApiPropertyOptional({

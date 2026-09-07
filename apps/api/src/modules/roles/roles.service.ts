@@ -2,9 +2,13 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PermisosService } from '../../auth/permisos.service.js';
 import { PERMISOS, PERMISOS_DE_PLATAFORMA } from '../../common/permisos.js';
-import { Ambito, ROL } from '../../common/roles.js';
+import { Ambito, CODIGOS_RESERVADOS, ROL } from '../../common/roles.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import type { ActualizarRolDto, ReemplazarPermisosDto } from './dto/rol.dto.js';
+import type {
+  ActualizarRolDto,
+  CrearRolDto,
+  ReemplazarPermisosDto,
+} from './dto/rol.dto.js';
 
 @Injectable()
 export class RolesService {
@@ -36,9 +40,64 @@ export class RolesService {
    * verlo en el desplegable solo invita a intentarlo. Se filtra aqui y no en el
    * frontend, porque la interfaz no deberia tener que saber esta regla.
    */
+  /**
+   * Crea un cargo propio del conjunto.
+   *
+   * Nace SIN permisos: se le marcan despues. Y nace con el conjunto adentro, asi
+   * que sus permisos ya son suyos — el aislamiento lo trae el rol, no hace falta
+   * ninguna regla extra.
+   */
+  async crear(activo: ConjuntoActivo, dto: CrearRolDto) {
+    if (CODIGOS_RESERVADOS.has(dto.codigo)) {
+      throw new BadRequestException(
+        `${dto.codigo} es un cargo del sistema. Elige otro codigo para el tuyo.`,
+      );
+    }
+
+    const repetido = await this.prisma.rol.findFirst({
+      where: { codigo: dto.codigo, conjuntoId: activo.conjuntoId },
+      select: { id: true },
+    });
+    if (repetido) throw new BadRequestException(`Ya tienes un cargo con el codigo ${dto.codigo}`);
+
+    return this.prisma.rol.create({
+      data: {
+        codigo: dto.codigo,
+        nombre: dto.nombre,
+        descripcion: dto.descripcion ?? null,
+        conjuntoId: activo.conjuntoId,
+        ambito: Ambito.CONJUNTO,
+        asignable: true,
+      },
+    });
+  }
+
+  /**
+   * Da de baja un cargo propio. No borra la fila: las asignaciones historicas la
+   * apuntan, y "quien era del comite cuando se aprobo eso" se sigue preguntando.
+   * Cierra las vigentes y le quita los permisos.
+   */
+  async desactivar(activo: ConjuntoActivo, codigo: string) {
+    const rol = await this.exigirPropio(activo, codigo);
+    const cerrados = await this.prisma.usuarioConjuntoRol.updateMany({
+      where: { rolId: rol.id, hasta: null },
+      data: { hasta: new Date() },
+    });
+    await this.prisma.rolPermiso.deleteMany({ where: { rolId: rol.id } });
+    this.permisos.invalidarCache();
+    return { codigo, cargosCerrados: cerrados.count };
+  }
+
   async listar(activo: ConjuntoActivo) {
     const roles = await this.prisma.rol.findMany({
-      where: activo.esDePlataforma ? {} : { ambito: Ambito.CONJUNTO },
+      where: activo.esDePlataforma
+        ? {}
+        : {
+            ambito: Ambito.CONJUNTO,
+            // Los estandar (sin conjunto) y los propios de este. Los cargos que
+            // invento OTRO conjunto no se ven: no existen para el.
+            OR: [{ conjuntoId: null }, { conjuntoId: activo.conjuntoId }],
+          },
       orderBy: { codigo: 'asc' },
       include: { permisos: { select: { permiso: { select: { codigo: true } } } } },
     });
@@ -48,8 +107,10 @@ export class RolesService {
     }));
   }
 
-  async actualizar(codigo: string, dto: ActualizarRolDto) {
-    const rol = await this.obtener(codigo);
+  async actualizar(activo: ConjuntoActivo, codigo: string, dto: ActualizarRolDto) {
+    const rol = activo.esDePlataforma
+      ? await this.obtener(codigo)
+      : await this.exigirPropio(activo, codigo);
     return this.prisma.rol.update({ where: { id: rol.id }, data: dto });
   }
 
@@ -64,27 +125,17 @@ export class RolesService {
     codigo: string,
     dto: ReemplazarPermisosDto,
   ) {
-    // Hoy la matriz es GLOBAL: `roles` no tiene conjunto y `roles_permisos`
-    // tampoco. Sin este candado, el administrador de un conjunto cambiaria lo
-    // que puede hacer el consejo de TODOS los conjuntos del pais.
-    //
-    // Es el mismo error que PATCH /conjuntos/:id: autorizar a nivel de conjunto
-    // y escribir a nivel global. Se levanta cuando los roles sean por conjunto.
-    // Ver docs/pendientes.md.
-    if (!activo.roles.includes(ROL.STAFF_VECII)) {
-      throw new ForbiddenException(
-        'La matriz de permisos es global y hoy solo la edita el equipo de Vecii. ' +
-          'Los roles por conjunto estan en camino.',
-      );
-    }
+    // Un conjunto edita SUS cargos, no los estandar. Los estandar salen de la
+    // Ley 675 y son los mismos en todo el pais: si Parques quiere un consejo
+    // distinto, se crea su propio cargo. Vecii si puede editar los estandar.
+    const rol = activo.esDePlataforma
+      ? await this.obtener(codigo)
+      : await this.exigirPropio(activo, codigo);
 
-    const rol = await this.obtener(codigo);
-
-    // SUPER_ADMIN es staff de Vecii, no un cargo del conjunto. Si se pudiera
-    // editar desde aqui, un administrador podria quitarle el acceso al equipo
-    // que sostiene la plataforma.
-    if (codigo === ROL.STAFF_VECII) {
-      throw new BadRequestException('Los permisos de SUPER_ADMIN no se editan desde la interfaz');
+    // STAFF_VECII no se edita desde ninguna interfaz: si se pudiera, alguien
+    // podria dejar sin acceso al equipo que sostiene la plataforma.
+    if (rol.codigo === ROL.STAFF_VECII) {
+      throw new BadRequestException('Los permisos de STAFF_VECII no se editan desde la interfaz');
     }
 
     const existentes = await this.prisma.permiso.findMany({
@@ -146,6 +197,31 @@ export class RolesService {
           'editar los permisos, y esta pantalla dejaria de funcionar para siempre.',
       );
     }
+  }
+
+  /**
+   * Exige que el cargo sea de ESTE conjunto.
+   *
+   * Es lo que impide que el administrador de Parques toque el CONSEJO estandar
+   * —que comparten los 400— o un cargo inventado por otro conjunto.
+   */
+  private async exigirPropio(activo: ConjuntoActivo, codigo: string) {
+    const rol = await this.prisma.rol.findFirst({
+      where: { codigo, conjuntoId: activo.conjuntoId },
+    });
+    if (rol) return rol;
+
+    const estandar = await this.prisma.rol.findFirst({
+      where: { codigo, conjuntoId: null },
+      select: { nombre: true },
+    });
+    if (estandar) {
+      throw new ForbiddenException(
+        `${estandar.nombre} es un cargo del sistema y lo comparten todos los conjuntos. ` +
+          'Si necesitas uno distinto, crea el tuyo.',
+      );
+    }
+    throw new NotFoundException(`No tienes un cargo con el codigo ${codigo}`);
   }
 
   private async obtener(codigo: string) {

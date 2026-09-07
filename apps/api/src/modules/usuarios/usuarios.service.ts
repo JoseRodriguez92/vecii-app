@@ -124,7 +124,7 @@ export class UsuariosService {
       if (!unidad) throw new NotFoundException('Esa unidad no existe en este conjunto');
     }
 
-    const roles = await this.validarRolesOtorgables(dto.roles);
+    const roles = await this.validarRolesOtorgables(activo.conjuntoId, dto.roles);
 
     // La cuenta se crea ANTES de la transaccion porque vive en Supabase, no en
     // nuestra base: no hay forma de deshacerla con un rollback. Si algo falla
@@ -283,8 +283,10 @@ export class UsuariosService {
 
     // TODO (paso 2): cuando los roles sean por conjunto, `conjuntoId: null` pasa
     // a ser el conjunto activo. Hoy todos los roles son globales.
+    // Un cargo estandar (sin conjunto) o uno que este conjunto invento. Los de
+    // OTRO conjunto no existen para el.
     const rol = await this.prisma.rol.findFirst({
-      where: { codigo: dto.codigo, conjuntoId: null },
+      where: { codigo: dto.codigo, OR: [{ conjuntoId: null }, { conjuntoId }] },
       select: { id: true, nombre: true, asignable: true, ambito: true },
     });
     if (!rol) throw new NotFoundException(`No existe el rol ${dto.codigo}`);
@@ -373,10 +375,10 @@ export class UsuariosService {
    * STAFF_VECII estaba marcado no-asignable; ahora que si lo es —lo otorga Vecii
    * en su propia pantalla— sin el segundo se podria nombrar staff desde aqui.
    */
-  private async validarRolesOtorgables(roles?: string[]) {
+  private async validarRolesOtorgables(conjuntoId: string, roles?: string[]) {
     if (!roles?.length) return [];
     const encontrados = await this.prisma.rol.findMany({
-      where: { codigo: { in: roles } },
+      where: { codigo: { in: roles }, OR: [{ conjuntoId: null }, { conjuntoId }] },
       select: { id: true, codigo: true, asignable: true, nombre: true, ambito: true },
     });
 

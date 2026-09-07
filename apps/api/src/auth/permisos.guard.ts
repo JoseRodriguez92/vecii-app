@@ -59,9 +59,8 @@ export class PermisosGuard implements CanActivate {
     // solo servia en ese, que era el bug.
     const dePlataforma = await this.prisma.usuarioPlataforma.findMany({
       where: { usuarioId: user.id, ...rolVigente() },
-      select: { rol: { select: { codigo: true } } },
+      select: { rol: { select: { id: true, codigo: true } } },
     });
-    const rolesDePlataforma = dePlataforma.map((p) => p.rol.codigo as string);
 
     const vinculo = await this.prisma.usuarioConjunto.findUnique({
       where: { usuarioId_conjuntoId: { usuarioId: user.id, conjuntoId } },
@@ -69,7 +68,7 @@ export class PermisosGuard implements CanActivate {
         id: true,
         conjuntoId: true,
         activo: true,
-        roles: { where: rolVigente(), select: { rol: { select: { codigo: true } } } },
+        roles: { where: rolVigente(), select: { rol: { select: { id: true, codigo: true } } } },
       },
     });
 
@@ -77,7 +76,7 @@ export class PermisosGuard implements CanActivate {
     // existir igual: sin esa comprobacion, un id inventado en la cabecera daria
     // un contexto valido apuntando a la nada.
     if (!vinculo || !vinculo.activo) {
-      if (rolesDePlataforma.length === 0) {
+      if (dePlataforma.length === 0) {
         throw new ForbiddenException('No perteneces a este conjunto');
       }
       const existe = await this.prisma.conjunto.findUnique({
@@ -99,15 +98,16 @@ export class PermisosGuard implements CanActivate {
       distinct: ['relacion'],
     });
 
-    const roles = [
-      ...new Set([
-        ...rolesDePlataforma,
-        ...(vinculo?.roles ?? []).map((a) => a.rol.codigo as string),
-        ...ocupaciones.map((o) => rolDeRelacion(o.relacion) as string),
-      ]),
-    ];
+    const asignados = [...dePlataforma, ...(vinculo?.roles ?? [])].map((a) => a.rol);
+    const derivados = ocupaciones.map((o) => rolDeRelacion(o.relacion) as string);
+    const roles = [...new Set([...asignados.map((r) => r.codigo as string), ...derivados])];
 
-    const permisos = await this.permisos.permisosDe(roles);
+    // Se resuelve por ID: dos conjuntos pueden tener un rol con el mismo codigo.
+    // Los derivados van por codigo porque son globales.
+    const permisos = await this.permisos.permisosDe(
+      asignados.map((r) => r.id),
+      derivados,
+    );
     if (!requeridos.some((codigo) => permisos.has(codigo))) {
       throw new ForbiddenException('No tienes permisos para esta accion');
     }
@@ -119,7 +119,7 @@ export class PermisosGuard implements CanActivate {
       conjuntoId,
       roles,
       permisos,
-      esDePlataforma: rolesDePlataforma.length > 0,
+      esDePlataforma: dePlataforma.length > 0,
     };
     return true;
   }

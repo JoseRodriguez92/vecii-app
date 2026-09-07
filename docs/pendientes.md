@@ -32,39 +32,6 @@ agregarlas a mano al `.sql` de la línea base.
 
 ---
 
-## 🔴 Los roles son globales, y deberían ser por conjunto
-
-`roles` no usa su `conjuntoId` y `roles_permisos` no lo tiene. La matriz de qué
-puede hacer cada cargo es **una sola para todo el país**.
-
-Eso significa que `PUT /roles/:codigo/permisos` escribe global aunque autorice
-por conjunto — el mismo error que tuvo `PATCH /conjuntos/:id`. Está tapado con
-un candado de STAFF_VECII, que es la verdad de hoy, pero es un parche: bloquea
-la función en vez de arreglar el modelo.
-
-**Decidido: roles propios por conjunto.** Cada conjunto recibe su copia de los
-cargos estándar al crearse, y desde ahí los edita o inventa los suyos.
-
-**Paso 1 hecho:** los roles de plataforma salieron a `usuarios_plataforma`, así
-que ya no queda ninguna excepción global dentro de `usuario_conjunto_roles`.
-Falta el paso 2, que es esto:
-
-Lo que hay que tocar:
-
-| | |
-|---|---|
-| ~~`Rol.codigo` a texto~~ | ✅ hecho |
-| `Rol.conjuntoId` | pasa a usarse. `null` solo para `STAFF_VECII`, que es staff de Vecii |
-| ~~unicidad `@@unique([conjuntoId, codigo])`~~ | ✅ hecho. Falta el índice parcial para los `null`, que va en la línea base |
-| `PermisosService` | el caché deja de ser un mapa global: la clave pasa a ser (conjunto, rol) |
-| crear conjunto | tiene que sembrarle sus roles; y hay que rellenar los conjuntos que ya existen |
-| ~~`CodigoRol` como catálogo en código~~ | ✅ hecho: `src/common/roles.ts` |
-
-Ojo con lo que **no** cambia: `PROPIETARIO` y `RESIDENTE` se siguen derivando de
-`usuarios_unidades`, y `STAFF_VECII` sigue sin ser un cargo del conjunto.
-
----
-
 ## 🟡 Suplantar a un usuario para ver su interfaz
 
 Que el equipo de Vecii pueda mirar la app como la ve un residente del 501, para
