@@ -32,16 +32,20 @@ manejan las migraciones desde el 7 de septiembre. Cada cambio de schema pasa por
 El seed **no es opcional**: la API verifica al arrancar que todo permiso
 declarado en un decorador exista sembrado, y se niega a levantar si falta uno.
 
-Antes de commitear:
+Antes de commitear, desde la **raíz**:
 
 ```powershell
-cd apps\api
-pnpm lint            # oxlint + los tres verificadores
-npx tsc --noEmit     # tipos
+pnpm lint            # los tres apps: api, landing y la app de Expo
 pnpm test            # las pruebas de dominio
+cd apps\api ; npx tsc --noEmit
 ```
 
-`pnpm lint` corre cuatro scripts propios: `verificar-schema.mjs` (campos duplicados,
+`pnpm lint` es `pnpm -r lint`, así que corre los tres workspaces. El de la app
+de Expo es `expo lint` (ESLint 9 con `eslint-config-expo`) y **la primera vez
+se instala solo** — si ves a pnpm bajando paquetes en medio del lint, es eso y
+pasa una sola vez.
+
+En `apps/api`, `pnpm lint` corre cuatro scripts propios: `verificar-schema.mjs` (campos duplicados,
 relaciones sin inversa, modelos sin `@@map`, columnas sin `@map`),
 `verificar-vocabulario.mjs` (que una misma cosa se llame igual en la tabla, la
 carpeta, la ruta, el permiso y el tag de Swagger), `verificar-rls.mjs` (que

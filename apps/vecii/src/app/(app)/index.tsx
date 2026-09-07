@@ -22,11 +22,15 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       // Sincroniza el usuario con el backend y trae sus conjuntos.
       await api('/auth/me');
       setConjuntos(await api<Conjunto[]>('/conjuntos'));
+      // El error se limpia al llegar la respuesta buena, no al pedirla: durante
+      // un refresh se sigue viendo el mensaje anterior hasta que haya con que
+      // reemplazarlo. Ademas nada escribe estado ANTES del primer `await`, que
+      // es lo que convierte el efecto en una cascada de renders.
+      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo cargar');
     } finally {
