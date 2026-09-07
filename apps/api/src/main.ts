@@ -69,7 +69,7 @@ async function bootstrap() {
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
 
-  const port = config.get<number>('PORT') ?? 3000;
+  const port = config.get<number>('PORT') ?? 3201;
   await app.listen(port);
   new Logger('Bootstrap').log(`Vecii API escuchando en http://localhost:${port}/api (docs: /docs)`);
 }
