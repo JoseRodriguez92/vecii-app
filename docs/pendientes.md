@@ -8,6 +8,79 @@ no tienen ADR propio.
 
 ---
 
+## 🔴 Lo que le falta al backend ANTES de la interfaz
+
+Auditado el 7 de septiembre leyendo el código, no los documentos. Ordenado por
+cuánto duele al construir pantallas.
+
+### 1. Todo error de base llega como 500
+
+No hay ningún `ExceptionFilter` en el proyecto (`grep -rn "@Catch" src/` → 0).
+Las excepciones de Prisma salen tal cual, así que un NIT repetido, una placa
+repetida o un borrado con hijos devuelven **500 con stack**, no un mensaje.
+
+En la interfaz eso significa que **todo formulario que falle dice "algo salió
+mal"**, sin importar por qué. Es el bloqueador número uno: no se puede construir
+una pantalla de crear/editar decente contra una API que no explica sus rechazos.
+
+Lo mínimo: `P2002` → 409 con el campo en conflicto, `P2025` → 404, `P2003` → 409.
+
+### 2. `/auth/me` no dice qué puede hacer la persona
+
+Devuelve los roles **otorgados** y nada más. No devuelve permisos, y no incluye
+los roles **derivados** — así que un propietario, que es exactamente quien más
+va a usar la app, llega con la lista de roles vacía.
+
+Si la app arma su navegación con eso, vuelve a preguntar por cargos justo donde
+el backend se cuidó de no hacerlo. La maquinaria ya existe: `PermisosGuard`
+calcula el `Set<string>` de permisos en cada petición y lo bota. Falta un
+endpoint que lo devuelva, por conjunto.
+
+### 3. La campanita no puede abrir nada
+
+Los avisos guardan `entidad` + `entidadId` para saber a dónde llevar al tocarlos.
+Hoy apuntan a tres cosas: `encomienda`, `invitado` y `reserva`.
+
+**Ninguna de las tres tiene `GET /:id`.** Solo existen para `conjuntos`,
+`agrupaciones`, `unidades`, `parqueaderos` y `zonas-comunes`. El aviso llega, se
+toca, y no hay a dónde ir.
+
+### 4. Ninguna lista pagina
+
+En todo `src/` hay **un solo `take`**, y es el de notificaciones (50, tope 100).
+Todo lo demás devuelve la tabla entera:
+
+- `GET /usuarios` es el peor: trae los vínculos de todo el conjunto con sus roles
+  anidados **y** una segunda consulta con todas sus ocupaciones. En un conjunto
+  de 400 unidades son ~600 personas en un solo JSON.
+- `GET /encomiendas` crece para siempre: nada las poda.
+- `GET /unidades`, `GET /invitados`, `GET /reservas`, igual.
+
+En un celular con datos eso no es lento: es la pantalla congelada.
+
+### 5. Faltan los detalles por id
+
+Además de los tres del punto 3: `usuarios`, `vehiculos`, `bicicletas`,
+`casilleros`, `tipologias` y `espacios-reservables` tampoco tienen `GET /:id`.
+Cualquier pantalla de detalle hoy tendría que traer la lista completa y filtrar
+en el cliente.
+
+### 6. No se puede buscar
+
+`GET /vehiculos?placa=` sí busca por coincidencia parcial, y está bien pensado
+—en la puerta se alcanzan a leer tres letras—. Pero no hay forma de buscar una
+**unidad** por identificador ni una **persona** por nombre o documento. Con las
+listas sin paginar, la app tendría que traerlo todo y filtrar en memoria.
+
+### 7. Decisión pendiente: `POST /conjuntos` no pide permiso
+
+Cualquiera con una cuenta de Supabase crea conjuntos ilimitados y queda de
+administrador de cada uno. Hoy no importa porque no hay registro abierto; el día
+que lo haya, importa. No es un bug: es una decisión que hay que tomar antes de
+abrir la puerta.
+
+---
+
 ## 🟡 Suplantar a un usuario para ver su interfaz
 
 Que el equipo de Vecii pueda mirar la app como la ve un residente del 501, para

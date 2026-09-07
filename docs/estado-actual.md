@@ -171,12 +171,14 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 
 ## Orden sugerido
 
-1. **La interfaz.** `apps/vecii` es la plantilla de Expo con una pantalla de
-   login. Hoy los 82 endpoints solo se usan desde Swagger, así que ningún
+1. **Cerrar el backend para la interfaz.** Son siete cosas, y están en
+   [`pendientes.md`](pendientes.md) con la evidencia de cada una: los errores
+   llegan como 500, `/auth/me` no dice qué puede hacer la persona, la campanita
+   no puede abrir nada, ninguna lista pagina. Ninguna es un módulo nuevo: son
+   huecos que solo se ven cuando alguien va a construir pantallas encima.
+2. **La interfaz.** `apps/vecii` es la plantilla de Expo con login y una lista
+   de conjuntos. Los 88 endpoints solo se usan desde Swagger, así que ningún
    conjunto puede usar esto todavía, por bien modelado que esté.
-2. **Comunicación.** No hay ningún canal de aviso en todo el backend: el estado
-   `NOTIFICADA` de una encomienda cambia la fila y no le avisa a nadie. De esto
-   dependen cosas que ya están construidas.
 3. **Finanzas** — cuando el resto genere los hechos que hay que cobrar.
 4. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
 5. **Asambleas** — es para lo que existen los coeficientes, junto con cobrar.
