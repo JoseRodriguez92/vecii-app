@@ -20,11 +20,11 @@ datasource db {
 /// Documentos de identidad validos en Colombia. NIT porque una unidad puede
 /// pertenecer a una empresa, no solo a una persona.
 enum TipoDocumento {
-  CC        // cedula de ciudadania
-  CE        // cedula de extranjeria
+  CC // cedula de ciudadania
+  CE // cedula de extranjeria
   PASAPORTE
-  PPT       // permiso por proteccion temporal
-  NIT       // persona juridica
+  PPT // permiso por proteccion temporal
+  NIT // persona juridica
 }
 
 /// Como se subdivide un conjunto. La tabla es generica; esto dice que es cada
@@ -53,12 +53,13 @@ enum NaturalezaParqueadero {
 
 /// De donde sale el derecho a usar un cupo.
 enum OrigenAsignacion {
-  PROPIEDAD  // es suyo, lo compro (bien privado)
+  PROPIEDAD // es suyo, lo compro (bien privado)
   REGLAMENTO // el reglamento se lo asigno
-  SORTEO     // le toco en el sorteo del periodo
-  PRESTAMO   // otro residente se lo presto
-  ARRIENDO   // otro residente se lo arrienda
+  SORTEO // le toco en el sorteo del periodo
+  PRESTAMO // otro residente se lo presto
+  ARRIENDO // otro residente se lo arrienda
 }
+
 enum EstadoReserva {
   SOLICITADA // esperando aprobacion del administrador
   CONFIRMADA
@@ -210,8 +211,8 @@ model Conjunto {
   latitud      Decimal?       @db.Decimal(8, 6)
   longitud     Decimal?       @db.Decimal(9, 6)
   estado       EstadoConjunto @default(ACTIVO)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
 
   agrupaciones Agrupacion[]
   unidades     Unidad[]
@@ -223,8 +224,8 @@ model Conjunto {
   tipologias   Tipologia[]
   usuarios     UsuarioConjunto[]
   casilleros   Casillero[]
-  encomiendas     Encomienda[]
-  invitados       Invitado[]
+  encomiendas  Encomienda[]
+  invitados    Invitado[]
 
   @@map("conjuntos")
 }
@@ -240,24 +241,24 @@ model Conjunto {
 ///   Etapa 2 -> Torre B -> Apto 501
 model Agrupacion {
   id         String         @id @default(uuid()) @db.Uuid
-  conjuntoId String         @db.Uuid
+  conjuntoId String         @map("conjunto_id") @db.Uuid
   /// Agrupacion contenedora. Null = cuelga directo del conjunto.
-  padreId    String?        @db.Uuid
+  padreId    String?        @map("padre_id") @db.Uuid
   tipo       TipoAgrupacion
   /// Como la llama la gente: "Torre 1", "Manzana A", "Etapa 2".
   nombre     String
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
 
-  conjunto Conjunto     @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
-  padre    Agrupacion?  @relation("AgrupacionJerarquia", fields: [padreId], references: [id], onDelete: SetNull)
-  hijas        Agrupacion[] @relation("AgrupacionJerarquia")
+  conjunto     Conjunto            @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  padre        Agrupacion?         @relation("AgrupacionJerarquia", fields: [padreId], references: [id], onDelete: SetNull)
+  hijas        Agrupacion[]        @relation("AgrupacionJerarquia")
   unidades     Unidad[]
   zonasComunes ZonaComun[]
   parqueaderos Parqueadero[]
   espacios     EspacioReservable[]
   casilleros   Casillero[]
-  encomiendas     Encomienda[]
+  encomiendas  Encomienda[]
 
   /// Nombre unico dentro del conjunto, incluso entre etapas distintas: dos
   /// "Torre A" en el mismo conjunto confunden al residente, no solo a la query.
@@ -273,13 +274,13 @@ model Agrupacion {
 
 model Unidad {
   id            String     @id @default(uuid()) @db.Uuid
-  conjuntoId    String     @db.Uuid
-  agrupacionId  String?    @db.Uuid
+  conjuntoId    String     @map("conjunto_id") @db.Uuid
+  agrupacionId  String?    @map("agrupacion_id") @db.Uuid
   identificador String // "301", "Casa 12", ...
   tipo          TipoUnidad @default(APARTAMENTO)
   /// Planta a la que pertenece. Null = unidad sin tipologia (casas viejas,
   /// unidades unicas), y entonces sus datos viven solo en esta fila.
-  tipologiaId   String?    @db.Uuid
+  tipologiaId   String?    @map("tipologia_id") @db.Uuid
   /// Coeficiente de copropiedad: la participacion de esta unidad en el conjunto.
   /// Ej: 0.004521 = 0.4521%. Sale del reglamento de propiedad horizontal, no se
   /// calcula. Define cuanto paga, cuanto pesa su voto y cuanto le pertenece de
@@ -292,11 +293,11 @@ model Unidad {
   coeficiente   Decimal?   @db.Decimal(9, 6)
   /// SOBRESCRIBE el area de la tipologia. Null = hereda de la tipologia.
   /// Solo se llena cuando la unidad se salio del molde.
-  areaM2        Decimal?   @db.Decimal(8, 2)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  areaM2        Decimal?   @map("area_m2") @db.Decimal(8, 2)
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
 
-  conjunto   Conjunto          @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  conjunto      Conjunto                @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
   /// FK compuesta a proposito: apunta a (agrupacion, conjunto), no solo a la
   /// agrupacion. Asi Postgres rechaza una unidad del conjunto A colgada de una
   /// agrupacion del conjunto B — la incoherencia se vuelve imposible de escribir,
@@ -307,17 +308,17 @@ model Unidad {
   ///
   /// NoAction en vez de SetNull: no se puede anular conjuntoId, que es obligatorio.
   /// Consecuencia: borrar una agrupacion con unidades exige moverlas primero.
-  agrupacion Agrupacion?       @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
-  tipologia  Tipologia?        @relation(fields: [tipologiaId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
-  usuarios   UsuarioUnidad[]
+  agrupacion    Agrupacion?             @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  tipologia     Tipologia?              @relation(fields: [tipologiaId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  usuarios      UsuarioUnidad[]
   /// Si esta Unidad ES un parqueadero privado, aqui esta su cupo fisico.
-  esParqueadero Parqueadero[] @relation("ParqueaderoEsUnidad")
+  esParqueadero Parqueadero[]           @relation("ParqueaderoEsUnidad")
   /// Cupos que esta unidad tiene derecho a usar.
   parqueaderos  AsignacionParqueadero[] @relation("UnidadUsaParqueadero")
   reservas      Reserva[]               @relation("UnidadReserva")
   /// La casilla de esta unidad. Una sola: el casillero no rota.
   casillero     Casillero?
-  encomiendas      Encomienda[]               @relation("EncomiendasUnidad")
+  encomiendas   Encomienda[]            @relation("EncomiendasUnidad")
   invitados     Invitado[]              @relation("InvitadosUnidad")
 
   /// El identificador es unico DENTRO de su agrupacion, no del conjunto: cada
@@ -354,15 +355,15 @@ model Unidad {
 /// entero no tiene zona horaria y se compara directo.
 model HorarioZonaComun {
   id          String    @id @default(uuid()) @db.Uuid
-  zonaComunId String    @db.Uuid
+  zonaComunId String    @map("zona_comun_id") @db.Uuid
   dia         DiaSemana
   /// Minutos desde medianoche. 0 = 00:00, 1439 = 23:59.
   apertura    Int
   /// Idem. 1440 = medianoche del dia siguiente. Debe ser mayor que `apertura`:
   /// un evento que pasa de medianoche es asunto de la reserva, no del horario.
   cierre      Int
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   zonaComun ZonaComun @relation(fields: [zonaComunId], references: [id], onDelete: Cascade)
 
@@ -381,33 +382,33 @@ model HorarioZonaComun {
 /// Aqui vive lo FISICO (numero, ubicacion, que cabe). Quien lo usa vive en
 /// `AsignacionParqueadero`, porque cambia con el tiempo.
 model Parqueadero {
-  id           String                @id @default(uuid()) @db.Uuid
-  conjuntoId   String                @db.Uuid
+  id            String                @id @default(uuid()) @db.Uuid
+  conjuntoId    String                @map("conjunto_id") @db.Uuid
   /// A que torre o etapa pertenece. Null = del conjunto entero.
-  agrupacionId String?               @db.Uuid
-  naturaleza   NaturalezaParqueadero
+  agrupacionId  String?               @map("agrupacion_id") @db.Uuid
+  naturaleza    NaturalezaParqueadero
   /// Como esta marcado en el piso: "P-101", "V-04", "S2-33".
   identificador String
   /// Solo para PRIVADO: la Unidad que ES este cupo, la que tiene el coeficiente.
   /// Ojo, esto NO es el apartamento al que sirve — eso es una asignacion.
-  unidadId     String?               @db.Uuid
+  unidadId      String?               @map("unidad_id") @db.Uuid
 
   /// Que cabe. Un cupo no es "de carro" o "de moto": en muchos conjuntos en el
   /// mismo espacio se guarda el carro Y la moto, y eso hay que poder decirlo.
   /// (Los bicicleteros no son cupos individuales: van como ZonaComun.)
-  admiteCarro Boolean @default(true)
-  admiteMoto  Boolean @default(false)
+  admiteCarro Boolean @default(true) @map("admite_carro")
+  admiteMoto  Boolean @default(false) @map("admite_moto")
 
   cubierto  Boolean  @default(false)
   /// Texto libre: "Sotano 1", "Exterior norte".
   ubicacion String?
   activo    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  conjunto    Conjunto                 @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
-  agrupacion  Agrupacion?              @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
-  unidad      Unidad?                  @relation("ParqueaderoEsUnidad", fields: [unidadId], references: [id], onDelete: SetNull)
+  conjunto     Conjunto                @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  agrupacion   Agrupacion?             @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  unidad       Unidad?                 @relation("ParqueaderoEsUnidad", fields: [unidadId], references: [id], onDelete: SetNull)
   asignaciones AsignacionParqueadero[]
   reservas     Reserva[]
 
@@ -430,7 +431,7 @@ model Parqueadero {
 /// entonces quien lo usa no es quien lo tiene.
 model AsignacionParqueadero {
   id            String           @id @default(uuid()) @db.Uuid
-  parqueaderoId String           @db.Uuid
+  parqueaderoId String           @map("parqueadero_id") @db.Uuid
   /// La unidad que tiene el derecho. Obligatoria: una asignacion sin unidad no
   /// significa nada.
   ///
@@ -439,13 +440,13 @@ model AsignacionParqueadero {
   /// que carro esta parqueado en este momento, y eso es una visita, no una
   /// asignacion. (El comentario anterior decia que este campo quedaba null para
   /// visitantes; era resto de un diseno que no prospero.)
-  unidadId      String           @db.Uuid
+  unidadId      String           @map("unidad_id") @db.Uuid
   origen        OrigenAsignacion
   desde         DateTime         @default(now())
   /// Null = vigente.
   hasta         DateTime?
   observacion   String?
-  createdAt     DateTime         @default(now())
+  createdAt     DateTime         @default(now()) @map("created_at")
 
   parqueadero Parqueadero @relation(fields: [parqueaderoId], references: [id], onDelete: Cascade)
   unidad      Unidad      @relation("UnidadUsaParqueadero", fields: [unidadId], references: [id], onDelete: Cascade)
@@ -472,7 +473,7 @@ model AsignacionParqueadero {
 /// se reserva es el pool; el cupo concreto lo asigna porteria.
 model EspacioReservable {
   id         String @id @default(uuid()) @db.Uuid
-  conjuntoId String @db.Uuid
+  conjuntoId String @map("conjunto_id") @db.Uuid
   /// Como lo ve el residente: "Salon Social", "Parqueadero de visitantes".
   nombre     String
   /// Cuantas reservas simultaneas admite. 1 = exclusivo.
@@ -481,15 +482,15 @@ model EspacioReservable {
   /// A que apunta en el mundo fisico. Un espacio es UNA de estas dos cosas:
   ///  - una zona comun concreta
   ///  - el pool de parqueaderos de cierta naturaleza (normalmente VISITANTES)
-  zonaComunId           String?                @unique @db.Uuid
-  naturalezaParqueadero NaturalezaParqueadero?
+  zonaComunId           String?                @unique @map("zona_comun_id") @db.Uuid
+  naturalezaParqueadero NaturalezaParqueadero? @map("naturaleza_parqueadero")
   /// Acota el pool a una parte del conjunto: la Etapa 1 puede tener sus 20 cupos
   /// de visitantes y la Etapa 2 otros 30, y no son intercambiables entre si.
-  agrupacionId          String?                @db.Uuid
+  agrupacionId          String?                @map("agrupacion_id") @db.Uuid
 
   activo    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   conjunto   Conjunto         @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
   zonaComun  ZonaComun?       @relation(fields: [zonaComunId], references: [id], onDelete: Cascade)
@@ -513,43 +514,43 @@ model EspacioReservable {
 /// esperan a finanzas. Aqui solo vive lo que se puede validar sin saber de plata.
 model PoliticaReserva {
   id         String @id @default(uuid()) @db.Uuid
-  conjuntoId String @db.Uuid
+  conjuntoId String @map("conjunto_id") @db.Uuid
 
-  espacioId String @unique @db.Uuid
+  espacioId String @unique @map("espacio_id") @db.Uuid
 
   /// El salon comunal casi siempre la pide; el gimnasio nunca.
-  requiereAprobacion Boolean @default(false)
+  requiereAprobacion Boolean @default(false) @map("requiere_aprobacion")
 
   /// Con cuanta antelacion MINIMA se puede reservar. Le da tiempo al
   /// administrador de preparar el espacio y avisarle a porteria.
-  anticipacionMinimaHoras Int?
+  anticipacionMinimaHoras Int? @map("anticipacion_minima_horas")
   /// Con cuanta antelacion MAXIMA. Sin esto, alguien reserva el salon todos los
   /// sabados del ano en enero y nadie mas lo usa.
-  anticipacionMaximaDias Int?
+  anticipacionMaximaDias  Int? @map("anticipacion_maxima_dias")
 
-  duracionMinimaMinutos Int?
-  duracionMaximaMinutos Int?
+  duracionMinimaMinutos Int? @map("duracion_minima_minutos")
+  duracionMaximaMinutos Int? @map("duracion_maxima_minutos")
 
   /// Cuantas reservas activas puede tener una unidad a la vez.
-  maxSimultaneasPorUnidad Int?
+  maxSimultaneasPorUnidad Int? @map("max_simultaneas_por_unidad")
   /// Cuantas al mes. Impide que el mismo apartamento monopolice el espacio.
-  maxMensualesPorUnidad Int?
+  maxMensualesPorUnidad   Int? @map("max_mensuales_por_unidad")
 
   /// Si solo pueden reservar propietarios. Algunos reglamentos excluyen a los
   /// arrendatarios de ciertos espacios.
-  soloPropietarios Boolean @default(false)
+  soloPropietarios Boolean @default(false) @map("solo_propietarios")
 
   /// Si una unidad en mora queda bloqueada. La Ley 675 no lo impone: lo decide
   /// cada reglamento, por eso es configuracion y no regla del codigo.
   /// La consulta de mora la resolvera finanzas.
-  bloqueaConMora Boolean @default(false)
+  bloqueaConMora Boolean @default(false) @map("bloquea_con_mora")
 
   /// Con cuanta antelacion se puede cancelar. Cancelar despues puede acarrear
   /// sancion — cuanto, lo define finanzas.
-  cancelacionMinimaHoras Int?
+  cancelacionMinimaHoras Int? @map("cancelacion_minima_horas")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   conjunto Conjunto          @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
   espacio  EspacioReservable @relation(fields: [espacioId, conjuntoId], references: [id, conjuntoId], onDelete: Cascade, onUpdate: NoAction)
@@ -561,6 +562,7 @@ model PoliticaReserva {
   @@index([conjuntoId])
   @@map("politicas_reserva")
 }
+
 /// Apartar un espacio del conjunto en una franja de tiempo.
 ///
 /// Apunta a un EspacioReservable, no a una zona comun ni a un cupo concreto.
@@ -573,15 +575,15 @@ model PoliticaReserva {
 /// se podria recalcular ni corregir cuando alguien reclame.
 model Reserva {
   id         String @id @default(uuid()) @db.Uuid
-  conjuntoId String @db.Uuid
+  conjuntoId String @map("conjunto_id") @db.Uuid
 
-  espacioId String @db.Uuid
+  espacioId String @map("espacio_id") @db.Uuid
 
   /// La unidad que responde por la reserva. Es la unidad y no la persona porque
   /// los cargos y las sanciones van a la unidad (misma logica que la deuda).
-  unidadId        String @db.Uuid
+  unidadId        String @map("unidad_id") @db.Uuid
   /// Quien la pidio, para saber a quien escribirle.
-  solicitadaPorId String @db.Uuid
+  solicitadaPorId String @map("solicitada_por_id") @db.Uuid
 
   inicio DateTime
   /// NULL = todavia esta ocupado y la cuenta corre.
@@ -602,29 +604,29 @@ model Reserva {
 
   /// Para quien es. Solo en el parqueadero de visitantes: en el salon comunal la
   /// reserva es de la unidad y no hay una persona concreta.
-  invitadoId    String? @db.Uuid
+  invitadoId    String? @map("invitado_id") @db.Uuid
   /// El cupo CONCRETO que asigno porteria. La reserva apunta al pool —"un
   /// espacio de visitantes"—; esto dice cual le toco.
-  parqueaderoId String? @db.Uuid
+  parqueaderoId String? @map("parqueadero_id") @db.Uuid
   /// La placa del momento. Puede no ser la que tiene registrada el invitado: la
   /// misma persona viene otro dia en otro carro.
   placa         String?
 
-  aprobadaPorId String?   @db.Uuid
-  aprobadaEn    DateTime?
-  motivoRechazo String?
+  aprobadaPorId String?   @map("aprobada_por_id") @db.Uuid
+  aprobadaEn    DateTime? @map("aprobada_en")
+  motivoRechazo String?   @map("motivo_rechazo")
   observacion   String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   conjunto      Conjunto          @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
   espacio       EspacioReservable @relation(fields: [espacioId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   unidad        Unidad            @relation("UnidadReserva", fields: [unidadId], references: [id], onDelete: Cascade)
-  solicitadaPor Usuario      @relation("ReservasSolicitadas", fields: [solicitadaPorId], references: [id], onDelete: Restrict)
+  solicitadaPor Usuario           @relation("ReservasSolicitadas", fields: [solicitadaPorId], references: [id], onDelete: Restrict)
   invitado      Invitado?         @relation(fields: [invitadoId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   parqueadero   Parqueadero?      @relation(fields: [parqueaderoId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
-  aprobadaPor   Usuario?     @relation("ReservasAprobadas", fields: [aprobadaPorId], references: [id], onDelete: SetNull)
+  aprobadaPor   Usuario?          @relation("ReservasAprobadas", fields: [aprobadaPorId], references: [id], onDelete: SetNull)
 
   @@index([conjuntoId])
   @@index([espacioId, inicio])
@@ -646,11 +648,11 @@ model Reserva {
 /// para eso Unidad.areaM2 sobrescribe el valor heredado.
 model Tipologia {
   id           String   @id @default(uuid()) @db.Uuid
-  conjuntoId   String   @db.Uuid
+  conjuntoId   String   @map("conjunto_id") @db.Uuid
   /// Como la nombra el conjunto: "Tipo A", "Modelo 2", "Casa Esquinera".
   nombre       String
   /// Area privada construida, en metros cuadrados.
-  areaM2       Decimal  @db.Decimal(8, 2)
+  areaM2       Decimal  @map("area_m2") @db.Decimal(8, 2)
   habitaciones Int
   banos        Int
   /// Texto libre para lo que no cabe en campos: balcon, estudio, cuarto util,
@@ -658,9 +660,9 @@ model Tipologia {
   /// nunca y cada conjunto tiene los suyos.
   descripcion  String?
   /// Imagen de la planta, si el conjunto la tiene.
-  planoUrl     String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  planoUrl     String?  @map("plano_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   conjunto Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
   unidades Unidad[]
@@ -683,9 +685,9 @@ model Tipologia {
 /// la piscina de la Etapa 1 la usan —y la pagan— solo sus unidades.
 model ZonaComun {
   id           String        @id @default(uuid()) @db.Uuid
-  conjuntoId   String        @db.Uuid
+  conjuntoId   String        @map("conjunto_id") @db.Uuid
   /// A que parte del conjunto pertenece. Null = es de todo el conjunto.
-  agrupacionId String?       @db.Uuid
+  agrupacionId String?       @map("agrupacion_id") @db.Uuid
   tipo         TipoZonaComun
   /// Como la llama el conjunto: "Salon Social", "BBQ Terraza Norte".
   nombre       String
@@ -697,12 +699,12 @@ model ZonaComun {
   /// Capacidad maxima de personas. Null = sin limite declarado.
   aforo        Int?
   /// Reglas de uso en texto libre, tal como las redacto el conjunto.
-  reglasUso    String?
+  reglasUso    String?       @map("reglas_uso")
   /// Falso = fuera de servicio (en mantenimiento). No se borra: las reservas
   /// historicas que apuntan a ella tienen que seguir teniendo sentido.
   activo       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
 
   conjunto   Conjunto           @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
   agrupacion Agrupacion?        @relation(fields: [agrupacionId], references: [id], onDelete: SetNull)
@@ -735,28 +737,28 @@ model Usuario {
   /// Necesarios para emitir paz y salvos, cruzar contra la escritura e
   /// identificar sin ambiguedad en un acta. Dos personas se llaman igual; dos
   /// documentos no.
-  tipoDocumento   TipoDocumento?
-  numeroDocumento String?
+  tipoDocumento   TipoDocumento? @map("tipo_documento")
+  numeroDocumento String?        @map("numero_documento")
 
   /// telefono = fijo del apartamento (el que marca porteria).
   /// celular  = movil personal (por ahi va el WhatsApp).
   telefono String?
   celular  String?
 
-  avatarUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  conjuntos      UsuarioConjunto[]
-  unidades       UsuarioUnidad[]
-  rolesAsignados UsuarioConjuntoRol[] @relation("RolesAsignados")
-  rolesDePlataforma  UsuarioPlataforma[] @relation("RolesDePlataforma")
-  plataformaOtorgada UsuarioPlataforma[] @relation("PlataformaOtorgada")
-  reservas       Reserva[]            @relation("ReservasSolicitadas")
-  reservasAprobadas Reserva[]         @relation("ReservasAprobadas")
-  encomiendasRecibidas     Encomienda[]      @relation("EncomiendasRecibidas")
-  encomiendasEntregadas    Encomienda[]      @relation("EncomiendasEntregadas")
-  invitadosAutorizados  Invitado[]        @relation("InvitadosAutorizados")
+  conjuntos             UsuarioConjunto[]
+  unidades              UsuarioUnidad[]
+  rolesAsignados        UsuarioConjuntoRol[] @relation("RolesAsignados")
+  rolesDePlataforma     UsuarioPlataforma[]  @relation("RolesDePlataforma")
+  plataformaOtorgada    UsuarioPlataforma[]  @relation("PlataformaOtorgada")
+  reservas              Reserva[]            @relation("ReservasSolicitadas")
+  reservasAprobadas     Reserva[]            @relation("ReservasAprobadas")
+  encomiendasRecibidas  Encomienda[]         @relation("EncomiendasRecibidas")
+  encomiendasEntregadas Encomienda[]         @relation("EncomiendasEntregadas")
+  invitadosAutorizados  Invitado[]           @relation("InvitadosAutorizados")
 
   @@unique([tipoDocumento, numeroDocumento])
   @@map("usuarios")
@@ -772,12 +774,12 @@ model Usuario {
 /// vez —un miembro del consejo es tambien propietario, legalmente tiene que
 /// serlo—.
 model UsuarioConjunto {
-  id         String        @id @default(uuid()) @db.Uuid
-  usuarioId  String        @db.Uuid
-  conjuntoId String        @db.Uuid
-  activo     Boolean       @default(true)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id         String   @id @default(uuid()) @db.Uuid
+  usuarioId  String   @map("usuario_id") @db.Uuid
+  conjuntoId String   @map("conjunto_id") @db.Uuid
+  activo     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   usuario  Usuario              @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   conjunto Conjunto             @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
@@ -796,11 +798,11 @@ model UsuarioConjunto {
 /// preferir "Consejo de Administracion" o "Junta".
 model Rol {
   id          String    @id @default(uuid()) @db.Uuid
-  /// Null = rol del sistema, igual en todos los conjuntos. Hoy TODOS lo son.
-  /// La columna existe para el dia que un conjunto quiera roles propios; ese dia
-  /// tambien habra que pasar `codigo` de enum a texto, porque un rol inventado
-  /// no puede tener un valor del enum. Una migracion pequena sobre pocas filas.
-  conjuntoId  String?   @db.Uuid
+  /// Null = cargo estandar, el mismo para los 400 conjuntos. Con valor = lo
+  /// invento ESE conjunto y solo el lo ve. Que dos conjuntos puedan tener cada
+  /// uno su COMITE_DEPORTES es la razon de que la unicidad sea (conjuntoId,
+  /// codigo) y de que la cache de permisos se lleve por rolId y no por codigo.
+  conjuntoId  String?   @map("conjunto_id") @db.Uuid
   /// Texto y no un enum a proposito: un enum le pondria techo a esta tabla, y un
   /// "Comite de Deportes" inventado por un conjunto no cabria. Los pocos codigos
   /// que el sistema conoce por nombre viven en src/common/roles.ts.
@@ -813,8 +815,8 @@ model Rol {
   /// Si el administrador de un conjunto puede otorgarlo. STAFF_VECII no: ese es
   /// staff de Vecii y no se reparte desde adentro.
   asignable   Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   asignaciones UsuarioConjuntoRol[]
   deplataforma UsuarioPlataforma[]
@@ -834,7 +836,7 @@ model Rol {
 /// Area funcional de Vecii. Sirve para agrupar permisos en la interfaz de
 /// administracion, para que no sea una lista plana de doscientas casillas.
 model Modulo {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
   /// "unidades", "finanzas", "reservas". Estable: los permisos lo usan de prefijo.
   codigo      String    @unique
   /// De quien son los permisos de este modulo.
@@ -851,10 +853,10 @@ model Modulo {
   nombre      String
   descripcion String?
   /// Orden en que se muestra en la interfaz.
-  orden       Int      @default(0)
-  activo      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  orden       Int       @default(0)
+  activo      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   permisos Permiso[]
 
@@ -872,13 +874,13 @@ model Modulo {
 /// permiso mal escrito se descubre en produccion cuando alguien no puede entrar.
 model Permiso {
   id          String   @id @default(uuid()) @db.Uuid
-  moduloId    String   @db.Uuid
+  moduloId    String   @map("modulo_id") @db.Uuid
   /// Formato `modulo.espacio.accion`, ej: "finanzas.presupuesto.crear".
   codigo      String   @unique
   nombre      String
   descripcion String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   modulo Modulo       @relation(fields: [moduloId], references: [id], onDelete: Cascade)
   roles  RolPermiso[]
@@ -890,9 +892,9 @@ model Permiso {
 /// Que permisos tiene cada rol. Esta es la tabla que se edita desde la interfaz:
 /// cambiar quien puede hacer que ya no exige desplegar codigo.
 model RolPermiso {
-  rolId     String   @db.Uuid
-  permisoId String   @db.Uuid
-  createdAt DateTime @default(now())
+  rolId     String   @map("rol_id") @db.Uuid
+  permisoId String   @map("permiso_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
 
   rol     Rol     @relation(fields: [rolId], references: [id], onDelete: Cascade)
   permiso Permiso @relation(fields: [permisoId], references: [id], onDelete: Cascade)
@@ -909,14 +911,14 @@ model RolPermiso {
 /// fue consejero cuando, que es justo lo que se pregunta en una asamblea.
 model UsuarioConjuntoRol {
   id                String    @id @default(uuid()) @db.Uuid
-  usuarioConjuntoId String    @db.Uuid
-  rolId             String    @db.Uuid
+  usuarioConjuntoId String    @map("usuario_conjunto_id") @db.Uuid
+  rolId             String    @map("rol_id") @db.Uuid
   desde             DateTime  @default(now())
   /// Null = vigente. Con fecha = ya termino, pero queda el registro.
   hasta             DateTime?
   /// Quien lo otorgo. Auditoria: en propiedad horizontal esto se reclama.
-  asignadoPorId     String?   @db.Uuid
-  createdAt         DateTime  @default(now())
+  asignadoPorId     String?   @map("asignado_por_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
 
   usuarioConjunto UsuarioConjunto @relation(fields: [usuarioConjuntoId], references: [id], onDelete: Cascade)
   rol             Rol             @relation(fields: [rolId], references: [id], onDelete: Restrict)
@@ -939,8 +941,8 @@ model UsuarioConjuntoRol {
 /// colgado y seguiria votando en un conjunto donde ya no tiene nada.
 model UsuarioUnidad {
   id        String         @id @default(uuid()) @db.Uuid
-  usuarioId String         @db.Uuid
-  unidadId  String         @db.Uuid
+  usuarioId String         @map("usuario_id") @db.Uuid
+  unidadId  String         @map("unidad_id") @db.Uuid
   relacion  RelacionUnidad
   /// Contacto principal de la unidad. Con dos duenos —una pareja, por ejemplo—
   /// marca a quien se le escribe primero. No cambia quien debe la plata: la
@@ -950,7 +952,7 @@ model UsuarioUnidad {
   /// Null = vigente. Con fecha = termino, pero la fila se queda: hace falta
   /// saber quien vivia ahi cuando se genero una cuota vieja.
   hasta     DateTime?
-  createdAt DateTime       @default(now())
+  createdAt DateTime       @default(now()) @map("created_at")
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   unidad  Unidad  @relation(fields: [unidadId], references: [id], onDelete: Cascade)
@@ -976,25 +978,25 @@ model UsuarioUnidad {
 /// rota nunca; historial que nadie va a consultar es maquinaria que solo estorba.
 model Casillero {
   id            String  @id @default(uuid()) @db.Uuid
-  conjuntoId    String  @db.Uuid
+  conjuntoId    String  @map("conjunto_id") @db.Uuid
   /// A que porteria pertenece. Null = el conjunto tiene una sola.
-  agrupacionId  String? @db.Uuid
+  agrupacionId  String? @map("agrupacion_id") @db.Uuid
   /// Como esta marcada: "C-501", "12".
   identificador String
   /// De quien es. NULL a proposito: la administracion y el consejo tambien
   /// tienen casilla, y esas no son de ninguna unidad.
-  unidadId      String? @db.Uuid
+  unidadId      String? @map("unidad_id") @db.Uuid
 
   /// Falso = se dano la chapa, se tapio. No se borra: las encomiendas viejas que
   /// apuntan a ella tienen que seguir teniendo sentido.
   activo    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  conjunto   Conjunto    @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
-  agrupacion Agrupacion? @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
-  unidad     Unidad?     @relation(fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
-  encomiendas   Encomienda[]
+  conjunto    Conjunto     @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  agrupacion  Agrupacion?  @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  unidad      Unidad?      @relation(fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  encomiendas Encomienda[]
 
   @@unique([conjuntoId, identificador])
   /// Una unidad, un casillero. Si algun dia aparece un conjunto donde el 501
@@ -1029,10 +1031,10 @@ model Casillero {
 /// exija termina sin que registren nada — ni siquiera los paquetes.
 model Encomienda {
   id         String @id @default(uuid()) @db.Uuid
-  conjuntoId String @db.Uuid
+  conjuntoId String @map("conjunto_id") @db.Uuid
 
-  unidadId     String? @db.Uuid
-  agrupacionId String? @db.Uuid
+  unidadId     String? @map("unidad_id") @db.Uuid
+  agrupacionId String? @map("agrupacion_id") @db.Uuid
 
   /// El nombre escrito en el paquete, tal cual. Texto y no una FK a Usuario:
   /// puede ser la empleada, un hijo, o alguien que no tiene usuario en la app.
@@ -1044,31 +1046,31 @@ model Encomienda {
 
   /// Donde quedo guardada. Null = no cupo en la casilla y esta detras del
   /// mostrador, o es un reparto masivo (va a todas).
-  casilleroId String? @db.Uuid
+  casilleroId String? @map("casillero_id") @db.Uuid
 
   estado EstadoEncomienda @default(RECIBIDA)
 
-  recibidaPorId String   @db.Uuid
-  recibidaEn    DateTime @default(now())
+  recibidaPorId String   @map("recibida_por_id") @db.Uuid
+  recibidaEn    DateTime @default(now()) @map("recibida_en")
 
   /// Cuando se le aviso al residente. Se guarda aparte del estado porque el
   /// estado dice donde esta AHORA, no por donde paso: al llegar a ENTREGADA se
   /// perderia el dato, y "le avisamos hace tres semanas y no bajo" es
   /// exactamente lo que porteria necesita poder mostrar.
-  notificadaEn DateTime?
+  notificadaEn DateTime? @map("notificada_en")
 
   /// Quien se la llevo, tal como lo anoto porteria. Texto por la misma razon que
   /// `destinatario`: casi nunca es alguien con usuario en la app.
-  retiradaPorNombre String?
-  entregadaPorId    String?   @db.Uuid
-  entregadaEn       DateTime?
+  retiradaPorNombre String?   @map("retirada_por_nombre")
+  entregadaPorId    String?   @map("entregada_por_id") @db.Uuid
+  entregadaEn       DateTime? @map("entregada_en")
 
   observacion String?
   /// Foto de la guia o del paquete. Es la prueba cuando alguien reclama.
-  fotoUrl     String?
+  fotoUrl     String? @map("foto_url")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   conjunto     Conjunto    @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
   unidad       Unidad?     @relation("EncomiendasUnidad", fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
@@ -1111,13 +1113,13 @@ model Encomienda {
 /// su propia tabla y esta no cambia.
 model Invitado {
   id         String @id @default(uuid()) @db.Uuid
-  conjuntoId String @db.Uuid
-  unidadId   String @db.Uuid
+  conjuntoId String @map("conjunto_id") @db.Uuid
+  unidadId   String @map("unidad_id") @db.Uuid
 
   nombre          String
-  tipoDocumento   TipoDocumento?
+  tipoDocumento   TipoDocumento? @map("tipo_documento")
   /// Con esto el portero verifica en la puerta que sea quien dice ser.
-  numeroDocumento String?
+  numeroDocumento String?        @map("numero_documento")
   telefono        String?
   /// Si viene en carro. Texto y no una tabla de vehiculos: la misma persona
   /// puede venir en otro carro y a porteria le sirve igual.
@@ -1125,19 +1127,19 @@ model Invitado {
 
   /// Quien lo autorizo: el residente desde la app, o el portero anotando lo que
   /// le dijeron por citofono. En los dos casos queda alguien que responde.
-  invitadoPorId String @db.Uuid
+  invitadoPorId String @map("invitado_por_id") @db.Uuid
 
   desde DateTime  @default(now())
   /// Null = autorizacion permanente.
   hasta DateTime?
 
   observacion String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  conjunto    Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
-  unidad      Unidad   @relation("InvitadosUnidad", fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
-  invitadoPor Usuario  @relation("InvitadosAutorizados", fields: [invitadoPorId], references: [id], onDelete: Restrict)
+  conjunto    Conjunto  @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  unidad      Unidad    @relation("InvitadosUnidad", fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  invitadoPor Usuario   @relation("InvitadosAutorizados", fields: [invitadoPorId], references: [id], onDelete: Restrict)
   reservas    Reserva[]
 
   /// Habilita la FK compuesta desde Reserva.
@@ -1166,10 +1168,10 @@ model Invitado {
 ///   2. Los permisos que le de la matriz, igual que cualquier otro rol.
 model UsuarioPlataforma {
   id        String @id @default(uuid()) @db.Uuid
-  usuarioId String @db.Uuid
+  usuarioId String @map("usuario_id") @db.Uuid
   /// Tiene que ser un Rol con `conjuntoId` nulo. Lo valida el servicio: es un
   /// cruce entre dos filas y la base no puede verlo.
-  rolId     String @db.Uuid
+  rolId     String @map("rol_id") @db.Uuid
 
   desde DateTime  @default(now())
   /// Null = vigente. Cerrar no borra: hace falta saber quien tenia acceso a todo
@@ -1177,8 +1179,8 @@ model UsuarioPlataforma {
   hasta DateTime?
 
   /// Quien lo otorgo. Otro miembro del equipo; null si lo sembro el seed.
-  otorgadoPorId String? @db.Uuid
-  createdAt     DateTime @default(now())
+  otorgadoPorId String?  @map("otorgado_por_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
 
   usuario     Usuario  @relation("RolesDePlataforma", fields: [usuarioId], references: [id], onDelete: Cascade)
   rol         Rol      @relation(fields: [rolId], references: [id], onDelete: Restrict)
