@@ -2,13 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { rolVigente } from '../../common/rol-vigente.js';
-import type { Prisma } from '../../generated/prisma/client.js';
-import {
-  EstadoReserva,
-  type NaturalezaParqueadero,
-  TipoNotificacion,
-} from '../../generated/prisma/enums.js';
+import { EstadoReserva, TipoNotificacion } from '../../generated/prisma/enums.js';
 import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
+import { OCUPAN, exigirEnCurso, validarCupoLibre } from './ocupacion.js';
 import {
   HORA,
   normalizarPlaca,
@@ -18,16 +14,10 @@ import {
 } from './reglas-reserva.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type {
-  AsignarCupoDto,
   CancelarReservaDto,
   CrearReservaDto,
   RechazarReservaDto,
-  RegistrarSalidaDto,
 } from './dto/reserva.dto.js';
-
-/** Estados que ocupan cupo. Una cancelada o rechazada libera el espacio. */
-const OCUPAN: EstadoReserva[] = [EstadoReserva.SOLICITADA, EstadoReserva.CONFIRMADA];
-
 
 @Injectable()
 export class ReservasService {
@@ -154,7 +144,7 @@ export class ReservasService {
       }
 
       if (dto.parqueaderoId) {
-        await this.validarCupoLibre(tx, activo.conjuntoId, espacio, dto.parqueaderoId, inicio, fin);
+        await validarCupoLibre(tx, activo.conjuntoId, espacio, dto.parqueaderoId, inicio, fin);
       }
 
       return await tx.reserva.create({
@@ -228,71 +218,8 @@ export class ReservasService {
     return fin ? `${hora(inicio)} — ${hora(fin)}` : `Desde ${hora(inicio)}`;
   }
 
-  /**
-   * Le asigna el cupo concreto cuando llega el carro. La reserva apartaba "un
-   * espacio del pool"; esto dice cual le toco.
-   */
-  async asignarCupo(conjuntoId: string, id: string, dto: AsignarCupoDto) {
-    const reserva = await this.exigirEnCurso(conjuntoId, id);
-    const espacio = await this.prisma.espacioReservable.findFirstOrThrow({
-      where: { id: reserva.espacioId },
-    });
-
-    return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${reserva.espacioId}::text, 0::bigint))`;
-      await this.validarCupoLibre(
-        tx,
-        conjuntoId,
-        espacio,
-        dto.parqueaderoId,
-        reserva.inicio,
-        reserva.fin,
-        id,
-      );
-      return tx.reserva.update({
-        where: { id },
-        data: {
-          parqueaderoId: dto.parqueaderoId,
-          ...(dto.placa ? { placa: normalizarPlaca(dto.placa) } : {}),
-        },
-      });
-    });
-  }
-
-  /**
-   * La salida: cierra una reserva abierta y libera el cupo.
-   *
-   * De aqui sale cuanto se cobra —desde `inicio` hasta ahora—, pero el valor NO
-   * se guarda: el hecho son las dos horas, y el cargo lo genera finanzas. Si
-   * manana corrigen una hora mal digitada, el valor se recalcula solo.
-   */
-  async registrarSalida(conjuntoId: string, id: string, dto: RegistrarSalidaDto) {
-    const reserva = await this.exigirEnCurso(conjuntoId, id);
-    if (reserva.fin) {
-      throw new BadRequestException(
-        'Esa reserva tiene fin definido: no se cierra con una salida, se cumple o se cancela',
-      );
-    }
-
-    const salida = dto.salidaEn ? new Date(dto.salidaEn) : new Date();
-    if (Number.isNaN(salida.getTime())) throw new BadRequestException('Fecha invalida');
-    if (salida <= reserva.inicio) {
-      throw new BadRequestException('La salida seria anterior a la entrada');
-    }
-
-    const actualizada = await this.prisma.reserva.update({
-      where: { id },
-      data: { fin: salida, estado: EstadoReserva.CUMPLIDA },
-    });
-
-    return {
-      ...actualizada,
-      minutos: Math.ceil((salida.getTime() - reserva.inicio.getTime()) / 60000),
-    };
-  }
-
   async aprobar(conjuntoId: string, usuarioId: string, id: string) {
-    const reserva = await this.exigirEnCurso(conjuntoId, id);
+    const reserva = await exigirEnCurso(this.prisma, conjuntoId, id);
     if (reserva.estado !== EstadoReserva.SOLICITADA) {
       throw new BadRequestException('Esa reserva no esta esperando aprobacion');
     }
@@ -320,7 +247,7 @@ export class ReservasService {
   }
 
   async rechazar(conjuntoId: string, usuarioId: string, id: string, dto: RechazarReservaDto) {
-    const reserva = await this.exigirEnCurso(conjuntoId, id);
+    const reserva = await exigirEnCurso(this.prisma, conjuntoId, id);
     if (reserva.estado !== EstadoReserva.SOLICITADA) {
       throw new BadRequestException('Esa reserva no esta esperando aprobacion');
     }
@@ -363,7 +290,7 @@ export class ReservasService {
     id: string,
     dto: CancelarReservaDto,
   ) {
-    const reserva = await this.exigirEnCurso(activo.conjuntoId, id);
+    const reserva = await exigirEnCurso(this.prisma, activo.conjuntoId, id);
 
     if (!activo.permisos.has(PERMISOS.RESERVAS_ADMINISTRAR)) {
       await this.exigirAlcance(activo, usuarioId, reserva.unidadId);
@@ -475,70 +402,6 @@ export class ReservasService {
     if (invitado.hasta && invitado.hasta <= new Date()) {
       throw new BadRequestException(`La autorizacion de ${invitado.nombre} ya termino`);
     }
-  }
-
-  /**
-   * El cupo concreto tiene que pertenecer al pool del espacio y estar libre.
-   *
-   * Esto es lo que impide que porteria entregue el V-12 dos veces. Va DENTRO del
-   * candado del espacio, por la misma razon que la cuenta de capacidad.
-   */
-  private async validarCupoLibre(
-    tx: Prisma.TransactionClient,
-    conjuntoId: string,
-    espacio: {
-      id: string;
-      nombre: string;
-      naturalezaParqueadero: NaturalezaParqueadero | null;
-      agrupacionId: string | null;
-    },
-    parqueaderoId: string,
-    inicio: Date,
-    fin: Date | null,
-    ignorarReservaId?: string,
-  ) {
-    if (!espacio.naturalezaParqueadero) {
-      throw new BadRequestException(`"${espacio.nombre}" no es un pool de parqueaderos`);
-    }
-
-    const cupo = await tx.parqueadero.findFirst({
-      where: { id: parqueaderoId, conjuntoId },
-      select: { identificador: true, naturaleza: true, agrupacionId: true, activo: true },
-    });
-
-    if (!cupo) throw new NotFoundException('Ese cupo no existe en este conjunto');
-    if (!cupo.activo) throw new BadRequestException(`El cupo ${cupo.identificador} esta fuera de servicio`);
-    if (cupo.naturaleza !== espacio.naturalezaParqueadero) {
-      throw new BadRequestException(
-        `El cupo ${cupo.identificador} no es de "${espacio.nombre}": es ${cupo.naturaleza}`,
-      );
-    }
-    if (espacio.agrupacionId && cupo.agrupacionId !== espacio.agrupacionId) {
-      throw new BadRequestException(`El cupo ${cupo.identificador} es de otra parte del conjunto`);
-    }
-
-    const ocupado = await tx.reserva.findFirst({
-      where: {
-        parqueaderoId,
-        estado: { in: OCUPAN },
-        ...(ignorarReservaId ? { NOT: { id: ignorarReservaId } } : {}),
-        ...solapa(inicio, fin),
-      },
-      select: { id: true },
-    });
-
-    if (ocupado) {
-      throw new BadRequestException(`El cupo ${cupo.identificador} ya esta ocupado en esa franja`);
-    }
-  }
-
-  private async exigirEnCurso(conjuntoId: string, id: string) {
-    const reserva = await this.prisma.reserva.findFirst({ where: { id, conjuntoId } });
-    if (!reserva) throw new NotFoundException('Reserva no encontrada');
-    if (!OCUPAN.includes(reserva.estado)) {
-      throw new BadRequestException(`Esa reserva ya esta ${reserva.estado.toLowerCase()}`);
-    }
-    return reserva;
   }
 
   /** Devuelve la relacion con la unidad, que hace falta para `soloPropietarios`. */

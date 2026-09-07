@@ -14,13 +14,18 @@ import {
   RechazarReservaDto,
   RegistrarSalidaDto,
 } from './dto/reserva.dto.js';
+import { CuposService } from './cupos.service.js';
 import { ReservasService } from './reservas.service.js';
 
 @ApiTags('reservas')
 @ApiBearerAuth()
 @Controller('reservas')
 export class ReservasController {
-  constructor(private readonly reservas: ReservasService) {}
+  constructor(
+    private readonly reservas: ReservasService,
+    // Asignar el cupo y cerrar la salida los hace porteria, no quien reserva.
+    private readonly cupos: CuposService,
+  ) {}
 
   @Get()
   @RequierePermiso(PERMISOS.RESERVAS_LEER)
@@ -94,7 +99,7 @@ export class ReservasController {
     @Body() dto: AsignarCupoDto,
     @ConjuntoActivo() a: Ctx,
   ) {
-    return this.reservas.asignarCupo(a.conjuntoId, id, dto);
+    return this.cupos.asignarCupo(a.conjuntoId, id, dto);
   }
 
   @Post(':id/salida')
@@ -112,7 +117,7 @@ export class ReservasController {
     @Body() dto: RegistrarSalidaDto,
     @ConjuntoActivo() a: Ctx,
   ) {
-    return this.reservas.registrarSalida(a.conjuntoId, id, dto);
+    return this.cupos.registrarSalida(a.conjuntoId, id, dto);
   }
 
   @Post(':id/aprobar')
