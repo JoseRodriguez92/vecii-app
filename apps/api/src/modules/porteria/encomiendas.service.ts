@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { EstadoEncomienda, TipoEncomienda, TipoNotificacion } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { rolVigente } from '../../common/rol-vigente.js';
+import { conAncestros } from '../estructura/arbol-agrupaciones.js';
 import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
 import type {
   DevolverDto,
@@ -23,6 +24,13 @@ const ETIQUETAS: Record<TipoEncomienda, string> = {
   [TipoEncomienda.OTRO]: 'algo',
 };
 const etiquetaDe = (tipo: TipoEncomienda) => ETIQUETAS[tipo] ?? 'algo';
+
+/** Para donde iba y donde quedo guardada: lo que la bandeja necesita mostrar. */
+const CON_DESTINO = {
+  unidad: { select: { id: true, identificador: true } },
+  agrupacion: { select: { id: true, nombre: true } },
+  casillero: { select: { id: true, identificador: true } },
+} as const;
 
 /** Estados en los que la encomienda ya se cerro y no admite mas movimientos. */
 const CERRADAS: EstadoEncomienda[] = [EstadoEncomienda.ENTREGADA, EstadoEncomienda.DEVUELTA];
@@ -47,11 +55,7 @@ export class EncomiendasService {
         ...(opciones.casilleroId ? { casilleroId: opciones.casilleroId } : {}),
       },
       orderBy: { recibidaEn: 'desc' },
-      include: {
-        unidad: { select: { id: true, identificador: true } },
-        agrupacion: { select: { id: true, nombre: true } },
-        casillero: { select: { id: true, identificador: true } },
-      },
+      include: CON_DESTINO,
     });
   }
 
@@ -70,7 +74,7 @@ export class EncomiendasService {
     });
 
     const unidadIds = ocupaciones.map((o) => o.unidadId);
-    const agrupacionIds = await this.conAncestros(
+    const agrupacionIds = await conAncestros(this.prisma,
       ocupaciones.map((o) => o.unidad.agrupacionId).filter((id): id is string => id !== null),
     );
 
@@ -85,11 +89,7 @@ export class EncomiendasService {
         ],
       },
       orderBy: { recibidaEn: 'desc' },
-      include: {
-        unidad: { select: { id: true, identificador: true } },
-        agrupacion: { select: { id: true, nombre: true } },
-        casillero: { select: { id: true, identificador: true } },
-      },
+      include: CON_DESTINO,
     });
   }
 
@@ -99,23 +99,7 @@ export class EncomiendasService {
     });
     if (!unidad) throw new NotFoundException('Esa unidad no existe en este conjunto');
 
-    if (dto.casilleroId) {
-      const casillero = await this.prisma.casillero.findFirst({
-        where: { id: dto.casilleroId, conjuntoId },
-      });
-      if (!casillero) throw new NotFoundException('Ese casillero no existe en este conjunto');
-      if (!casillero.activo) {
-        throw new BadRequestException(`El casillero ${casillero.identificador} esta fuera de servicio`);
-      }
-      // Esto no lo puede hacer la base: cruza dos tablas. Sin la verificacion se
-      // puede guardar el paquete del 501 en el casillero del 302 y nadie se entera
-      // hasta que el paquete no aparece.
-      if (casillero.unidadId && casillero.unidadId !== dto.unidadId) {
-        throw new BadRequestException(
-          `El casillero ${casillero.identificador} es de otra unidad`,
-        );
-      }
-    }
+    if (dto.casilleroId) await this.validarCasillero(conjuntoId, dto.casilleroId, dto.unidadId);
 
     // El estado sale de si HAY a quien avisarle. Si la unidad todavia no tiene
     // usuarios registrados —lo normal al arrancar un conjunto— la encomienda se queda
@@ -217,12 +201,25 @@ export class EncomiendasService {
       );
     }
 
-    // TODO: aqui va el envio real (push y correo por SMTP propio) cuando exista el
-    // modulo de notificaciones. Ver docs/pendientes.md.
-    return this.prisma.encomienda.update({
+    const actualizada = await this.prisma.encomienda.update({
       where: { id },
       data: { estado: EstadoEncomienda.NOTIFICADA, notificadaEn: new Date() },
     });
+
+    // Hasta hoy este metodo cambiaba la fila a NOTIFICADA y no le avisaba a
+    // nadie: el estado decia una cosa y el residente no veia nada. El aviso es
+    // el punto del metodo, no un efecto secundario.
+    await this.avisos.avisar({
+      conjuntoId,
+      tipo: TipoNotificacion.ENCOMIENDA_RECIBIDA,
+      titulo: `Sigue en porteria: llego ${etiquetaDe(encomienda.tipo)}`,
+      cuerpo: encomienda.remitente ? `De ${encomienda.remitente}` : undefined,
+      entidad: 'encomienda',
+      entidadId: encomienda.id,
+      para: { unidad: encomienda.unidadId },
+    });
+
+    return actualizada;
   }
 
   async entregar(conjuntoId: string, porteroId: string, id: string, dto: EntregarDto) {
@@ -269,33 +266,34 @@ export class EncomiendasService {
     return encomienda;
   }
 
+  /**
+   * El casillero tiene que existir aqui, estar en servicio y —si es de una
+   * unidad— ser el de ESA unidad.
+   *
+   * Lo ultimo no lo puede hacer la base: cruza dos tablas. Sin la verificacion se
+   * puede guardar el paquete del 501 en el casillero del 302 y nadie se entera
+   * hasta que el paquete no aparece.
+   */
+  private async validarCasillero(conjuntoId: string, casilleroId: string, unidadId: string) {
+    const casillero = await this.prisma.casillero.findFirst({
+      where: { id: casilleroId, conjuntoId },
+    });
+    if (!casillero) throw new NotFoundException('Ese casillero no existe en este conjunto');
+    if (!casillero.activo) {
+      throw new BadRequestException(
+        `El casillero ${casillero.identificador} esta fuera de servicio`,
+      );
+    }
+    if (casillero.unidadId && casillero.unidadId !== unidadId) {
+      throw new BadRequestException(`El casillero ${casillero.identificador} es de otra unidad`);
+    }
+  }
+
   /** Usuarios vigentes de una unidad: a quienes hay que avisarles. */
   private async destinatarios(conjuntoId: string, unidadId: string) {
     return this.prisma.usuarioUnidad.findMany({
       where: { unidadId, unidad: { conjuntoId }, ...rolVigente() },
       select: { usuarioId: true },
     });
-  }
-
-  /**
-   * Agrega los ancestros de unas agrupaciones. Termina en pocas vueltas: la
-   * jerarquia esta limitada a tres niveles (ver AgrupacionesService).
-   */
-  private async conAncestros(ids: string[]): Promise<string[]> {
-    const todos = new Set(ids);
-    let frontera = [...todos];
-
-    while (frontera.length) {
-      const padres = await this.prisma.agrupacion.findMany({
-        where: { id: { in: frontera }, padreId: { not: null } },
-        select: { padreId: true },
-      });
-      frontera = padres
-        .map((p) => p.padreId)
-        .filter((id): id is string => id !== null && !todos.has(id));
-      for (const id of frontera) todos.add(id);
-    }
-
-    return [...todos];
   }
 }

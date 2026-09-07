@@ -3,6 +3,7 @@ import type { TipoNotificacion } from '../../generated/prisma/enums.js';
 import { rolVigente } from '../../common/rol-vigente.js';
 import { ROL } from '../../common/roles.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { conSusHijas } from '../estructura/arbol-agrupaciones.js';
 import type { Destinatario } from './destinatarios.js';
 
 export interface Aviso {
@@ -175,7 +176,8 @@ export class NotificacionesService {
     if ('persona' in para) return [para.persona];
     if ('unidad' in para) return this.deUnidades(conjuntoId, [para.unidad]);
     if ('agrupacion' in para) {
-      return this.deUnidades(conjuntoId, undefined, await this.conSusHijas(conjuntoId, para.agrupacion));
+      const ramas = await conSusHijas(this.prisma, conjuntoId, para.agrupacion);
+      return this.deUnidades(conjuntoId, undefined, ramas);
     }
     if ('conjunto' in para) {
       const vinculos = await this.prisma.usuarioConjunto.findMany({
@@ -203,28 +205,6 @@ export class NotificacionesService {
     return [...new Set(ocupaciones.map((o) => o.usuarioId))];
   }
 
-  /**
-   * La agrupacion y todo lo que cuelga de ella.
-   *
-   * Las agrupaciones se anidan —Etapa 2 > Torre B > apto 501— asi que un aviso a
-   * la Etapa 2 tiene que llegarle tambien a las unidades de la Torre B. Se baja
-   * por niveles y no con una consulta recursiva porque en la practica son tres,
-   * y el corte en 10 es para que un ciclo en los datos no cuelgue el proceso.
-   * (Los ciclos siguen siendo un pendiente del modelo.)
-   */
-  private async conSusHijas(conjuntoId: string, raizId: string): Promise<string[]> {
-    const todas = [raizId];
-    let frontera = [raizId];
-    for (let nivel = 0; nivel < 10 && frontera.length > 0; nivel += 1) {
-      const hijas = await this.prisma.agrupacion.findMany({
-        where: { conjuntoId, padreId: { in: frontera } },
-        select: { id: true },
-      });
-      frontera = hijas.map((h) => h.id).filter((id) => !todas.includes(id));
-      todas.push(...frontera);
-    }
-    return todas;
-  }
 
   /**
    * Quien puede hacer algo en este conjunto.

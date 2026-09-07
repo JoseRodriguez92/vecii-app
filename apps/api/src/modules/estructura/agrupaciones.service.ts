@@ -1,12 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { PROFUNDIDAD_MAXIMA } from './arbol-agrupaciones.js';
 import type { ActualizarAgrupacionDto, CrearAgrupacionDto } from './dto/agrupacion.dto.js';
-
-/**
- * Tres niveles cubren todo lo que existe en Colombia: Etapa -> Torre -> (unidad).
- * Mas profundidad convierte la interfaz en un explorador de archivos.
- */
-const PROFUNDIDAD_MAXIMA = 3;
 
 @Injectable()
 export class AgrupacionesService {
