@@ -129,6 +129,44 @@ no se entera ni de lo que sí importaba.
 Si la respuesta a "¿alguien necesita enterarse?" es "no, pero queremos que quede
 el registro", **eso no es una notificación**.
 
+## En la app: cargar datos en una pantalla
+
+El lint de Expo trae `react-hooks/set-state-in-effect`, y **no mide lo que uno
+cree**. No le importa si el `setState` pasa antes o después del primer `await`.
+Le importa **dónde está definida la función**:
+
+- Si el efecto llama a una función definida **afuera** (un `useCallback`),
+  React trata todos sus `setState` como si ocurrieran en el cuerpo del efecto.
+  Falla, aunque no haya un solo `setState` síncrono.
+- Si la función se define **adentro** del efecto, es un callback y pasa —
+  incluso con un `setState` síncrono de primera línea.
+
+Así que la carga de una pantalla se escribe así:
+
+```tsx
+useEffect(() => {
+  let vivo = true;
+  const traer = async () => {
+    try {
+      const datos = await api('/ruta');
+      if (vivo) setDatos(datos);
+    } finally {
+      if (vivo) setCargando(false);
+    }
+  };
+  void traer();
+  return () => { vivo = false; };
+}, [pedido]);
+```
+
+Para volver a pedir —halar para refrescar, un botón de reintentar— **no se saca
+la función afuera**: se sube un contador (`pedido`) desde el evento, y el efecto
+vuelve a correr. Escribir estado en un manejador de eventos siempre se puede;
+en un efecto, casi nunca.
+
+El `vivo` no es adorno: si salen de la pantalla mientras la respuesta viene en
+camino, evita escribirle estado a un componente que ya no está.
+
 ## Antes de proponer un cambio estructural
 
 Lee `docs/adr/`. Es probable que ya se haya discutido y esté escrito por qué se

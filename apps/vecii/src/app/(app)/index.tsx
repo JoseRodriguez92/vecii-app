@@ -18,29 +18,59 @@ interface Conjunto {
 export default function HomeScreen() {
   const { session, signOut } = useSession();
   const [conjuntos, setConjuntos] = useState<Conjunto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
+  const [refrescando, setRefrescando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Sube de a uno cada vez que se pide de nuevo. Es lo que vuelve a correr el efecto. */
+  const [pedido, setPedido] = useState(0);
 
-  const load = useCallback(async () => {
-    try {
-      // Sincroniza el usuario con el backend y trae sus conjuntos.
-      await api('/auth/me');
-      setConjuntos(await api<Conjunto[]>('/conjuntos'));
-      // El error se limpia al llegar la respuesta buena, no al pedirla: durante
-      // un refresh se sigue viendo el mensaje anterior hasta que haya con que
-      // reemplazarlo. Ademas nada escribe estado ANTES del primer `await`, que
-      // es lo que convierte el efecto en una cascada de renders.
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo cargar');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  /**
+   * La carga vive DENTRO del efecto a proposito.
+   *
+   * Si la funcion se define afuera —en un `useCallback`— y el efecto solo la
+   * llama, React la trata como si sus `setState` ocurrieran en el cuerpo del
+   * efecto, y eso es una cascada de renders. Definida adentro es lo que la
+   * regla llama un callback, que es justo lo que es: la respuesta llega
+   * despues y ahi se escribe el estado.
+   */
   useEffect(() => {
-    void load();
-  }, [load]);
+    let vivo = true;
+
+    const traer = async () => {
+      try {
+        // Sincroniza el usuario con el backend y trae sus conjuntos.
+        await api('/auth/me');
+        const lista = await api<Conjunto[]>('/conjuntos');
+        if (!vivo) return;
+        setConjuntos(lista);
+        // El error se limpia con la respuesta buena, no al pedirla: durante un
+        // refresh se sigue viendo el mensaje anterior hasta que haya con que
+        // reemplazarlo.
+        setError(null);
+      } catch (e) {
+        if (vivo) setError(e instanceof Error ? e.message : 'No se pudo cargar');
+      } finally {
+        if (vivo) {
+          setCargando(false);
+          setRefrescando(false);
+        }
+      }
+    };
+
+    void traer();
+
+    // Si salen de la pantalla mientras la respuesta viene en camino, `vivo`
+    // evita escribirle estado a un componente que ya no esta.
+    return () => {
+      vivo = false;
+    };
+  }, [pedido]);
+
+  /** Halar para refrescar. Es un evento, no un efecto: aca si se puede escribir estado. */
+  const recargar = useCallback(() => {
+    setRefrescando(true);
+    setPedido((n) => n + 1);
+  }, []);
 
   return (
     <ThemedView style={styles.container}>
@@ -57,14 +87,14 @@ export default function HomeScreen() {
           </Pressable>
         </ThemedView>
 
-        {loading ? (
+        {cargando ? (
           <ActivityIndicator style={{ marginTop: Spacing.five }} />
         ) : (
           <FlatList
             data={conjuntos}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
-            refreshControl={<RefreshControl refreshing={false} onRefresh={() => void load()} />}
+            refreshControl={<RefreshControl refreshing={refrescando} onRefresh={recargar} />}
             ListEmptyComponent={
               <ThemedText type="small" themeColor="textSecondary">
                 {error ?? 'Aun no perteneces a ningun conjunto.'}
