@@ -50,10 +50,16 @@ ninguna tabla quede expuesta por la API de Supabase), y `verificar-cliente.mjs`
 si no aparece como un "Unknown argument" que no dice que falta un `migrate
 dev`).
 
-`pnpm test` corre Vitest. Hoy son 28 pruebas y todas son de **dominio puro**: la
-matriz de qué origen de derecho admite cada naturaleza de cupo. Ese es el
-criterio para las que vengan — se prueba lo que ninguna restricción de base
-puede cuidar, no que Prisma guarde ni que Nest enrute.
+`pnpm test` corre Vitest. Hoy son **47 pruebas** y todas son de **dominio puro**:
+la matriz de qué origen de derecho admite cada naturaleza de cupo (28), las
+reglas de una reserva —política, horario, solapamiento— (16), y la
+normalización de placa (3). Ese es el criterio para las que vengan: se prueba
+lo que ninguna restricción de base puede cuidar, no que Prisma guarde ni que
+Nest enrute.
+
+Todas viven al lado del archivo que prueban y ninguna toca la base. Eso no es
+casualidad: **las reglas se sacaron a funciones puras precisamente para poder
+probarlas**, y ese es el criterio para partir un archivo — no el largo.
 
 ---
 
@@ -82,9 +88,50 @@ de la misma transacción que inserta.
 
 ---
 
+## Cómo está organizado el código
+
+Cada módulo tiene, como mucho, cuatro clases de archivo. El orden importa
+porque es el orden en que se lee:
+
+| archivo | qué contiene | toca la base |
+|---|---|---|
+| `x.controller.ts` | las rutas, los permisos y el Swagger | no |
+| `x.service.ts` | orquesta: lee, valida, escribe, avisa | sí |
+| `reglas-x.ts` | las decisiones, en funciones puras | **no** |
+| archivo compartido del módulo | lo que dos servicios del módulo repetirían | sí |
+
+Las **reglas puras** son el corazón: reciben lo ya leído y devuelven un veredicto.
+Por eso `reglas-parqueadero.ts` y `reglas-reserva.ts` tienen pruebas sin base de
+datos ni mocks. Cuando un servicio se hace largo, la pregunta no es "¿cuántas
+líneas tiene?" sino **"¿cuántas cosas distintas decide?"**.
+
+Lo que se separó por esa pregunta:
+
+- `reservas` — apartar un espacio (`reservas.service.ts`) es un momento; asignar
+  el cupo concreto cuando llega el carro (`cupos.service.ts`) es otro, y lo hace
+  otra persona. `ocupacion.ts` guarda lo que ambos preguntan: "¿esto ya está
+  tomado?".
+- `usuarios` — registrar a la persona (`usuarios.service.ts`), darle cuenta en
+  Supabase (`acceso.service.ts`) y otorgarle un cargo (`cargos.service.ts`) son
+  tres decisiones distintas. `UsuariosService` ya no sabe que Supabase existe.
+- `notificaciones` — qué se guarda y cómo se ve (`notificaciones.service.ts`)
+  contra quién debe enterarse (`destinatarios.service.ts`).
+- `porteria` — `registros.ts` tiene lo que comparten invitados, vehículos y
+  bicicletas, que son la misma forma: algo de una unidad, vigente entre dos
+  fechas, que portería consulta en la puerta.
+
+Y lo que se unificó porque estaba escrito dos y tres veces:
+
+- `common/placa.ts` — una placa se normaliza igual en portería y en reservas, o
+  el carro que portería tiene enfrente no aparece en la búsqueda.
+- `estructura/arbol-agrupaciones.ts` — un solo recorrido del árbol. Antes había
+  tres, con tres límites de profundidad distintos.
+
+---
+
 ## El hueco se cerró
 
-**Las 23 tablas tienen API.** Ya no queda nada que solo se pueda cargar a mano en
+**Las 26 tablas tienen API.** Ya no queda nada que solo se pueda cargar a mano en
 DBeaver, que fue el estado del proyecto durante casi toda su vida.
 
 Lo último en entrar fueron los parqueaderos y sus asignaciones, con la regla que
@@ -100,6 +147,8 @@ Lo que falta ya no son tablas sin API: son **sistemas enteros**.
 
 - **El correo no se envía.** `generateLink` crea la cuenta en Supabase pero nadie
   manda el enlace: falta el SMTP propio. Entran con "olvidé mi contraseña".
+  El módulo de notificaciones **no** cubre esto: es la campanita dentro de la
+  app, y el correo es otro canal que va encima.
 - **Las reservas abiertas no las cierra nadie.** Si portería olvida la salida, el
   cupo queda tomado y la cuenta de esa unidad crece sola.
 - **Ninguna reserva se marca `CUMPLIDA`** salvo las de parqueadero al salir.
@@ -173,6 +222,15 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
   impidiera —cruza dos tablas, ningún CHECK lo ve—. El seed lo mostraba en vivo:
   un Salón Social con `reservable: true` y sin espacio. Ahora la pregunta "¿se
   aparta?" tiene una sola respuesta: si trae espacio.
+- **Vehículos y bicicletas no comparten clase base.** Repiten la forma pero no
+  las reglas: la placa es obligatoria y única, el serial es opcional. Una clase
+  genérica con banderas obliga a leer dos archivos para entender uno. Lo que sí
+  se compartió es lo idéntico —el `include`, la validación del propietario, la
+  vigencia— y vive en `porteria/registros.ts`.
+- **Un método llamado `notificar` tiene que notificar.** Cambiaba la fila a
+  `NOTIFICADA` y no le avisaba a nadie: el estado decía una cosa y el residente
+  no veía nada. *Trackear no es avisar* — está en `AGENTS.md` como pregunta
+  obligatoria cada vez que se construye algo.
 - **Las restricciones van en su propia migración, no pegadas a la línea base.**
   La línea base se marca como aplicada sin ejecutarse —la base ya existía— así
   que todo lo que se le pegue encima nunca llega a Postgres.
@@ -181,11 +239,9 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 
 ## Pendientes
 
-En [`pendientes.md`](pendientes.md), ordenados por urgencia. **No queda ninguno
-en rojo** fuera de los de facturación, que no aplican hasta que haya finanzas.
-El siguiente en la fila son los `parqueaderos` y sus asignaciones: existen como
-tablas pero no tienen API, y sin ellas `POST /reservas/:id/cupo` no tiene qué
-asignar.
+En [`pendientes.md`](pendientes.md), ordenados por urgencia. Los dos rojos son
+**la interfaz** —que es lo que sigue— y **el ingreso por celular**; los de
+facturación no aplican hasta que haya finanzas.
 
 ---
 

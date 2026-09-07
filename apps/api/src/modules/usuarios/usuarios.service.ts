@@ -191,7 +191,9 @@ export class UsuariosService {
     });
 
     if (cuenta?.enlace) {
-      // TODO: enviarlo por SMTP propio cuando exista el modulo de notificaciones.
+      // Pendiente: enviarlo por SMTP propio. NO lo resuelve el modulo de
+      // notificaciones —ese es la campanita dentro de la app— ni lo manda
+      // Supabase, que es justamente lo que no queremos. Ver docs/pendientes.md.
       this.logger.log(`Cuenta creada para ${email}. Falta enviar el enlace de acceso.`);
     }
 

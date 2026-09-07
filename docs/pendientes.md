@@ -201,8 +201,12 @@ limitado a unos pocos envíos por hora — inservible para invitar a 200 residen
 Falta la otra mitad: **nadie manda ese enlace**. Hoy los usuarios entran por
 "olvidé mi contraseña". Hace falta el SMTP propio.
 
-Y hacerlo como un **módulo de notificaciones**, no metiendo SMTP dentro de
-el registro de usuarios: en poco tiempo van a necesitar correo la cuota generada, la reserva
+**El módulo de notificaciones ya existe y NO resuelve esto.** Ese es la
+campanita *dentro* de la app: guarda un aviso y lo muestra. El correo es otro
+canal y va encima, no adentro. Lo mismo aplicará al push.
+
+Cuando se haga, que sea un canal aparte y no SMTP metido en el registro de
+usuarios: en poco tiempo van a necesitar correo la cuota generada, la reserva
 confirmada y el visitante en portería.
 
 ---
@@ -306,21 +310,6 @@ no se ha tocado:
   lado.
 
 ---
-
-## 🟡 La base está mitad snake_case y mitad camelCase
-
-Las **tablas** están en snake_case porque todas llevan `@@map(...)`. A las
-**columnas** nunca les pusimos `@map`, así que quedaron con el nombre de
-TypeScript: `conjuntoId`, `numeroDocumento`, `agrupacionId`.
-
-No rompe nada —Prisma traduce solo— pero cobra en cada SQL a mano y en DBeaver:
-toda columna con mayúscula necesita comillas dobles, y sin ellas Postgres la pasa
-a minúsculas y responde que no existe.
-
-Son ~150 columnas en 23 modelos: mecánico, pero cambia la base entera. Ya no
-depende de nada: es agregar `@map` a cada columna y dejar que `migrate dev`
-escriba los `ALTER TABLE ... RENAME COLUMN`. Conviene hacerlo **antes** de que
-haya datos de clientes reales, porque es una migración larga.
 
 ---
 
