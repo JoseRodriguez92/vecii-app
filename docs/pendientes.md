@@ -251,5 +251,10 @@ haya datos de clientes reales, porque es una migración larga.
   `expo-dom`, `expo-web-to-native`, `expo-module`). Bajan el costo fijo de
   contexto casi a la mitad.
 - Evaluar `nestjs-expert` (comunidad; ninguna de las candidatas cubre ESM)
+- **No subir a Prisma 8 todavía.** El CLI muestra un aviso de "update available
+  7.10.0 -> 8.0.0-rc.13" cada vez que se corre, pero eso es un *release
+  candidate*, no una versión estable, y es un cambio de versión mayor: entre
+  otras cosas renombra `migrate` a `migration`. Revisarlo cuando salga el 8.0.0
+  final, y con las migraciones ya en verde el cambio es barato.
 - Escribir la skill de dominio de Vecii: ESM con `.js`, Vitest, `conjuntoId`,
   `x-conjunto-id`
