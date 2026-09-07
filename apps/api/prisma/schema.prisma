@@ -836,7 +836,18 @@ model Rol {
 model Modulo {
   id          String   @id @default(uuid()) @db.Uuid
   /// "unidades", "finanzas", "reservas". Estable: los permisos lo usan de prefijo.
-  codigo      String   @unique
+  codigo      String    @unique
+  /// De quien son los permisos de este modulo.
+  ///
+  /// Un modulo PLATAFORMA no se le muestra al conjunto ni se le puede otorgar:
+  /// `plataforma.staff.gestionar` es lo que nombra staff de Vecii, y si apareciera
+  /// como una casilla mas en la pantalla del administrador, este podria marcarsela
+  /// a su propio consejo y desde ahi entrar a todos los conjuntos.
+  ///
+  /// Va en el MODULO y no en cada permiso porque para eso existen los modulos:
+  /// agrupar. Un flag en siete filas en vez de en veintitres, y los permisos que
+  /// vengan despues —facturacion de Vecii, soporte— ya tienen donde caer.
+  ambito      AmbitoRol @default(CONJUNTO)
   nombre      String
   descripcion String?
   /// Orden en que se muestra en la interfaz.

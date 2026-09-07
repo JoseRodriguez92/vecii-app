@@ -1,6 +1,11 @@
 import type { PrismaClient } from '../src/generated/prisma/client.js';
-import { MODULOS, PERMISOS, TODOS_LOS_PERMISOS } from '../src/common/permisos.js';
-import { ROL, ROLES_DEL_SISTEMA } from '../src/common/roles.js';
+import {
+  MODULOS,
+  PERMISOS,
+  PERMISOS_DE_PLATAFORMA,
+  TODOS_LOS_PERMISOS,
+} from '../src/common/permisos.js';
+import { Ambito, ROL, ROLES_DEL_SISTEMA } from '../src/common/roles.js';
 
 /**
  * Dato de SISTEMA, no de ejemplo. Sin esto la API no arranca: al levantar
@@ -15,11 +20,10 @@ import { ROL, ROLES_DEL_SISTEMA } from '../src/common/roles.js';
  *  desde la interfaz sin tocar codigo. */
 const PERMISOS_POR_ROL: Record<string, string[]> = {
   [ROL.STAFF_VECII]: Object.values(PERMISOS),
-  // TODO menos roles.plataforma: el administrador de un conjunto no nombra staff
-  // de Vecii. Es el unico permiso que da poder fuera de su conjunto.
-  ['ADMIN_CONJUNTO']: Object.values(PERMISOS).filter(
-    (p) => p !== PERMISOS.ROLES_PLATAFORMA,
-  ),
+  // Todo lo del conjunto, nada de la plataforma: el administrador no nombra
+  // staff de Vecii. Antes se excluia un permiso a mano; ahora salen todos los de
+  // modulos con ambito PLATAFORMA, asi que agregar uno nuevo no exige acordarse.
+  ['ADMIN_CONJUNTO']: Object.values(PERMISOS).filter((p) => !PERMISOS_DE_PLATAFORMA.has(p)),
   ['CONSEJO']: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER, PERMISOS.RESERVAS_LEER, PERMISOS.ROLES_LEER],
   ['REVISOR_FISCAL']: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER],
   ['COMITE_CONVIVENCIA']: [PERMISOS.CONJUNTOS_LEER],
@@ -71,8 +75,14 @@ export async function sembrarRoles(prisma: PrismaClient) {
         nombre: modulo.nombre,
         descripcion: modulo.descripcion,
         orden: modulo.orden,
+        ambito: modulo.ambito ?? Ambito.CONJUNTO,
       },
-      update: { nombre: modulo.nombre, descripcion: modulo.descripcion, orden: modulo.orden },
+      update: {
+        nombre: modulo.nombre,
+        descripcion: modulo.descripcion,
+        orden: modulo.orden,
+        ambito: modulo.ambito ?? Ambito.CONJUNTO,
+      },
     });
 
     for (const permiso of modulo.permisos) {

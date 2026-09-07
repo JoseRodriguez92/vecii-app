@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PermisosService } from '../../auth/permisos.service.js';
-import { PERMISOS } from '../../common/permisos.js';
+import { PERMISOS, PERMISOS_DE_PLATAFORMA } from '../../common/permisos.js';
 import { Ambito, ROL } from '../../common/roles.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { ActualizarRolDto, ReemplazarPermisosDto } from './dto/rol.dto.js';
@@ -13,10 +13,16 @@ export class RolesService {
     private readonly permisos: PermisosService,
   ) {}
 
-  /** El catalogo de permisos agrupado por modulo: para pintar la pantalla. */
-  listarModulos() {
+  /**
+   * El catalogo de permisos agrupado por modulo: para pintar la pantalla.
+   *
+   * Un modulo de PLATAFORMA no se le muestra al conjunto. Si apareciera, el
+   * administrador veria la casilla "Nombrar staff de Vecii" entre las suyas y
+   * podria marcarsela a su propio consejo.
+   */
+  listarModulos(activo: ConjuntoActivo) {
     return this.prisma.modulo.findMany({
-      where: { activo: true },
+      where: { activo: true, ...(activo.esDePlataforma ? {} : { ambito: Ambito.CONJUNTO }) },
       orderBy: { orden: 'asc' },
       include: { permisos: { orderBy: { codigo: 'asc' } } },
     });
@@ -89,6 +95,17 @@ export class RolesService {
       const encontrados = new Set(existentes.map((p) => p.codigo));
       const inventados = dto.permisos.filter((c) => !encontrados.has(c));
       throw new BadRequestException(`Estos permisos no existen: ${inventados.join(', ')}`);
+    }
+
+    // Esconderlo en la pantalla no es protegerlo: quien mande el permiso a mano
+    // por la API tiene que recibir un no.
+    if (!activo.esDePlataforma) {
+      const dePlataforma = dto.permisos.filter((c) => PERMISOS_DE_PLATAFORMA.has(c));
+      if (dePlataforma.length > 0) {
+        throw new ForbiddenException(
+          `Estos permisos son de la plataforma y solo los otorga Vecii: ${dePlataforma.join(', ')}`,
+        );
+      }
     }
 
     await this.exigirQueAlguienPuedaSeguirEditando(codigo, dto.permisos);

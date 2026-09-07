@@ -14,7 +14,7 @@ export class PlataformaController {
   constructor(private readonly plataforma: PlataformaService) {}
 
   @Get()
-  @RequierePermiso(PERMISOS.ROLES_PLATAFORMA)
+  @RequierePermiso(PERMISOS.PLATAFORMA_STAFF_GESTIONAR)
   @ApiQuery({ name: 'incluirRetirados', required: false })
   @ApiOperation({
     summary: 'El equipo de Vecii',
@@ -28,7 +28,7 @@ export class PlataformaController {
   }
 
   @Post()
-  @RequierePermiso(PERMISOS.ROLES_PLATAFORMA)
+  @RequierePermiso(PERMISOS.PLATAFORMA_STAFF_GESTIONAR)
   @ApiOperation({
     summary: 'Nombra a alguien del equipo',
     description:
@@ -41,7 +41,7 @@ export class PlataformaController {
   }
 
   @Delete(':usuarioId/:codigo')
-  @RequierePermiso(PERMISOS.ROLES_PLATAFORMA)
+  @RequierePermiso(PERMISOS.PLATAFORMA_STAFF_GESTIONAR)
   @ApiOperation({
     summary: 'Saca a alguien del equipo',
     description:

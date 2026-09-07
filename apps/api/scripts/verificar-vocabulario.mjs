@@ -88,6 +88,21 @@ for (const modulo of modulos) {
   if (!usado) errores.push(`la carpeta \`modules/${modulo}\` no corresponde a ningun tag`);
 }
 
+// 3b. Toda carpeta de modules/ tiene su modulo en el catalogo.
+//
+// Este chequeo existe porque su ausencia dejo pasar un hueco: habia una carpeta
+// `modules/plataforma` cuyo unico permiso vivia prestado dentro del modulo
+// `roles`. Cada regla por separado se cumplia —la carpeta tenia tag, el permiso
+// empezaba por un modulo existente— y nadie miraba la relacion entre las dos.
+for (const modulo of modulos) {
+  if (!modulosDeclarados.has(modulo)) {
+    errores.push(
+      `la carpeta \`modules/${modulo}\` no tiene su modulo en MODULOS: sus permisos estarian ` +
+        'colgados de otro',
+    );
+  }
+}
+
 // 4. Todo permiso empieza por un modulo declarado.
 for (const codigo of codigosPermiso) {
   const modulo = codigo.split('.')[0];

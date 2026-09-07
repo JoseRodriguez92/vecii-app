@@ -1,3 +1,5 @@
+import { AmbitoRol, AmbitoRol as Ambito } from '../generated/prisma/enums.js';
+
 /**
  * Catalogo de permisos que el codigo conoce.
  *
@@ -75,10 +77,12 @@ export const PERMISOS = {
   /// del sistema: con el se otorgan todos los demas. Por eso va aparte de
   /// `usuarios.gestionar`, que solo reparte cargos ya definidos.
   ROLES_GESTIONAR: 'roles.gestionar',
-  /// Nombrar y quitar staff de Vecii. Es el unico permiso que otorga poder
-  /// FUERA del conjunto activo, asi que no deberia tenerlo ningun cargo del
-  /// conjunto — solo la plataforma misma.
-  ROLES_PLATAFORMA: 'roles.plataforma',
+
+  // --- modulo: plataforma (ambito PLATAFORMA) ---
+  /// Nombrar y quitar staff de Vecii. Otorga poder FUERA del conjunto activo, y
+  /// por eso su modulo es de plataforma: no aparece en la pantalla de permisos de
+  /// un conjunto ni se puede otorgar desde ahi.
+  PLATAFORMA_STAFF_GESTIONAR: 'plataforma.staff.gestionar',
 } as const;
 
 export type CodigoPermiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -86,11 +90,22 @@ export type CodigoPermiso = (typeof PERMISOS)[keyof typeof PERMISOS];
 /** Todos los codigos declarados. Lo usa la verificacion de arranque. */
 export const TODOS_LOS_PERMISOS = Object.values(PERMISOS) as CodigoPermiso[];
 
+
 /**
  * Modulos y a que permisos pertenecen. Solo para agrupar en la interfaz de
  * administracion: sin esto, el administrador ve una lista plana inmanejable.
  */
-export const MODULOS = [
+export interface ModuloDeclarado {
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  orden: number;
+  /** Omitido = CONJUNTO. Solo `plataforma` es distinto. */
+  ambito?: AmbitoRol;
+  permisos: { codigo: string; nombre: string }[];
+}
+
+export const MODULOS: ModuloDeclarado[] = [
   {
     codigo: 'conjuntos',
     nombre: 'Conjuntos',
@@ -115,6 +130,16 @@ export const MODULOS = [
     ],
   },
   {
+    codigo: 'plataforma',
+    nombre: 'Plataforma',
+    descripcion: 'Lo que es de Vecii y no de ningun conjunto.',
+    orden: 90,
+    ambito: Ambito.PLATAFORMA,
+    permisos: [
+      { codigo: PERMISOS.PLATAFORMA_STAFF_GESTIONAR, nombre: 'Nombrar y quitar staff de Vecii' },
+    ],
+  },
+  {
     codigo: 'roles',
     nombre: 'Roles y permisos',
     descripcion: 'Que puede hacer cada cargo. Cambiarlo no exige desplegar codigo.',
@@ -122,7 +147,6 @@ export const MODULOS = [
     permisos: [
       { codigo: PERMISOS.ROLES_LEER, nombre: 'Ver roles, modulos y permisos' },
       { codigo: PERMISOS.ROLES_GESTIONAR, nombre: 'Editar que puede hacer cada rol' },
-      { codigo: PERMISOS.ROLES_PLATAFORMA, nombre: 'Nombrar y quitar staff de Vecii' },
     ],
   },
   {
@@ -163,3 +187,10 @@ export const MODULOS = [
     ],
   },
 ] as const;
+
+/** Los permisos que solo puede otorgar el equipo de Vecii. */
+export const PERMISOS_DE_PLATAFORMA = new Set(
+  MODULOS.filter((m) => m.ambito === Ambito.PLATAFORMA).flatMap((m) =>
+    m.permisos.map((p) => p.codigo),
+  ),
+);

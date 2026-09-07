@@ -121,8 +121,14 @@ los dos casos sin ningún mecanismo especial.
 | Concepto | Palabra | Tabla |
 |---|---|---|
 | Área funcional, para agrupar en la interfaz | **módulo** | `modulos` |
+| | *lleva `ambito`: un módulo de plataforma no se le muestra al conjunto* | |
 | Una acción concreta que se puede permitir | **permiso** | `permisos` |
 | Qué permisos tiene cada rol | *(tabla puente)* | `roles_permisos` |
+
+**El ámbito vive en el módulo, no en el permiso.** Para eso existen los módulos:
+agrupar. `plataforma.staff.gestionar` es de un módulo `PLATAFORMA`, así que no
+aparece en la pantalla de permisos de un conjunto **y** el servicio lo rechaza si
+alguien lo manda a mano. Esconderlo en la interfaz no sería protegerlo.
 
 El código de un permiso es `modulo.espacio.accion` y **siempre empieza por un
 módulo que existe**: `usuarios.crear`, `porteria.encomiendas.registrar`. Eso lo
