@@ -4,7 +4,7 @@
  *
  * Existe porque este error se descubre siempre de la peor forma: corriendo el
  * seed o levantando la API, y leyendo un "Unknown argument `ambito`" que no dice
- * que lo que falta es un `db:push`.
+ * que lo que falta es regenerar el cliente.
  *
  * Ni verificar-schema ni verificar-vocabulario lo miran: los dos leen el schema,
  * y el schema esta bien. Lo que esta viejo es lo generado.
@@ -21,7 +21,7 @@ let generado;
 try {
   generado = statSync(cliente).mtimeMs;
 } catch {
-  console.error('No hay cliente de Prisma generado.\n\n  Corre: pnpm db:push\n');
+  console.error('No hay cliente de Prisma generado.\n\n  Corre: pnpm db:generar\n');
   process.exit(1);
 }
 
@@ -31,7 +31,7 @@ if (delSchema > generado) {
   const minutos = Math.round((delSchema - generado) / 60000);
   console.error(
     `El schema cambio despues de generarse el cliente (hace ~${minutos} min).\n\n` +
-      '  Corre: pnpm db:push\n\n' +
+      '  Corre: pnpm db:generar   (y pnpm db:deploy si el cambio toca la base)\n\n' +
       'Sin eso el seed y la API fallan con "Unknown argument", que no dice que falta esto.\n',
   );
   process.exit(1);

@@ -152,9 +152,19 @@ enum AmbitoRol {
   CONJUNTO
 }
 
+/// Donde esta el conjunto en su vida con Vecii. No es lo mismo "todavia no
+/// arranca" que "lo suspendimos" que "se fue", y confundirlos cuesta: a un
+/// conjunto en implementacion no se le pueden mostrar cuotas de un padron a
+/// medio cargar, y sin CANCELADO dar de baja a un cliente es suspenderlo para
+/// siempre o borrarlo.
 enum EstadoConjunto {
+  /// Cargando datos: unidades, coeficientes, residentes. Todavia no factura.
+  EN_IMPLEMENTACION
   ACTIVO
+  /// Suspendido por Vecii, normalmente por cartera. Se puede volver.
   SUSPENDIDO
+  /// Se fue. No se borra: sus datos historicos siguen ahi.
+  CANCELADO
 }
 
 /// Que llego a porteria. Solo cosas que porteria CUSTODIA o anuncia.
@@ -299,6 +309,17 @@ model Unidad {
   /// SOBRESCRIBE el area de la tipologia. Null = hereda de la tipologia.
   /// Solo se llena cuando la unidad se salio del molde.
   areaM2        Decimal?   @map("area_m2") @db.Decimal(8, 2)
+  /// La unidad con la que ESTA se vendio, cuando es accesoria.
+  ///
+  /// Comprar el apto 501 en Colombia es comprar tres unidades: el apartamento,
+  /// el parqueadero 34 y el deposito 12. Las tres tienen matricula y coeficiente
+  /// propios —por eso son `Unidad` y no un campo del apartamento— pero nunca se
+  /// venden aparte. Sin esta relacion son tres filas sueltas: tres recibos en
+  /// vez de uno, y al vender el 501 hay que acordarse a mano de cambiarle el
+  /// dueno a las otras dos.
+  ///
+  /// Null = es una unidad principal, o simplemente no se sabe.
+  unidadPrincipalId String? @map("unidad_principal_id") @db.Uuid
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
@@ -315,6 +336,10 @@ model Unidad {
   /// Consecuencia: borrar una agrupacion con unidades exige moverlas primero.
   agrupacion    Agrupacion?             @relation(fields: [agrupacionId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
   tipologia     Tipologia?              @relation(fields: [tipologiaId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  /// Compuesta como todas: apunta a la PAREJA (unidad, conjunto), asi que una
+  /// unidad no puede colgar de otra de un conjunto distinto.
+  unidadPrincipal Unidad?               @relation("UnidadAccesoria", fields: [unidadPrincipalId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  accesorias      Unidad[]              @relation("UnidadAccesoria")
   usuarios      UsuarioUnidad[]
   /// Si esta Unidad ES un parqueadero privado, aqui esta su cupo fisico.
   esParqueadero Parqueadero[]           @relation("ParqueaderoEsUnidad")
@@ -341,6 +366,7 @@ model Unidad {
   @@index([conjuntoId])
   @@index([agrupacionId])
   @@index([tipologiaId])
+  @@index([unidadPrincipalId])
   @@map("unidades")
 }
 

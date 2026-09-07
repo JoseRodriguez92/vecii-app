@@ -63,6 +63,19 @@ export class CrearUnidadDto {
   @Min(1)
   @Max(999999)
   areaM2?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'La unidad con la que ESTA se vendio, si es accesoria. Comprar el apto 501 es comprar el ' +
+      'apartamento, el parqueadero 34 y el deposito 12: tres unidades con matricula y ' +
+      'coeficiente propios que nunca se venden aparte. Se pone en el parqueadero y en el ' +
+      'deposito, apuntando al apartamento. Un solo nivel: una accesoria no puede tener ' +
+      'accesorias.',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID()
+  unidadPrincipalId?: string;
 }
 
 export class ActualizarUnidadDto extends PartialType(CrearUnidadDto) {}

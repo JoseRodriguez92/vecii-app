@@ -40,6 +40,9 @@ export class UnidadesService {
       include: {
         agrupacion: { select: { id: true, nombre: true, tipo: true } },
         tipologia: true,
+        /// Con cual se vendio, y cuales se vendieron con ella.
+        unidadPrincipal: { select: { id: true, identificador: true, tipo: true } },
+        accesorias: { select: { id: true, identificador: true, tipo: true } },
         usuarios: {
           where: { OR: [{ hasta: null }, { hasta: { gt: new Date() } }] },
           select: {
@@ -54,13 +57,48 @@ export class UnidadesService {
     return { ...unidad, categoria: categoriaDe(unidad.tipo) };
   }
 
-  crear(conjuntoId: string, dto: CrearUnidadDto) {
+  async crear(conjuntoId: string, dto: CrearUnidadDto) {
+    await this.validarPrincipal(conjuntoId, dto.unidadPrincipalId);
     return this.prisma.unidad.create({ data: { ...dto, conjuntoId } });
   }
 
   async actualizar(conjuntoId: string, id: string, dto: ActualizarUnidadDto) {
     await this.obtener(conjuntoId, id);
+    await this.validarPrincipal(conjuntoId, dto.unidadPrincipalId, id);
     return this.prisma.unidad.update({ where: { id }, data: dto });
+  }
+
+  /**
+   * La unidad principal existe, es de este conjunto, no es ella misma, y no es
+   * a su vez accesoria de otra.
+   *
+   * Lo del nivel unico no es purismo: en una cadena —el deposito cuelga del
+   * parqueadero, que cuelga del apartamento— la pregunta "con que se vendio esto"
+   * deja de tener una respuesta, y de esa respuesta salen el recibo unico y el
+   * cambio de dueno al vender.
+   *
+   * Que sea del mismo conjunto ya lo impide la FK compuesta, y que no sea ella
+   * misma lo impide un CHECK; se validan igual para que el error salga como un
+   * 400 con nombre propio y no como el 500 de una llave foranea.
+   */
+  private async validarPrincipal(conjuntoId: string, principalId?: string, idActual?: string) {
+    if (!principalId) return;
+    if (principalId === idActual) {
+      throw new BadRequestException('Una unidad no se vende consigo misma');
+    }
+    const principal = await this.prisma.unidad.findFirst({
+      where: { id: principalId, conjuntoId },
+      select: { id: true, identificador: true, unidadPrincipalId: true },
+    });
+    if (!principal) {
+      throw new BadRequestException('Esa unidad principal no existe en este conjunto');
+    }
+    if (principal.unidadPrincipalId) {
+      throw new BadRequestException(
+        `La unidad "${principal.identificador}" ya es accesoria de otra. Apunta a la principal ` +
+          'directamente: las accesorias van en un solo nivel.',
+      );
+    }
   }
 
   async eliminar(conjuntoId: string, id: string) {

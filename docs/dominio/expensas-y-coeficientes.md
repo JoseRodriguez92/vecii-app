@@ -35,6 +35,68 @@ presupuesto del periodo  ×  coeficiente de la unidad  =  cuota
 La **tipología no aparece** en esta cuenta. Un edificio viejo sin ninguna
 tipología se factura perfecto: solo hacen falta los coeficientes.
 
+## Los módulos de contribución
+
+Es el segundo reparto, y tiene nombre legal propio. **No se dice "coeficiente
+sectorial"** aunque todo el mundo lo diga: la Ley 675 lo llama *módulo de
+contribución* y lo define en el artículo 3 como los
+
+> índices que establecen la participación porcentual de los propietarios de
+> bienes de dominio particular, en las expensas causadas en relación con los
+> bienes y servicios comunes cuyo uso y goce corresponda a **una parte o sector
+> determinado** del edificio o conjunto.
+
+La diferencia con el coeficiente, en una línea:
+
+| | reparte | sobre | ejemplo |
+|---|---|---|---|
+| **Coeficiente de copropiedad** | las expensas **comunes** | el conjunto entero | vigilancia, administración, aseo |
+| **Módulo de contribución** | las expensas de **un sector** | solo las unidades de ese sector | los dos ascensores de la Torre B |
+
+El caso que lo explica solo: un conjunto de casas más una torre con ascensores.
+Si todo se repartiera por coeficiente, **las casas estarían pagando un ascensor
+que no pueden usar**. El módulo existe para que ese gasto lo asuman únicamente
+las unidades de la torre, y entre ellas siga siendo proporcional — dentro del
+sector tampoco se divide por partes iguales.
+
+### Quién los crea
+
+**El reglamento de propiedad horizontal**, que es escritura pública. No la
+asamblea por su cuenta, y muchísimo menos el administrador. Si el reglamento no
+los prevé, **no se pueden aplicar**.
+
+Y hay una regla de destinación que conviene citarle textual a un administrador,
+porque es la que evita el abuso más común: los recursos de cada sector *"solo
+podrán sufragar las erogaciones inherentes a su destinación específica"*
+(art. 31). La plata del sector comercial no paga el parque infantil.
+
+### El matiz que hay que verificar antes de prometerlo
+
+El artículo 31 hace la sectorización **obligatoria en edificios de uso comercial
+o mixto**: esos reglamentos "deberán prever de manera expresa la sectorización de
+los bienes y servicios comunales".
+
+Para **conjuntos residenciales por etapas** la cosa no es tan clara. En la
+práctica se usa muchísimo —la piscina de la Etapa 1 cobrada solo a la Etapa 1— y
+hay fuentes que sostienen que los módulos son propios del uso comercial y mixto,
+no del residencial.
+
+> ⚠️ **Esto hay que confirmarlo con un abogado antes de ofrecérselo a un
+> conjunto residencial como funcionalidad.** Es la clase de promesa que un
+> administrador repite en una asamblea, y si está mal, el que queda mal es él.
+
+### Qué significa para el modelo
+
+Aquí está el error que ya cometimos una vez y conviene no repetir: **un módulo
+de contribución no es "un segundo coeficiente" en la tabla de unidades.** Una
+misma unidad puede estar en varios a la vez —el ascensor de su torre *y* la
+piscina de su etapa— así que una columna extra solo aguantaría uno.
+
+Son dos tablas: los sectores que el reglamento definió, y cuánto le corresponde a
+cada unidad en cada uno. Como son tablas nuevas y no cambian las que existen,
+**no bloquean nada**: su lugar natural es junto a finanzas, que es quien las va a
+usar.
+
 ## Qué se puede variar y qué no
 
 **Se puede, si está en el reglamento:**
@@ -68,9 +130,10 @@ también la deuda**.
 
 | Necesidad | Estado |
 |---|---|
-| Coeficiente confiable por unidad | ⚠️ hoy tiene `@default(0)` — ver pendientes |
+| Coeficiente confiable por unidad | ✅ es `Decimal?` — `null` significa "no cargado", ya no se confunde con cero |
+| Que el sistema se niegue a facturar con coeficientes en `null` | ❌ es de finanzas |
 | Que los coeficientes sumen 100% | ❌ sin validar |
-| Segundo coeficiente para expensas sectoriales | ❌ no existe |
+| Sectores y módulos de contribución | ❌ no existen — son dos tablas, van con finanzas |
 | Presupuesto que apunte a conjunto **o** a agrupación | ❌ no existe |
 | Saldo por unidad, no por persona | ❌ no existe |
 | Sin `DELETE` en registros contables | ❌ por definir |
@@ -85,5 +148,12 @@ En un sector donde la desconfianza con la administración es la norma, **la
 transparencia verificable es el producto**, no una función más.
 
 Con una condición: hay que soportar los módulos de contribución legítimos. Un
-sistema que solo sabe repartir sobre el 100% del conjunto deja por fuera a todos
-los conjuntos por etapas.
+sistema que solo sabe repartir sobre el 100% del conjunto deja por fuera a los
+conjuntos de uso mixto —donde la ley los exige— y a los conjuntos por etapas, que
+en la práctica los usan.
+
+**Fuentes**
+- [Ley 675 de 2001, art. 31 — Sectores y módulos de contribución](https://leyes.co/el_regimen_de_propiedad_horizontal/31.htm)
+- [Ley 675 de 2001, art. 51 — funciones del administrador](https://leyes.co/el_regimen_de_propiedad_horizontal/51.htm)
+- [Gerencie.com — expensas comunes y módulos de contribución](https://www.gerencie.com/pago-de-cuotas-y-expensas-necesarias-en-la-propiedad-horizontal.html)
+- [leydepropiedadhorizontal.org — módulos de contribución](https://leydepropiedadhorizontal.org/modulos-contribucion-propiedad-horizontal/)
