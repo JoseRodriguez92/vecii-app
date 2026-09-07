@@ -19,10 +19,12 @@ auditado —quién suplantó a quién y cuándo— y probablemente limitado a
 
 ## 🔴 Antes de facturar a alguien de verdad
 
-**`Unidad.coeficiente` tiene `@default(0)`**
-`0` significa dos cosas a la vez: "no se ha cargado" y "es cero". Un cargue a
-medias produce recibos en cero y nadie se entera hasta que no llega la plata.
-→ Pasarlo a `Decimal?` y que el sistema se niegue a facturar si hay nulos.
+**Nadie se niega a facturar una unidad sin coeficiente**
+La mitad ya está: la columna pasó de `@default(0)` a `Decimal?`, así que `null`
+ya significa "no se ha cargado" y no se confunde con un cero de verdad. Falta la
+otra mitad, y es de finanzas: negarse a generar la cuota si algún coeficiente del
+conjunto está en null. Sin eso, un cargue a medias produce recibos en cero y
+nadie se entera hasta que no llega la plata.
 
 **Nadie valida que los coeficientes sumen 100%**
 Si suman 99.87%, el conjunto recauda menos de lo presupuestado todos los meses.

@@ -138,8 +138,13 @@ enum RelacionUnidad {
 /// "no hay conjunto"; que eso signifique "es de Vecii" era una convencion que
 /// solo vivia en nuestra cabeza, y la tabla no la podia hacer cumplir.
 ///
-/// El CHECK va en la linea base (ver docs/pendientes.md):
-///   CHECK ((ambito = 'PLATAFORMA') = (conjunto_id IS NULL))
+/// El CHECK ya esta puesto, en la migracion `20260907010000_restricciones`:
+///   CHECK (ambito <> 'PLATAFORMA' OR "conjuntoId" IS NULL)
+///
+/// La implicacion va en UN sentido y no en los dos. Lo teniamos anotado como una
+/// equivalencia —`(ambito = 'PLATAFORMA') = (conjuntoId IS NULL)`— y habria
+/// rechazado a CONSEJO, que es de ambito CONJUNTO y vive sin conjunto porque lo
+/// comparten todos.
 enum AmbitoRol {
   /// De Vecii. Sin conjunto, y aplica en todos.
   PLATAFORMA
@@ -327,10 +332,8 @@ model Unidad {
   ///
   /// Hueco conocido: Postgres trata los NULL como distintos entre si, asi que
   /// esto NO impide dos "101" con agrupacionId nulo (un edificio sin torres).
-  /// Ahi seria un error de digitacion, y lo valida el servicio. Al pasar a
-  /// migraciones definitivas se cierra con un indice parcial:
-  ///   CREATE UNIQUE INDEX ... ON unidades (conjunto_id, identificador)
-  ///     WHERE agrupacion_id IS NULL;
+  /// Ahi seria un error de digitacion. Ya esta cerrado con un indice parcial,
+  /// `unidad_identificador_sin_agrupacion`, en la migracion de restricciones.
   @@unique([conjuntoId, agrupacionId, identificador])
   /// Habilita las FK compuestas desde Casillero y Encomienda (mismo patron que
   /// Agrupacion): apuntan a la PAREJA (unidad, conjunto), no solo a la unidad.
@@ -469,8 +472,9 @@ model AsignacionParqueadero {
 ///   reservas solapadas < capacidad
 /// El salon es simplemente capacidad 1. Y un gimnasio con aforo 15 encaja gratis.
 ///
-/// Los `parqueaderos` no desaparecen: siguen siendo el inventario fisico. Lo que
-/// se reserva es el pool; el cupo concreto lo asigna porteria.
+/// Los `parqueaderos` no desaparecen: siguen siendo la cosa fisica, en el modulo
+/// `instalaciones`. Lo que se reserva es el pool; el cupo concreto lo asigna
+/// porteria.
 model EspacioReservable {
   id         String @id @default(uuid()) @db.Uuid
   conjuntoId String @map("conjunto_id") @db.Uuid
@@ -790,12 +794,20 @@ model UsuarioConjunto {
   @@map("usuarios_conjuntos")
 }
 
-/// Catalogo de roles. Global, no por conjunto: los seis roles son los mismos en
-/// toda Colombia.
+/// Los cargos. Dos clases en la misma tabla, y las separa `conjuntoId`:
 ///
-/// `codigo` es lo que el codigo entiende y con lo que el guard decide permisos.
-/// `nombre` y `descripcion` son editables sin desplegar: un conjunto puede
-/// preferir "Consejo de Administracion" o "Junta".
+///   conjuntoId null   cargo estandar, el mismo para los 400 conjuntos
+///   conjuntoId lleno  lo invento ESE conjunto y solo el lo ve
+///
+/// Antes eran solo los estandar, con `codigo` como enum de Prisma. El enum le
+/// ponia techo a la tabla: un "Comite de Deportes" no cabia. Hoy es texto.
+///
+/// Que un conjunto invente cargos no obligo a tocar el resto del sistema, y eso
+/// no fue suerte: el codigo pregunta por PERMISOS 83 veces y por un rol una. Un
+/// cargo inventado funciona porque nadie lo menciona por nombre.
+///
+/// `nombre` y `descripcion` son editables sin desplegar; `codigo` no, porque de
+/// el dependen los permisos.
 model Rol {
   id          String    @id @default(uuid()) @db.Uuid
   /// Null = cargo estandar, el mismo para los 400 conjuntos. Con valor = lo
@@ -824,10 +836,9 @@ model Rol {
 
   /// Unico DENTRO de su ambito: cada conjunto tiene su propio CONSEJO.
   ///
-  /// Hueco conocido: Postgres trata los NULL como distintos, asi que esto no
-  /// impide dos roles de plataforma con el mismo codigo. Se cierra en la linea
-  /// base con un indice parcial:
-  ///   CREATE UNIQUE INDEX ... ON roles (codigo) WHERE conjunto_id IS NULL;
+  /// Postgres trata los NULL como distintos, asi que esto por si solo no impide
+  /// dos cargos estandar con el mismo codigo. Lo cierra el indice parcial
+  /// `rol_estandar_codigo_unico`, en la migracion de restricciones.
   @@unique([conjuntoId, codigo])
   @@index([conjuntoId])
   @@map("roles")
