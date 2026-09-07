@@ -320,6 +320,18 @@ no se ha tocado:
   `expo-dom`, `expo-web-to-native`, `expo-module`). Bajan el costo fijo de
   contexto casi a la mitad.
 - Evaluar `nestjs-expert` (comunidad; ninguna de las candidatas cubre ESM)
+- **No subir a ESLint 10 todavía.** `apps/landing` lo tenía en `^10` y el lint
+  reventaba con `contextOrFilename.getFilename is not a function`. No es un
+  error del proyecto: `eslint-config-next` arrastra `eslint-plugin-react`, cuya
+  última versión estable (7.37.5) declara `eslint ... ^9.7` como peer — ESLint
+  10 quitó los métodos viejos de `context` y el plugin todavía los usa. Hay un
+  `7.8.0-rc.0`, pero es un *release candidate*, y acá los rc no entran (misma
+  regla que Prisma 8). Los dos frontends quedaron en ESLint 9. Revisarlo cuando
+  salga el 7.8.0 final.
+
+  El síntoma engaña: `eslint-config-next` declara el peer como `>=9.0.0`, así
+  que pnpm deja instalar el 10 sin quejarse y el error aparece después, dentro
+  de una regla.
 - **No subir a Prisma 8 todavía.** El CLI muestra un aviso de "update available
   7.10.0 -> 8.0.0-rc.13" cada vez que se corre, pero eso es un *release
   candidate*, no una versión estable, y es un cambio de versión mayor: entre
