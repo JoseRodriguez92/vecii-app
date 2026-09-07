@@ -22,6 +22,7 @@ dos veces la misma cosa creyendo que son distintas.
 | Las reglas de un espacio | **política** | `politicas_reserva` | no lleva tarifas: eso es finanzas |
 | La casilla física de una unidad | **casillero** | `casilleros` | no "buzón" — no tiene llave |
 | Lo que le encomiendan a portería | **encomienda** | `encomiendas` | no "entrega" — eso es uno de sus estados |
+| Un aviso a una persona | **notificación** | `notificaciones` | no "alerta", no "mensaje" — un mensaje se responde, un aviso no |
 | Carro o moto de una unidad | **vehículo** | `vehiculos` | no "carro" — la moto también; y no es la placa de un invitado |
 | Bicicleta registrada por una unidad | **bicicleta** | `bicicletas` | va aparte: se identifica por serial, no por placa |
 | Persona, tenga cuenta o no | **usuario** | `usuarios` | no "persona" a secas, no "residente" — residente es un *rol* |
@@ -244,6 +245,7 @@ sistema. Por eso van aquí. (`DiaSemana` es la única excepción declarada, en
 | `RelacionUnidad` | `PROPIETARIO` · `ARRENDATARIO` · `RESIDENTE_AUTORIZADO` | de aquí se **derivan** los roles propietario y residente |
 | `AmbitoRol` | `PLATAFORMA` · `CONJUNTO` | **dónde** se otorga un rol. No confundir con `asignable`, que dice **si** alguien lo otorga. El default es `CONJUNTO`, el menos peligroso |
 | `TipoEncomienda` | `PAQUETE` · `CORRESPONDENCIA` · `CERTIFICADO` · `OTRO` | **no hay domicilios**: las porterías no reciben comida, y sin custodia no hay encomienda |
+| `TipoNotificacion` | `ENCOMIENDA_RECIBIDA` · `INVITADO_AUTORIZADO` · `RESERVA_POR_APROBAR` · `RESERVA_APROBADA` · `RESERVA_RECHAZADA` · `RESERVA_PROXIMA` | la lista la inventa el código, no los conjuntos: nadie necesita un aviso que Vecii no sepa producir |
 | `TipoVehiculo` | `CARRO` · `MOTO` | solo lo que tiene placa. La bicicleta va en su propia tabla, y la patineta eléctrica todavía no cae en ninguna |
 | `EstadoEncomienda` | `RECIBIDA` → `NOTIFICADA` → `ENTREGADA` / `DEVUELTA` | solo estados que **el sistema provoca**. No existe `REPARTIDA` porque nadie verifica que llenaron los casilleros |
 | `EstadoReserva` | `SOLICITADA` · `CONFIRMADA` · `CANCELADA` · `CUMPLIDA` · `NO_ASISTIO` | `NO_ASISTIO` existe porque muchos reglamentos sancionan la inasistencia, y sin el dato no hay cómo aplicarlo |

@@ -95,36 +95,28 @@ Lo que sigue pendiente de este módulo:
 
 ---
 
-## 🟡 La campanita: notificaciones dentro de la app
+## 🟡 Lo que falta encima de la campanita
 
-Lo que la gente espera de una app: un icono con un número arriba, y adentro la
-lista — *llegó una encomienda*, *llegó el recibo del agua*, *tu invitado llegó*.
+La tabla `notificaciones` y sus tres endpoints ya están, y los cuatro
+disparadores conectados: encomienda recibida, invitado autorizado, reserva por
+aprobar, y aprobada o rechazada. Más el recordatorio, que se crea al reservar y
+aparece solo una hora antes gracias a `programadaPara` — sin ninguna tarea
+programada detrás.
 
-**Son tres cosas distintas y se confunden todo el tiempo.** Conviene separarlas
-porque tienen costos muy distintos:
+Lo que sigue faltando son las otras dos patas, y **ninguna cambia esa tabla**:
 
-| | qué es | qué necesita |
-|---|---|---|
-| **La campanita** | la lista y el contador de no leídas | una tabla y dos endpoints |
-| **El tiempo real** | que el número suba solo, con la app abierta | SSE desde Nest (ver abajo) |
-| **El push** | que el celular suene con la app cerrada | tokens de dispositivo + Expo Push |
+- **El push** — que el celular suene con la app cerrada. Necesita los tokens de
+  dispositivo (tabla nueva) y Expo Push. Aquí sí hace falta un trabajo que
+  despierte y mande, sobre todo para los avisos programados.
+- **El tiempo real** — que el número suba solo con la app abierta. Ver abajo.
 
-**La campanita va primero, y es la más barata de las tres.** No depende de las
-otras dos: la app pregunta al abrir y ya. Y es la base de ambas — sin la tabla,
-ni SSE ni el push tienen qué mostrar.
+Y dos cosas de mantenimiento:
 
-Lo que hace falta:
-
-- Una tabla `notificaciones`: para quién, de qué se trata, a qué apunta, cuándo,
-  y si ya se leyó.
-- Dos endpoints: la lista con su contador, y marcar como leída.
-- Los disparadores en el código que ya existe: la encomienda que se registra, la
-  reserva que se confirma, el invitado que se autoriza.
-- **La decisión de fondo:** ¿se guarda una fila por notificación, o se derivan de
-  los hechos que ya están en la base? Una encomienda `NOTIFICADA` ya sabe a qué
-  unidad va y cuándo llegó. Guardar una fila aparte es redundancia — pero es la
-  única forma de saber si esa persona ya la leyó, que es un hecho que no está en
-  ningún lado. Mirarlo con calma antes de escribir la tabla.
+- **Podar las viejas.** Una fila por persona: un reparto masivo a una torre de 60
+  unidades escribe unas 120 filas. Con el tiempo hay que borrar las leídas de
+  hace meses. No urge, pero no se resuelve solo.
+- **Preferencias por persona.** Hoy le llega todo a todos los que corresponden.
+  No todo el mundo quiere que le avisen del recibo del agua.
 
 ## 🟡 El tiempo real, y por qué no lo hace Supabase
 

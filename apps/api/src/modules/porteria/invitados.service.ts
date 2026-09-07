@@ -2,12 +2,17 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { TipoNotificacion } from '../../generated/prisma/enums.js';
+import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
 import { exigirAlcance, misUnidades, normalizarPlaca, vigentes } from './alcance-unidad.js';
 import type { ActualizarInvitadoDto, AutorizarInvitadoDto } from './dto/invitado.dto.js';
 
 @Injectable()
 export class InvitadosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly avisos: NotificacionesService,
+  ) {}
 
   /** Lo que ve porteria: quien puede entrar. Por defecto, solo los vigentes. */
   listar(conjuntoId: string, opciones: { unidadId?: string; incluirVencidos?: boolean } = {}) {
@@ -48,7 +53,7 @@ export class InvitadosService {
       throw new BadRequestException('La autorizacion terminaria antes de empezar');
     }
 
-    return this.prisma.invitado.create({
+    const invitado = await this.prisma.invitado.create({
       data: {
         conjuntoId: activo.conjuntoId,
         unidadId: dto.unidadId,
@@ -63,6 +68,22 @@ export class InvitadosService {
         hasta,
       },
     });
+
+    // Le llega a los demas de la unidad, no a quien autorizo. Sirve sobre todo
+    // cuando lo autorizo el portero por citofono: "un momento, yo no autorice a
+    // nadie" es exactamente la clase de aviso que hace falta.
+    await this.avisos.avisar({
+      conjuntoId: activo.conjuntoId,
+      tipo: TipoNotificacion.INVITADO_AUTORIZADO,
+      titulo: `Autorizaron la entrada de ${dto.nombre}`,
+      cuerpo: hasta ? undefined : 'Autorizacion permanente',
+      entidad: 'invitado',
+      entidadId: invitado.id,
+      excepto: autorId,
+      para: { unidad: dto.unidadId },
+    });
+
+    return invitado;
   }
 
   async actualizar(

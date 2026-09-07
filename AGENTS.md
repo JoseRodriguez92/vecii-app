@@ -92,6 +92,43 @@ escrita en dos:
   coeficientes reparten las expensas (Ley 675, no se discute); que un moroso
   pueda reservar lo decide cada conjunto, así que es configuración.
 
+## Cada vez que se construya algo: ¿avisa?
+
+**Pregúntalo siempre, en voz alta, antes de dar por terminado un módulo o un
+endpoint que cambia algo del mundo.** No lo decidas solo: la respuesta es del
+dueño del producto, y casi nunca es obvia.
+
+Las tres preguntas, en este orden:
+
+1. **¿Alguien necesita enterarse de esto?** Si a nadie le cambia el día, no
+   avisa.
+2. **¿Quién?** Y respóndelo por PERMISO, no por cargo — `{ permiso: '...' }` —
+   salvo que sea una persona, una unidad, una agrupación o todo el conjunto.
+   Decir "el administrador" deja por fuera a los conjuntos que inventaron sus
+   propios cargos.
+3. **¿Cuándo se ve?** Ahora, o `programadaPara` en el futuro si es un
+   recordatorio. Y si el hecho que lo motivó se cancela, hay que llamar a
+   `cancelarProgramados`.
+
+Se conecta llamando a `NotificacionesService.avisar(...)`. El módulo es
+`@Global`, así que no hay que importarlo.
+
+**Y una advertencia que vale más que la regla:** *trackear todo* y *avisar de
+todo* no son lo mismo, y confundirlos arruina la campanita. Una app que notifica
+cada movimiento termina con el residente apagando las notificaciones, y entonces
+no se entera ni de lo que sí importaba.
+
+- **Avisar** es interrumpir a alguien. Se hace cuando esa persona tiene algo que
+  *hacer* o algo que *saber ya*: llegó tu paquete, te aprobaron el salón,
+  autorizaron a alguien en tu apartamento.
+- **Trackear** es dejar registro de quién hizo qué. Eso no es la campanita — hoy
+  vive repartido en las tablas (`recibidaPorId`, `aprobadaPorId`, `asignadoPorId`,
+  y las vigencias `desde`/`hasta`), y el día que haga falta de verdad será una
+  bitácora propia, no un aviso.
+
+Si la respuesta a "¿alguien necesita enterarse?" es "no, pero queremos que quede
+el registro", **eso no es una notificación**.
+
 ## Antes de proponer un cambio estructural
 
 Lee `docs/adr/`. Es probable que ya se haya discutido y esté escrito por qué se

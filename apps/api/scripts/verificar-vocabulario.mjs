@@ -31,6 +31,16 @@ const TAGS_DE_INFRA = new Set(['health', 'auth']);
 const ENUMS_OBVIOS = new Set(['DiaSemana']);
 
 /**
+ * Carpetas de `modules/` que a proposito no tienen modulo de permisos.
+ *
+ * Las notificaciones de alguien son SUYAS. Un permiso implicaria que la
+ * administracion puede quitarle a un residente el derecho a ver sus propios
+ * avisos, y eso no significa nada — lo que hace falta ahi no es autorizacion,
+ * es identidad, y de eso se encarga el guard de autenticacion.
+ */
+const MODULOS_PERSONALES = new Set(['notificaciones']);
+
+/**
  * Abreviaturas aceptadas a proposito dentro de un modulo, donde repetir el
  * sufijo seria redundante: en el modulo `reservas`, `espacios_reservables` se
  * abrevia `espacios` porque el modulo ya dice de que son.
@@ -95,6 +105,7 @@ for (const modulo of modulos) {
 // `roles`. Cada regla por separado se cumplia —la carpeta tenia tag, el permiso
 // empezaba por un modulo existente— y nadie miraba la relacion entre las dos.
 for (const modulo of modulos) {
+  if (MODULOS_PERSONALES.has(modulo)) continue;
   if (!modulosDeclarados.has(modulo)) {
     errores.push(
       `la carpeta \`modules/${modulo}\` no tiene su modulo en MODULOS: sus permisos estarian ` +

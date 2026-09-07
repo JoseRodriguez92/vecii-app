@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { EstadoEncomienda } from '../../generated/prisma/enums.js';
+import { EstadoEncomienda, TipoEncomienda, TipoNotificacion } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { rolVigente } from '../../common/rol-vigente.js';
+import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
 import type {
   DevolverDto,
   EntregarDto,
@@ -9,12 +10,29 @@ import type {
   RegistrarEncomiendaMasivaDto,
 } from './dto/encomienda.dto.js';
 
+/**
+ * Como se lee cada tipo en un aviso.
+ *
+ * "Llego correspondencia" y no "Llego CORRESPONDENCIA": el enum es vocabulario
+ * del sistema, no del residente.
+ */
+const ETIQUETAS: Record<TipoEncomienda, string> = {
+  [TipoEncomienda.PAQUETE]: 'un paquete',
+  [TipoEncomienda.CORRESPONDENCIA]: 'correspondencia',
+  [TipoEncomienda.CERTIFICADO]: 'un correo certificado',
+  [TipoEncomienda.OTRO]: 'algo',
+};
+const etiquetaDe = (tipo: TipoEncomienda) => ETIQUETAS[tipo] ?? 'algo';
+
 /** Estados en los que la encomienda ya se cerro y no admite mas movimientos. */
 const CERRADAS: EstadoEncomienda[] = [EstadoEncomienda.ENTREGADA, EstadoEncomienda.DEVUELTA];
 
 @Injectable()
 export class EncomiendasService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly avisos: NotificacionesService,
+  ) {}
 
   /** La bandeja de porteria: todo lo del conjunto, con filtros. */
   listar(
@@ -105,7 +123,7 @@ export class EncomiendasService {
     const destinatarios = await this.destinatarios(conjuntoId, dto.unidadId);
     const hayAQuienAvisar = destinatarios.length > 0;
 
-    return this.prisma.encomienda.create({
+    const encomienda = await this.prisma.encomienda.create({
       data: {
         ...dto,
         conjuntoId,
@@ -114,6 +132,23 @@ export class EncomiendasService {
         notificadaEn: hayAQuienAvisar ? new Date() : null,
       },
     });
+
+    // Hasta hoy `NOTIFICADA` cambiaba una fila y no le avisaba a nadie. Este es
+    // el aviso de verdad. El portero no lo recibe: acaba de registrarlo el.
+    if (hayAQuienAvisar) {
+      await this.avisos.avisar({
+        conjuntoId,
+        tipo: TipoNotificacion.ENCOMIENDA_RECIBIDA,
+        titulo: `Llego ${etiquetaDe(dto.tipo)}`,
+        cuerpo: dto.remitente ? `De ${dto.remitente}` : undefined,
+        entidad: 'encomienda',
+        entidadId: encomienda.id,
+        excepto: porteroId,
+        para: { unidad: dto.unidadId },
+      });
+    }
+
+    return encomienda;
   }
 
   /**
@@ -134,7 +169,7 @@ export class EncomiendasService {
       if (!agrupacion) throw new NotFoundException('Esa agrupacion no existe en este conjunto');
     }
 
-    return this.prisma.encomienda.create({
+    const encomienda = await this.prisma.encomienda.create({
       data: {
         ...dto,
         conjuntoId,
@@ -144,6 +179,22 @@ export class EncomiendasService {
         notificadaEn: new Date(),
       },
     });
+
+    // Una fila de encomienda, muchas notificaciones. No es contradiccion: alla
+    // el hecho es la llegada —una sola— y aca el hecho es el aviso a cada
+    // persona, que es lo unico que se puede leer.
+    await this.avisos.avisar({
+      conjuntoId,
+      tipo: TipoNotificacion.ENCOMIENDA_RECIBIDA,
+      titulo: `Llego ${etiquetaDe(dto.tipo)}`,
+      cuerpo: dto.remitente ? `De ${dto.remitente}` : undefined,
+      entidad: 'encomienda',
+      entidadId: encomienda.id,
+      excepto: porteroId,
+      para: dto.agrupacionId ? { agrupacion: dto.agrupacionId } : { conjunto: true },
+    });
+
+    return encomienda;
   }
 
   /**

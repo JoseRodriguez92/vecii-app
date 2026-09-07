@@ -59,7 +59,7 @@ puede cuidar, no que Prisma guarde ni que Nest enrute.
 
 ## Qué hay funcionando
 
-**22 rutas, 93 endpoints.** Todo con Swagger documentado.
+**23 rutas, 96 endpoints.** Todo con Swagger documentado.
 
 | módulo | rutas | qué resuelve |
 |---|---|---|
@@ -70,6 +70,7 @@ puede cuidar, no que Prisma guarde ni que Nest enrute.
 | `instalaciones` | `/zonas-comunes` `/zonas-comunes/:id/horarios` `/parqueaderos` `/parqueaderos/:id/asignaciones` | los bienes comunes y a qué horas abren; los cupos y quién tiene derecho a cada uno |
 | `porteria` | `/casilleros` `/encomiendas` `/invitados` `/vehiculos` `/bicicletas` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
 | `reservas` | `/espacios-reservables` `/politicas-reserva` `/reservas` | qué se puede apartar, con qué reglas, y quién apartó |
+| `notificaciones` | `/notificaciones` | la campanita: los avisos de cada persona |
 | `roles` | `/roles` `/modulos` | qué puede hacer cada cargo. **Cada conjunto crea y administra los suyos** |
 | `plataforma` | `/usuarios-plataforma` | el equipo de Vecii y su acceso a todos los conjuntos |
 

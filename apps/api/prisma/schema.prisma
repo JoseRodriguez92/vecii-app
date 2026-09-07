@@ -221,6 +221,23 @@ enum EstadoEncomienda {
   DEVUELTA
 }
 
+/// Los avisos que el sistema sabe dar.
+///
+/// Enum y no texto —al reves que `roles.codigo`— porque esta lista la inventa el
+/// CODIGO, no los conjuntos: nadie va a necesitar un tipo de aviso que Vecii no
+/// sepa producir. Es el mismo criterio de `EstadoEncomienda`.
+enum TipoNotificacion {
+  ENCOMIENDA_RECIBIDA
+  INVITADO_AUTORIZADO
+  /// A quien pueda aprobarla. No hay un aviso de "tu reserva quedo solicitada":
+  /// esa pantalla acaba de decirselo, y este proyecto no declara lo que no usa.
+  RESERVA_POR_APROBAR
+  RESERVA_APROBADA
+  RESERVA_RECHAZADA
+  /// El recordatorio: se crea al reservar y se ve cuando se acerca la hora.
+  RESERVA_PROXIMA
+}
+
 // ---------------------------------------------------------------------------
 // Modelos
 // ---------------------------------------------------------------------------
@@ -258,6 +275,7 @@ model Conjunto {
   invitados    Invitado[]
   vehiculos    Vehiculo[]
   bicicletas   Bicicleta[]
+  notificaciones Notificacion[]
 
   @@map("conjuntos")
 }
@@ -833,6 +851,7 @@ model Usuario {
   encomiendasRecibidas  Encomienda[]         @relation("EncomiendasRecibidas")
   encomiendasEntregadas Encomienda[]         @relation("EncomiendasEntregadas")
   invitadosAutorizados  Invitado[]           @relation("InvitadosAutorizados")
+  notificaciones        Notificacion[]
   vehiculos             Vehiculo[]           @relation("VehiculosPropios")
   bicicletas            Bicicleta[]          @relation("BicicletasPropias")
 
@@ -1317,6 +1336,65 @@ model Invitado {
   /// El portero teclea la cedula que le muestran en la puerta.
   @@index([numeroDocumento])
   @@map("invitados")
+}
+
+/// Un aviso a UNA persona. Es lo que se ve en la campanita.
+///
+/// Una fila por persona, y eso NO contradice lo de `encomiendas` —donde un
+/// reparto masivo es una sola fila— porque el hecho es otro. Alla el hecho es la
+/// LLEGADA, que paso una vez, y abrirla en 120 filas seria guardar la
+/// conclusion. Aca el hecho es el AVISO: a Maria se le aviso, y Maria lo leyo a
+/// las ocho. "Leida" no significa nada para una torre.
+///
+/// No tiene `hasta` ni se cierra, a diferencia de casi todo en este esquema. Un
+/// aviso no es una relacion con vigencia: es algo que paso y ya. `leidaEn` no lo
+/// cierra — dice algo del lector, no del aviso.
+model Notificacion {
+  id         String @id @default(uuid()) @db.Uuid
+  conjuntoId String @map("conjunto_id") @db.Uuid
+  usuarioId  String @map("usuario_id") @db.Uuid
+
+  tipo TipoNotificacion
+  /// El texto, guardado tal como se dijo. Si manana la encomienda se entrega o
+  /// la reserva se cancela, el aviso sigue diciendo lo que dijo ese dia: no se
+  /// puede desdecir "te avisamos que llego un paquete".
+  titulo String
+  cuerpo String?
+
+  /// A donde lleva al tocarla: "encomienda", "reserva", "invitado".
+  ///
+  /// Texto suelto y sin llave foranea, a proposito, y es la unica vez en este
+  /// esquema. La diferencia con las imagenes —donde esto mismo se rechazo— es
+  /// que alla la columna polimorfica ERA el vinculo de pertenencia, y perder la
+  /// FK era perder la garantia de que nada cruza de conjunto. Aca la pertenencia
+  /// la dan `conjuntoId` y `usuarioId`, que si tienen llaves reales. Esto es un
+  /// ENLACE, no una relacion: si la fila destino ya no esta, el aviso sigue
+  /// siendo un registro valido de lo que se dijo.
+  entidad   String?
+  entidadId String? @map("entidad_id") @db.Uuid
+
+  /// DESDE CUANDO SE VE, que no es lo mismo que cuando se creo.
+  ///
+  /// Es lo que hace caber al recordatorio sin maquinaria extra. La reserva de
+  /// manana a las 8 crea hoy su aviso con `programadaPara` manana a las 7, y la
+  /// campanita —que filtra por `programadaPara <= ahora`— lo muestra sola cuando
+  /// llega la hora. Sin tarea programada, sin cron.
+  ///
+  /// El dia que exista el push si hara falta un trabajo que despierte y mande;
+  /// para la campanita no.
+  programadaPara DateTime @default(now()) @map("programada_para")
+
+  /// Null = sin leer. Es el numero de la campanita.
+  leidaEn DateTime? @map("leida_en")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  conjunto Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  usuario  Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  /// La consulta de la campanita: lo mio, en este conjunto, lo que ya se ve.
+  @@index([usuarioId, conjuntoId, programadaPara])
+  @@map("notificaciones")
 }
 
 /// Alguien del equipo de Vecii, con su cargo en la PLATAFORMA.

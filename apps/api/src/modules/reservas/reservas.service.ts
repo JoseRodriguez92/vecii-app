@@ -4,7 +4,12 @@ import { diaYMinutos, formatearHora } from '../../common/hora-minutos.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { rolVigente } from '../../common/rol-vigente.js';
 import type { Prisma } from '../../generated/prisma/client.js';
-import { EstadoReserva, type NaturalezaParqueadero } from '../../generated/prisma/enums.js';
+import {
+  EstadoReserva,
+  type NaturalezaParqueadero,
+  TipoNotificacion,
+} from '../../generated/prisma/enums.js';
+import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type {
   AsignarCupoDto,
@@ -21,7 +26,10 @@ const HORA = 60 * 60 * 1000;
 
 @Injectable()
 export class ReservasService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly avisos: NotificacionesService,
+  ) {}
 
   listar(
     conjuntoId: string,
@@ -119,7 +127,7 @@ export class ReservasService {
       ? EstadoReserva.SOLICITADA
       : EstadoReserva.CONFIRMADA;
 
-    return this.prisma.$transaction(async (tx) => {
+    const reserva = await this.prisma.$transaction(async (tx) => {
       // Sin este candado, dos residentes que aparten el ultimo cupo en el mismo
       // segundo cuentan los dos "queda 1" y los dos crean su fila. Contar y
       // luego insertar NO es atomico por si solo.
@@ -144,7 +152,7 @@ export class ReservasService {
         await this.validarCupoLibre(tx, activo.conjuntoId, espacio, dto.parqueaderoId, inicio, fin);
       }
 
-      return tx.reserva.create({
+      return await tx.reserva.create({
         data: {
           conjuntoId: activo.conjuntoId,
           espacioId: dto.espacioId,
@@ -160,6 +168,59 @@ export class ReservasService {
         },
       });
     });
+
+    // Los avisos van FUERA de la transaccion, a proposito. Adentro alargarian el
+    // candado del espacio —que serializa a todos los que aparten esa misma
+    // cosa— por el tiempo de escribir decenas de filas. Y si fallaran, harian
+    // rollback de una reserva perfectamente valida.
+    if (reserva.estado === EstadoReserva.SOLICITADA) {
+      await this.avisos.avisar({
+        conjuntoId: activo.conjuntoId,
+        tipo: TipoNotificacion.RESERVA_POR_APROBAR,
+        titulo: `Hay una reserva por aprobar en ${espacio.nombre}`,
+        cuerpo: this.franja(inicio, fin),
+        entidad: 'reserva',
+        entidadId: reserva.id,
+        excepto: usuarioId,
+        // A quien PUEDA aprobarla, sea cual sea su cargo. Si manana el conjunto
+        // inventa un comite con ese permiso, le llega solo.
+        para: { permiso: PERMISOS.RESERVAS_ADMINISTRAR },
+      });
+    }
+
+    // El recordatorio: se crea ahora y se ve una hora antes. Sin cron.
+    //
+    // Solo si falta mas de esa hora — apartar el salon para dentro de veinte
+    // minutos no necesita que le recuerden nada. Y solo si hay `fin`: un cupo de
+    // parqueadero se OCUPA cuando el carro llega, no se espera.
+    const recordatorio = new Date(inicio.getTime() - HORA);
+    if (fin && recordatorio > new Date()) {
+      await this.avisos.avisar({
+        conjuntoId: activo.conjuntoId,
+        tipo: TipoNotificacion.RESERVA_PROXIMA,
+        titulo: `Tu reserva de ${espacio.nombre} es dentro de una hora`,
+        cuerpo: this.franja(inicio, fin),
+        entidad: 'reserva',
+        entidadId: reserva.id,
+        programadaPara: recordatorio,
+        para: { persona: usuarioId },
+      });
+    }
+
+    return reserva;
+  }
+
+  /** "de 2:00 p. m. a 6:00 p. m." — como lo diria alguien, no como lo guarda Postgres. */
+  private franja(inicio: Date, fin: Date | null): string {
+    const hora = (d: Date) =>
+      d.toLocaleString('es-CO', {
+        timeZone: 'America/Bogota',
+        day: 'numeric',
+        month: 'long',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    return fin ? `${hora(inicio)} — ${hora(fin)}` : `Desde ${hora(inicio)}`;
   }
 
   /**
@@ -230,14 +291,27 @@ export class ReservasService {
     if (reserva.estado !== EstadoReserva.SOLICITADA) {
       throw new BadRequestException('Esa reserva no esta esperando aprobacion');
     }
-    return this.prisma.reserva.update({
+    const aprobada = await this.prisma.reserva.update({
       where: { id },
       data: {
         estado: EstadoReserva.CONFIRMADA,
         aprobadaPorId: usuarioId,
         aprobadaEn: new Date(),
       },
+      include: { espacio: { select: { nombre: true } } },
     });
+
+    await this.avisos.avisar({
+      conjuntoId,
+      tipo: TipoNotificacion.RESERVA_APROBADA,
+      titulo: `Te aprobaron la reserva de ${aprobada.espacio.nombre}`,
+      cuerpo: this.franja(aprobada.inicio, aprobada.fin),
+      entidad: 'reserva',
+      entidadId: id,
+      para: { persona: reserva.solicitadaPorId },
+    });
+
+    return aprobada;
   }
 
   async rechazar(conjuntoId: string, usuarioId: string, id: string, dto: RechazarReservaDto) {
@@ -245,7 +319,7 @@ export class ReservasService {
     if (reserva.estado !== EstadoReserva.SOLICITADA) {
       throw new BadRequestException('Esa reserva no esta esperando aprobacion');
     }
-    return this.prisma.reserva.update({
+    const rechazada = await this.prisma.reserva.update({
       where: { id },
       data: {
         estado: EstadoReserva.CANCELADA,
@@ -253,7 +327,25 @@ export class ReservasService {
         aprobadaPorId: usuarioId,
         aprobadaEn: new Date(),
       },
+      include: { espacio: { select: { nombre: true } } },
     });
+
+    await this.avisos.avisar({
+      conjuntoId,
+      tipo: TipoNotificacion.RESERVA_RECHAZADA,
+      titulo: `No te aprobaron la reserva de ${rechazada.espacio.nombre}`,
+      cuerpo: dto.motivo,
+      entidad: 'reserva',
+      entidadId: id,
+      para: { persona: reserva.solicitadaPorId },
+    });
+
+    // Ya no va a haber reserva: el recordatorio programado sobra. Es el unico
+    // borrado de esa tabla, y esta bien que lo sea — un aviso que nadie llego a
+    // ver no es un hecho que haya pasado.
+    await this.avisos.cancelarProgramados('reserva', id);
+
+    return rechazada;
   }
 
   /**
@@ -284,13 +376,17 @@ export class ReservasService {
       }
     }
 
-    return this.prisma.reserva.update({
+    const cancelada = await this.prisma.reserva.update({
       where: { id },
       data: {
         estado: EstadoReserva.CANCELADA,
         ...(dto.motivo ? { motivoRechazo: dto.motivo } : {}),
       },
     });
+
+    await this.avisos.cancelarProgramados('reserva', id);
+
+    return cancelada;
   }
 
   /**
