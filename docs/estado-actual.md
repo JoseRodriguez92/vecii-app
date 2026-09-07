@@ -43,7 +43,7 @@ quedado viejo respecto al schema — el error que si no aparece como un
 
 ## Qué hay funcionando
 
-**16 rutas, 69 endpoints.** Todo con Swagger documentado.
+**18 rutas, 75 endpoints.** Todo con Swagger documentado.
 
 | módulo | rutas | qué resuelve |
 |---|---|---|
@@ -51,6 +51,7 @@ quedado viejo respecto al schema — el error que si no aparece como un
 | `conjuntos` | `/conjuntos` | la copropiedad y su configuración |
 | `estructura` | `/agrupaciones` `/tipologias` `/unidades` | torres y etapas anidadas, plantas, unidades con carga masiva y chequeo de coeficientes |
 | `usuarios` | `/usuarios` | registrar personas, quién vive dónde, cerrar vínculos |
+| `inventario` | `/zonas-comunes` `/zonas-comunes/:id/horarios` | los bienes comunes y a que horas abren |
 | `porteria` | `/casilleros` `/encomiendas` `/invitados` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
 | `reservas` | `/espacios-reservables` `/politicas-reserva` `/reservas` | qué se puede apartar, con qué reglas, y quién apartó |
 | `roles` | `/roles` `/modulos` | qué puede hacer cada cargo. **Cada conjunto crea y administra los suyos** |

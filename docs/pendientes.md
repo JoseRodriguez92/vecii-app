@@ -84,9 +84,9 @@ Lo que sigue pendiente de este módulo:
 - **Nadie marca `CUMPLIDA`.** Una reserva confirmada que pasó se queda en
   `CONFIRMADA` para siempre. Falta una tarea que las cierre, o derivarlo de la
   fecha y no guardar ese estado.
-- **Zonas comunes y parqueaderos no tienen API.** Las tablas existen y hoy se
-  cargan a mano. Sin zonas comunes cargadas, un espacio solo puede apuntar a un
-  pool de parqueaderos.
+- **Los parqueaderos no tienen API.** Las zonas comunes ya la tienen (modulo
+  `inventario`); `parqueaderos` y `asignaciones_parqueadero` siguen cargandose a
+  mano. Sin eso, `POST /reservas/:id/cupo` no tiene que asignar.
 - **Una reserva que cruza la medianoche** se rechaza cuando el espacio tiene
   horario: hay que partirla en dos. Si aparece el caso de verdad —una fiesta que
   termina a las 2am— toca validar contra dos franjas.

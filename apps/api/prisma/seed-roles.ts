@@ -24,9 +24,15 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
   // staff de Vecii. Antes se excluia un permiso a mano; ahora salen todos los de
   // modulos con ambito PLATAFORMA, asi que agregar uno nuevo no exige acordarse.
   ['ADMIN_CONJUNTO']: Object.values(PERMISOS).filter((p) => !PERMISOS_DE_PLATAFORMA.has(p)),
-  ['CONSEJO']: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER, PERMISOS.RESERVAS_LEER, PERMISOS.ROLES_LEER],
+  ['CONSEJO']: [
+    PERMISOS.CONJUNTOS_LEER,
+    PERMISOS.USUARIOS_LEER,
+    PERMISOS.INVENTARIO_LEER,
+    PERMISOS.RESERVAS_LEER,
+    PERMISOS.ROLES_LEER,
+  ],
   ['REVISOR_FISCAL']: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER],
-  ['COMITE_CONVIVENCIA']: [PERMISOS.CONJUNTOS_LEER],
+  ['COMITE_CONVIVENCIA']: [PERMISOS.CONJUNTOS_LEER, PERMISOS.INVENTARIO_LEER],
   // El portero registra lo que llega y lo que se retira, pero no toca casilleros:
   // eso es infraestructura y la define la administracion.
   ['PORTERIA']: [
@@ -36,6 +42,8 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
     PERMISOS.PORTERIA_LEER,
     PERMISOS.PORTERIA_ENCOMIENDAS_REGISTRAR,
     PERMISOS.PORTERIA_INVITADOS_GESTIONAR,
+    // Necesita ver las zonas y los parqueaderos: son el mapa de lo que cuida.
+    PERMISOS.INVENTARIO_LEER,
     PERMISOS.RESERVAS_LEER,
   ],
   // El propietario puede meter a su arrendatario y a su familia en SUS unidades.
@@ -45,6 +53,7 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
     PERMISOS.USUARIOS_CREAR_MI_UNIDAD,
     PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD,
     PERMISOS.PORTERIA_INVITADOS_MI_UNIDAD,
+    PERMISOS.INVENTARIO_LEER,
     PERMISOS.RESERVAS_LEER,
     PERMISOS.RESERVAS_CREAR,
   ],
@@ -52,6 +61,9 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
     PERMISOS.CONJUNTOS_LEER,
     PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD,
     PERMISOS.PORTERIA_INVITADOS_MI_UNIDAD,
+    // Sin esto no puede ver a que horas abre la piscina, que es justo lo que
+    // mas se pregunta en un conjunto.
+    PERMISOS.INVENTARIO_LEER,
     PERMISOS.RESERVAS_LEER,
     PERMISOS.RESERVAS_CREAR,
   ],

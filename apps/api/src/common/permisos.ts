@@ -60,6 +60,19 @@ export const PERMISOS = {
   /// servicio.
   PORTERIA_INVITADOS_MI_UNIDAD: 'porteria.invitados.mi_unidad',
 
+  // --- modulo: inventario ---
+  /// El inventario FISICO del conjunto: zonas comunes con sus horarios, y
+  /// parqueaderos. Es distinto de `estructura`, que es la propiedad privada
+  /// —lo que tiene coeficiente y se vende—; y distinto de `reservas`, que dice
+  /// como se reparte lo que aqui existe. Un bien comun no se vende y no paga
+  /// administracion: por eso no cabe en ninguno de los dos.
+  INVENTARIO_LEER: 'inventario.leer',
+  /// Crear y editar zonas comunes, sus horarios y los parqueaderos. Es del
+  /// administrador. Lo pusimos junto y no separado por recurso porque es la
+  /// misma persona la que carga las dos cosas, y separarlo hoy solo agregaria
+  /// una casilla mas a la pantalla de permisos sin que nadie la use distinto.
+  INVENTARIO_GESTIONAR: 'inventario.gestionar',
+
   // --- modulo: reservas ---
   RESERVAS_LEER: 'reservas.leer',
   /// Crear y editar los espacios reservables y sus politicas. Es del
@@ -184,6 +197,16 @@ export const MODULOS: ModuloDeclarado[] = [
       { codigo: PERMISOS.ESTRUCTURA_LEER, nombre: 'Ver la estructura' },
       { codigo: PERMISOS.ESTRUCTURA_GESTIONAR, nombre: 'Crear y editar la estructura' },
       { codigo: PERMISOS.UNIDADES_IMPORTAR, nombre: 'Importar unidades masivamente' },
+    ],
+  },
+  {
+    codigo: 'inventario',
+    nombre: 'Inventario fisico',
+    descripcion: 'Zonas comunes con sus horarios, y parqueaderos.',
+    orden: 25,
+    permisos: [
+      { codigo: PERMISOS.INVENTARIO_LEER, nombre: 'Ver el inventario fisico' },
+      { codigo: PERMISOS.INVENTARIO_GESTIONAR, nombre: 'Crear y editar el inventario fisico' },
     ],
   },
 ] as const;

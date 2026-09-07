@@ -145,6 +145,23 @@ módulo que existe**: `usuarios.crear`, `porteria.encomiendas.registrar`. Eso lo
 verifica el script, igual que verifica que el tag de Swagger termine en un nombre
 de tabla.
 
+## Estructura, inventario y reservas
+
+Tres módulos que la gente confunde porque los tres hablan de "lo que hay en el
+conjunto". La diferencia es jurídica, no de tamaño:
+
+| Módulo | Qué agrupa | La prueba |
+|---|---|---|
+| `estructura` | la propiedad **privada** | tiene coeficiente y se vende |
+| `inventario` | los bienes **comunes** | no se venden y no pagan administración |
+| `reservas` | cómo se **reparte** lo que existe | no es una cosa, es un turno |
+
+Por eso una piscina no va en `unidades` aunque sea una cosa del conjunto: meterla
+ahí termina, tarde o temprano, en un recibo a nombre de la piscina.
+
+`inventario` cubre `zonas_comunes` con sus `horarios_zona_comun`, y
+`parqueaderos` con sus `asignaciones_parqueadero`.
+
 ## La familia de la propiedad
 
 Tres palabras con la misma raíz, en tres ejes distintos. **No son sinónimos:**

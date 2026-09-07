@@ -8,6 +8,7 @@ import { validateEnv } from './config/env.validation.js';
 import { HealthController } from './health/health.controller.js';
 import { ConjuntosModule } from './modules/conjuntos/conjuntos.module.js';
 import { EstructuraModule } from './modules/estructura/estructura.module.js';
+import { InventarioModule } from './modules/inventario/inventario.module.js';
 import { PlataformaModule } from './modules/plataforma/plataforma.module.js';
 import { PorteriaModule } from './modules/porteria/porteria.module.js';
 import { ReservasModule } from './modules/reservas/reservas.module.js';
@@ -27,6 +28,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
     AuthModule,
     ConjuntosModule,
     EstructuraModule,
+    InventarioModule,
     UsuariosModule,
     PlataformaModule,
     PorteriaModule,
