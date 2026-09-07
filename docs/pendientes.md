@@ -8,6 +8,42 @@ no tienen ADR propio.
 
 ---
 
+## 🔴 Una persona no puede existir sin cuenta
+
+**Es el que más pesa antes de construir la interfaz.**
+
+`Usuario.id` es el `sub` de Supabase —la tabla es un espejo de `auth.users`— y
+`POST /usuarios` exige `@IsEmail()` y crea la cuenta con `generateLink`. O sea
+que **registrar a alguien y darle acceso a la app son el mismo acto**, y hoy no
+hay forma de separarlos.
+
+Eso no aguanta un conjunto real. La administración carga el padrón desde las
+escrituras: 200 unidades, y de esos propietarios entran a la app tal vez 40. Los
+demás son señoras de 80 años, gente que vive en Miami, y empresas con NIT. A
+todos hay que poder registrarlos igual, porque de ellos dependen tres cosas que
+no son opcionales:
+
+- **cobrarles** — la cuota es de la unidad, pero el paz y salvo va a nombre del
+  propietario;
+- **citarlos y contar el quórum** en asamblea, ponderado por coeficiente
+  (Ley 675);
+- **saber quién responde** por una unidad cuando pasa algo.
+
+Hoy la única salida es inventarles un correo, que es exactamente lo que hacía el
+código viejo (`uuid@sin-email.local`) y que ya decidimos que estaba mal.
+
+→ **Separar la persona de la cuenta.** `Usuario.id` pasa a `@default(uuid())` y
+gana un campo aparte —nulo mientras no exista— con el `sub` de Supabase. Una
+persona se registra sin correo; el día que quiera entrar, se le crea la cuenta y
+se enlaza.
+
+**Por qué va antes de la interfaz:** `usuarios` es la tabla más referenciada del
+esquema —siete tablas apuntan a ella— y toda pantalla de residentes, de cobro y
+de asamblea se va a amarrar a esa forma. Hoy es una migración; después de la app
+es una migración con pantallas encima.
+
+---
+
 ## 🟡 Suplantar a un usuario para ver su interfaz
 
 Que el equipo de Vecii pueda mirar la app como la ve un residente del 501, para
