@@ -167,6 +167,19 @@ en un efecto, casi nunca.
 El `vivo` no es adorno: si salen de la pantalla mientras la respuesta viene en
 camino, evita escribirle estado a un componente que ya no está.
 
+## Cada restricción nueva necesita su mensaje
+
+Si agregás un `@unique`, un `@@unique` o un `CHECK`, agregá también su entrada en
+`src/common/errores/mensajes-de-restriccion.ts`. `pnpm lint` lo exige.
+
+No es burocracia: sin el mensaje, el usuario ve
+`Unique constraint failed on the constraint: unidades_algo_key` y nadie se
+entera hasta que un administrador llama por teléfono.
+
+Si la restricción es de las que nadie puede chocar —los índices `(id, conjunto_id)`
+que existen solo como destino de una llave foránea compuesta— va en `INTERNAS`
+**con el motivo escrito**, para que nadie tenga que volver a deducirlo.
+
 ## Antes de proponer un cambio estructural
 
 Lee `docs/adr/`. Es probable que ya se haya discutido y esté escrito por qué se

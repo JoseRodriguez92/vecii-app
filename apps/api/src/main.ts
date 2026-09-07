@@ -3,12 +3,17 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
+import { ErroresFilter } from './common/errores/errores.filter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
+
+  // Un solo lugar traduce las excepciones a HTTP. Sin esto, cualquier choque
+  // contra la base sale como 500 y la interfaz no puede decir por que fallo.
+  app.useGlobalFilters(new ErroresFilter());
 
   app.useGlobalPipes(
     new ValidationPipe({

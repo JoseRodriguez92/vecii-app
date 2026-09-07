@@ -45,19 +45,20 @@ de Expo es `expo lint` (ESLint 9 con `eslint-config-expo`) y **la primera vez
 se instala solo** — si ves a pnpm bajando paquetes en medio del lint, es eso y
 pasa una sola vez.
 
-En `apps/api`, `pnpm lint` corre cuatro scripts propios: `verificar-schema.mjs` (campos duplicados,
+En `apps/api`, `pnpm lint` corre cinco scripts propios: `verificar-schema.mjs` (campos duplicados,
 relaciones sin inversa, modelos sin `@@map`, columnas sin `@map`),
 `verificar-vocabulario.mjs` (que una misma cosa se llame igual en la tabla, la
 carpeta, la ruta, el permiso y el tag de Swagger), `verificar-rls.mjs` (que
-ninguna tabla quede expuesta por la API de Supabase), y `verificar-cliente.mjs`
+ninguna tabla quede expuesta por la API de Supabase), `verificar-errores.mjs`
+(que toda restricción de la base tenga un mensaje en español), y `verificar-cliente.mjs`
 (que el cliente de Prisma no haya quedado viejo respecto al schema — el error que
 si no aparece como un "Unknown argument" que no dice que falta un `migrate
 dev`).
 
-`pnpm test` corre Vitest. Hoy son **47 pruebas** y todas son de **dominio puro**:
+`pnpm test` corre Vitest. Hoy son **59 pruebas** y todas son de **dominio puro**:
 la matriz de qué origen de derecho admite cada naturaleza de cupo (28), las
-reglas de una reserva —política, horario, solapamiento— (16), y la
-normalización de placa (3). Ese es el criterio para las que vengan: se prueba
+reglas de una reserva —política, horario, solapamiento— (16), la traducción de
+los errores de la base (12) y la normalización de placa (3). Ese es el criterio para las que vengan: se prueba
 lo que ninguna restricción de base puede cuidar, no que Prisma guarde ni que
 Nest enrute.
 
@@ -89,6 +90,51 @@ propietario y residente **se derivan** de `usuarios_unidades`, no se otorgan.
 
 **Concurrencia resuelta en reservas.** `pg_advisory_xact_lock` por espacio, dentro
 de la misma transacción que inserta.
+
+---
+
+## Cuando algo falla
+
+Un solo lugar convierte excepciones en respuestas HTTP: `ErroresFilter`, global.
+Tres caminos:
+
+1. **`HttpException` pasa derecho.** Los servicios ya lanzan mensajes buenos y
+   en español; el filtro no tiene nada que mejorarles.
+2. **Un error de la base se traduce.** `traducir-prisma.ts` es una función pura
+   con 12 pruebas.
+3. **Todo lo demás es un 500 con `referencia`** — ocho caracteres. Al usuario le
+   llega el código y nada más; el error completo queda en el log con esa misma
+   referencia. Un reporte de "me salió el error 3f2a" se puede rastrear sin
+   filtrarle a nadie una consulta SQL.
+
+Un choque de unicidad responde así:
+
+```json
+{
+  "statusCode": 409,
+  "message": "Ya hay un conjunto registrado con ese NIT.",
+  "error": "CONFLICT",
+  "campos": ["nit"]
+}
+```
+
+`campos` va en camelCase, igual que los DTO, para que la pantalla resalte el
+campo que chocó sin traducir nada.
+
+**Dos cosas que solo se supieron midiendo**, y que están escritas en el código
+porque toda la documentación de internet dice lo contrario:
+
+- Con `@prisma/adapter-pg` **no existe `meta.target`**. El nombre del índice
+  llega en `meta.driverAdapterError.cause.constraint.index`. Por eso la
+  traducción es por nombre de índice y no por columna.
+- Una violación de **CHECK no tiene código propio de Prisma**: cae al saco
+  genérico como `P2039`, y el nombre del CHECK solo está dentro del mensaje de
+  Postgres.
+
+Los mensajes viven en `mensajes-de-restriccion.ts`, uno por restricción, y
+`verificar-errores.mjs` comprueba en cada lint que ninguna quede sin traducir
+—ni sobre un mensaje de una restricción que ya se borró—. El día que se agregue
+un índice único sin mensaje, lo dice el lint y no un administrador por teléfono.
 
 ---
 
