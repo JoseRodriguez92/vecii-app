@@ -3,17 +3,23 @@
 Dónde quedó el proyecto y qué sigue. **Leer esto antes de tocar nada.**
 Se actualiza al cerrar cada sesión; si algo aquí ya no es cierto, se corrige.
 
-Última actualización: 6 de septiembre de 2026.
+Última actualización: 7 de septiembre de 2026.
 
 ---
 
 ## 🔴 Lo primero al abrir una sesión
 
 ```powershell
-pnpm db:push                                   # aplica el schema y regenera el cliente
+cd apps\api
+npx prisma migrate dev                         # aplica las migraciones pendientes y regenera el cliente
+cd ..\..
 pnpm --filter vecii-backend prisma:seed        # siembra permisos y roles
 pnpm dev:api                                   # Swagger en http://localhost:3201/docs
 ```
+
+**`db:push` ya no existe** — el script está, pero solo para gritar. La base la
+manejan las migraciones desde el 7 de septiembre. Cada cambio de schema pasa por
+`prisma migrate dev`, que escribe el `.sql` y lo aplica.
 
 El seed **no es opcional**: la API verifica al arrancar que todo permiso
 declarado en un decorador exista sembrado, y se niega a levantar si falta uno.
@@ -31,7 +37,7 @@ relaciones sin inversa, modelos sin `@@map`) y `verificar-vocabulario.mjs` (que
 una misma cosa se llame igual en la tabla, la carpeta, la ruta, el permiso y el
 tag de Swagger), y `verificar-cliente.mjs` (que el cliente de Prisma no haya
 quedado viejo respecto al schema — el error que si no aparece como un
-"Unknown argument" que no dice que falta un `db:push`).
+"Unknown argument" que no dice que falta un `migrate dev`).
 
 ---
 
@@ -85,7 +91,6 @@ trabajar:
 - **Sin control de ingreso**, el sistema conoce las reservas pero no la ocupación
   real: un carro que entró sin reservar es invisible.
 - **No hay tarifas**, así que todavía nadie paga nada.
-- **Las migraciones siguen desfasadas.** Todo se aplicó con `db push`.
 
 ---
 
@@ -99,10 +104,8 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 ## Orden sugerido
 
 1. **Parqueaderos y zonas comunes** — desbloquean lo que ya está construido.
-2. **La línea base de migraciones** — lleva en rojo desde el primer día y ya
-   costó dos ratos: la conversión de enum a texto no la pudo hacer `db push`.
-3. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
-4. **Finanzas** — al final, cuando el resto genere los hechos que hay que cobrar.
+2. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
+3. **Finanzas** — al final, cuando el resto genere los hechos que hay que cobrar.
 
 ---
 
@@ -130,17 +133,17 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
 - **Un reparto masivo es UNA fila,** no una por unidad.
 - **Los cupos de visitantes no se asignan a nadie** y no llevan filas en
   `asignaciones_parqueadero`.
+- **Las restricciones van en su propia migración, no pegadas a la línea base.**
+  La línea base se marca como aplicada sin ejecutarse —la base ya existía— así
+  que todo lo que se le pegue encima nunca llega a Postgres.
 
 ---
 
 ## Pendientes
 
-En [`pendientes.md`](pendientes.md), ordenados por urgencia. Los dos rojos que
-más pesan:
+En [`pendientes.md`](pendientes.md), ordenados por urgencia. El rojo que queda:
 
-1. **Las migraciones no reflejan la base.** Todo el rediseño se aplicó con
-   `db push`. Hay que rehacer la línea base antes de que esto crezca más.
-2. **Rotar la contraseña de la base de datos**, que se expuso en un chat.
+1. **Rotar la contraseña de la base de datos**, que se expuso en un chat.
 
 ---
 

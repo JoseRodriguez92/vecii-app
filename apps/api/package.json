@@ -24,8 +24,10 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
-    "db:push": "prisma db push && prisma generate",
-    "db:reset": "prisma migrate reset"
+    "db:push": "node -e \"console.error('db:push ya no se usa: la base la manejan las migraciones. Usa pnpm prisma:migrate en desarrollo o pnpm db:deploy en produccion.'); process.exit(1)\"",
+    "db:deploy": "prisma migrate deploy",
+    "db:estado": "prisma migrate status",
+    "db:reset": "node -e \"console.error('db:reset BORRA la base entera, datos incluidos. Si de verdad es lo que quieres: npx prisma migrate reset'); process.exit(1)\""
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

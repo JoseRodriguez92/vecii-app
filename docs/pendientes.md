@@ -8,30 +8,6 @@ no tienen ADR propio.
 
 ---
 
-## 🔴 Las migraciones no reflejan la base
-
-`prisma/migrations/` tiene dos migraciones del 6 de septiembre a las 02:37 y
-02:49. Describen `torres`, `membresias` y `ocupaciones_unidad` — nombres que ya
-no existen — y ninguna de las 14 tablas que se agregaron después.
-
-Todo el rediseño posterior se aplicó con `prisma db push`, que modifica la base
-para que coincida con el schema **sin dejar archivo**. Fue lo correcto mientras
-el modelo cambiaba cada media hora: cada `migrate dev` habría generado un `.sql`
-que a los diez minutos era mentira. Pero el modelo ya está estable, y hoy quien
-clone el repo y corra `prisma migrate deploy` levanta el esquema de las 02:49.
-
-→ **Rehacer la línea base.** Borrar las dos migraciones, generar una sola con
-`migrate diff` desde vacío contra el schema actual, y marcarla como aplicada con
-`migrate resolve` (no ejecutarla: la base ya tiene esas tablas). Desde ahí, cada
-cambio va por `migrate dev` y `db push` no se usa más.
-
-Es también el único lugar donde pueden vivir las restricciones que Prisma no
-sabe expresar y que están más abajo en este archivo: el `CHECK` de
-`espacio_apunta_a_algo` y el índice único parcial de `unidades`. Hay que
-agregarlas a mano al `.sql` de la línea base.
-
----
-
 ## 🟡 Suplantar a un usuario para ver su interfaz
 
 Que el equipo de Vecii pueda mirar la app como la ve un residente del 501, para
@@ -86,12 +62,6 @@ datos, todavía no factura), activo, suspendido, cancelado.
 **`Tipologia.banos` es entero**
 En Colombia se dice "2 baños y medio". Decidir si importa.
 
-**Índice parcial para cerrar el hueco de unicidad**
-`@@unique([conjuntoId, agrupacionId, identificador])` no impide dos "101" con
-`agrupacionId` nulo, porque Postgres trata los NULL como distintos. Al pasar a
-migraciones definitivas:
-`CREATE UNIQUE INDEX ... ON unidades (conjunto_id, identificador) WHERE agrupacion_id IS NULL;`
-
 ---
 
 ## 🟡 Reservas: lo que quedó fuera
@@ -125,13 +95,13 @@ Lo que sigue pendiente de este módulo:
 
 ## 🟡 Correos: SMTP propio, no el de Supabase
 
-Hoy `SupabaseAdminService.invitarPorCorreo` usa `inviteUserByEmail`, que hace que
-**Supabase mande el correo**. No es lo que queremos, y además su SMTP interno
-está limitado a unos pocos envíos por hora — inservible para invitar a 200
-residentes.
+La mitad ya está: `SupabaseAdminService.crearCuenta` usa `auth.admin.generateLink`,
+que crea la cuenta y **devuelve el enlace sin mandar nada**. Se cambió porque
+`inviteUserByEmail` hacía que el correo lo mandara Supabase, con un SMTP interno
+limitado a unos pocos envíos por hora — inservible para invitar a 200 residentes.
 
-Cambiar a: generar el enlace sin enviar (`auth.admin.generateLink`) y mandarlo
-desde nuestro propio SMTP.
+Falta la otra mitad: **nadie manda ese enlace**. Hoy los usuarios entran por
+"olvidé mi contraseña". Hace falta el SMTP propio.
 
 Y hacerlo como un **módulo de notificaciones**, no metiendo SMTP dentro de
 el registro de usuarios: en poco tiempo van a necesitar correo la cuota generada, la reserva
@@ -172,9 +142,6 @@ partir de ahí cualquier recorrido del árbol entra en bucle infinito.
 Estructuralmente es infinito; en la práctica tres niveles cubren todo. Poner tope
 para que la interfaz no termine siendo un explorador de archivos.
 
-**Unicidad del identificador cuando no hay agrupación**
-La otra mitad del hueco del índice parcial.
-
 ---
 
 ## 🟡 API
@@ -198,38 +165,15 @@ petición. Es la tarea 1 del [ADR-0001](adr/0001-autenticacion-supabase.md).
 
 ## 🟡 Restricciones que Prisma no expresa
 
-**Una encomienda no puede ir a una unidad Y a una agrupación al mismo tiempo.**
-Los dos campos son opcionales para permitir los tres destinos (unidad / torre /
-conjunto entero), pero llenar los dos es incoherente y hoy nada lo impide. Va en
-el `.sql` de la línea base, junto a las otras:
+Las cinco que sí caben en la base ya están puestas, en la migración
+`20260907010000_restricciones`: el índice parcial de `unidades`, el destino único
+de `encomiendas`, el `espacio_apunta_a_algo`, y las dos de `roles`.
 
-```sql
-ALTER TABLE encomiendas ADD CONSTRAINT entrega_destino_unico
-  CHECK (NOT (unidad_id IS NOT NULL AND agrupacion_id IS NOT NULL));
-```
+Lo que queda es lo que **cruza tablas**, y por eso no puede ser un CHECK:
 
 **El casillero tiene que ser de la misma unidad a la que va la encomienda.** Hoy se
-puede guardar el paquete del 501 en el casillero del 302 sin que nada chille.
-Cruza tablas, así que no es un CHECK: va en el servicio.
-
----
-
-**Un rol de plataforma no puede tener conjunto, ni al revés.** Hoy la coherencia
-entre `ambito` y `conjuntoId` depende de que el código se porte bien:
-
-```sql
-ALTER TABLE roles ADD CONSTRAINT rol_ambito_coherente
-  CHECK ((ambito = 'PLATAFORMA') = ("conjuntoId" IS NULL));
-```
-
-**Y un solo rol de plataforma por código.** `@@unique([conjuntoId, codigo])` no lo
-impide: Postgres trata los NULL como distintos, así que hoy caben dos
-`STAFF_VECII`.
-
-```sql
-CREATE UNIQUE INDEX rol_plataforma_codigo_unico
-  ON roles (codigo) WHERE "conjuntoId" IS NULL;
-```
+puede guardar el paquete del 501 en el casillero del 302 sin que nada chille. Va
+en el servicio.
 
 ---
 
@@ -291,8 +235,10 @@ No rompe nada —Prisma traduce solo— pero cobra en cada SQL a mano y en DBeav
 toda columna con mayúscula necesita comillas dobles, y sin ellas Postgres la pasa
 a minúsculas y responde que no existe.
 
-Son ~150 columnas en 23 modelos: mecánico, pero cambia la base entera. **Va junto
-con la línea base de migraciones, no suelto.**
+Son ~150 columnas en 23 modelos: mecánico, pero cambia la base entera. Ya no
+depende de nada: es agregar `@map` a cada columna y dejar que `migrate dev`
+escriba los `ALTER TABLE ... RENAME COLUMN`. Conviene hacerlo **antes** de que
+haya datos de clientes reales, porque es una migración larga.
 
 ---
 
@@ -305,5 +251,5 @@ con la línea base de migraciones, no suelto.**
 - Evaluar `nestjs-expert` (comunidad; ninguna de las candidatas cubre ESM)
 - Escribir la skill de dominio de Vecii: ESM con `.js`, Vitest, `conjuntoId`,
   `x-conjunto-id`
-- **Nada está commiteado todavía**
+- **Commiteado pero sin pushear** — hay una veintena de commits locales.
 - Rotar la contraseña de la base de datos (quedó expuesta en una conversación)
