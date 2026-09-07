@@ -1,9 +1,13 @@
 import { Global, Module } from '@nestjs/common';
+import { DestinatariosService } from './destinatarios.service.js';
 import { NotificacionesController } from './notificaciones.controller.js';
 import { NotificacionesService } from './notificaciones.service.js';
 
 /**
  * La campanita, y el servicio que la llena.
+ *
+ * Dos piezas: `NotificacionesService` decide QUE se guarda y como se ve, y
+ * `DestinatariosService` decide QUIEN debe enterarse.
  *
  * Es `@Global` porque lo van a llamar casi todos los modulos —porteria,
  * reservas, y manana finanzas y asambleas— y hacer que cada uno lo importe seria
@@ -16,7 +20,7 @@ import { NotificacionesService } from './notificaciones.service.js';
 @Global()
 @Module({
   controllers: [NotificacionesController],
-  providers: [NotificacionesService],
+  providers: [NotificacionesService, DestinatariosService],
   exports: [NotificacionesService],
 })
 export class NotificacionesModule {}
