@@ -9,17 +9,25 @@ Se actualiza al cerrar cada sesión; si algo aquí ya no es cierto, se corrige.
 
 ## 🔴 Lo primero al abrir una sesión
 
+Desde la **raíz** del monorepo:
+
 ```powershell
-cd apps\api
-npx prisma migrate dev                         # aplica las migraciones pendientes y regenera el cliente
-cd ..\..
-pnpm --filter vecii-backend prisma:seed        # siembra permisos y roles
-pnpm dev:api                                   # Swagger en http://localhost:3201/docs
+pnpm db:deploy      # aplica las migraciones pendientes
+pnpm db:generar     # regenera el cliente de Prisma
+pnpm db:seed        # siembra módulos, permisos y roles
+pnpm dev:api        # Swagger en http://localhost:3201/docs
 ```
+
+**No corras `npx prisma ...` desde la raíz.** Prisma vive en `apps/api/node_modules`,
+así que desde la raíz `npx` no lo encuentra, se va a npm y **se baja la última
+versión publicada** — que hoy es un release candidate de Prisma 8, donde hasta los
+comandos se llaman distinto (`migration` en vez de `migrate`). Para eso están los
+scripts de arriba: delegan al workspace correcto y usan el Prisma 7.10 instalado.
+Si necesitás un comando que no tenga script, entrá primero a `apps\api`.
 
 **`db:push` ya no existe** — el script está, pero solo para gritar. La base la
 manejan las migraciones desde el 7 de septiembre. Cada cambio de schema pasa por
-`prisma migrate dev`, que escribe el `.sql` y lo aplica.
+`pnpm prisma:migrate` (que es `migrate dev`), y eso escribe el `.sql` y lo aplica.
 
 El seed **no es opcional**: la API verifica al arrancar que todo permiso
 declarado en un decorador exista sembrado, y se niega a levantar si falta uno.

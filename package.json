@@ -16,6 +16,10 @@
     "test": "pnpm -r test",
     "prisma:migrate": "pnpm --filter vecii-backend prisma:migrate",
     "prisma:studio": "pnpm --filter vecii-backend prisma:studio",
+    "db:deploy": "pnpm --filter vecii-backend db:deploy",
+    "db:estado": "pnpm --filter vecii-backend db:estado",
+    "db:generar": "pnpm --filter vecii-backend prisma:generate",
+    "db:seed": "pnpm --filter vecii-backend prisma:seed",
     "db:push": "pnpm --filter vecii-backend db:push",
     "db:reset": "pnpm --filter vecii-backend db:reset",
     "db:studio": "pnpm --filter vecii-backend prisma:studio"
