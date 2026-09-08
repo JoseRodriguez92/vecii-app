@@ -301,6 +301,7 @@ sistema. Por eso van aquí. (`DiaSemana` es la única excepción declarada, en
 | `CodigoConcepto` | los 3 conceptos que el sistema genera solo | los que inventa el conjunto van con `codigo` en null |
 | `NaturalezaConcepto` | si el concepto suma o resta | un descuento es `ABONO`, no un valor negativo |
 | `MedioPago` | por dónde entró la plata | `PASARELA` es el único sin persona que lo digite |
+| `TipoNotificacion` | a qué se refiere un aviso | cada valor necesita un `GET /:id` a dónde llevar |
 
 ## Reglas de nombres
 

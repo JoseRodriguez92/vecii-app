@@ -236,6 +236,9 @@ enum TipoNotificacion {
   RESERVA_RECHAZADA
   /// El recordatorio: se crea al reservar y se ve cuando se acerca la hora.
   RESERVA_PROXIMA
+  /// Ya esta la cuenta del mes. Se manda al emitirla, no al generarla: el
+  /// borrador no existe para el residente.
+  CUENTA_EMITIDA
 }
 
 // ---------------------------------------------------------------------------

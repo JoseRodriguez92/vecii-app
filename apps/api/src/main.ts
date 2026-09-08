@@ -76,6 +76,7 @@ async function bootstrap() {
     .addTag('reservas', 'Quien aparto que y cuando')
     .addTag('notificaciones', 'La campanita: los avisos de cada persona')
     .addTag('finanzas · conceptos cobro', 'Que se le puede cobrar a una unidad')
+    .addTag('finanzas · cuentas cobro', 'La cuenta del mes de cada unidad: emitirla y consultarla')
     .addTag('roles', 'Que puede hacer cada cargo')
     .addTag('roles · modulos', 'El catalogo de permisos, agrupado')
     .addTag('plataforma · usuarios', 'El equipo de Vecii y su acceso a todos los conjuntos')

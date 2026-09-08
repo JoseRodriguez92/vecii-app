@@ -57,10 +57,11 @@ ninguna tabla quede expuesta por la API de Supabase), `verificar-rutas.mjs`
 si no aparece como un "Unknown argument" que no dice que falta un `migrate
 dev`).
 
-`pnpm test` corre Vitest. Hoy son **68 pruebas** y todas son de **dominio puro**:
+`pnpm test` corre Vitest. Hoy son **89 pruebas** y todas son de **dominio puro**:
 la matriz de qué origen de derecho admite cada naturaleza de cupo (28), las
 reglas de una reserva —política, horario, solapamiento— (16), la traducción de
-los errores de la base (12), colgar una unidad de otra (6), la normalización de
+los errores de la base (12), **repartir un monto entre unidades (12)**, colgar
+una unidad de otra (6), **el saldo de una cuenta (9)**, la normalización de
 placa (3) y el rol que se deriva de tener una unidad (3). Ese es el criterio para las que vengan: se prueba
 lo que ninguna restricción de base puede cuidar, no que Prisma guarde ni que
 Nest enrute.
@@ -85,7 +86,7 @@ probarlas**, y ese es el criterio para partir un archivo — no el largo.
 | `porteria` | `/casilleros` `/encomiendas` `/invitados` `/vehiculos` `/bicicletas` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
 | `reservas` | `/espacios-reservables` `/politicas-reserva` `/reservas` | qué se puede apartar, con qué reglas, y quién apartó |
 | `notificaciones` | `/notificaciones` | la campanita: los avisos de cada persona |
-| `finanzas` | `/conceptos-cobro` | qué se le puede cobrar a una unidad. **Recién empezado** |
+| `finanzas` | `/conceptos-cobro` `/cuentas-cobro` | qué se le cobra a cada unidad y cómo va la cuenta |
 | `roles` | `/roles` `/modulos` | qué puede hacer cada cargo. **Cada conjunto crea y administra los suyos** |
 | `plataforma` | `/usuarios-plataforma` | el equipo de Vecii y su acceso a todos los conjuntos |
 
@@ -267,10 +268,14 @@ Lo que falta ya no son tablas sin API: son **sistemas enteros**.
 
 ## A medio construir
 
-**Finanzas.** El modelo está completo —`sectores`, `unidades_sectores`,
-`conceptos_cobro`, `cuentas_cobro`, `cobros`, `pagos`, `imputaciones`— y el
-catálogo de conceptos ya tiene API. Falta lo que lo usa: emitir las cuentas del
-mes, registrar pagos e imputarlos, y `reglas-imputacion.ts`.
+**Finanzas.** Modelo completo, y ya se puede **facturar el mes**: generar el
+borrador, revisarlo, emitirlo y consultarlo. Falta la otra mitad —**registrar
+pagos e imputarlos**— y con ella `reglas-imputacion.ts`.
+
+El reparto es una función pura con 12 pruebas, y una de ellas es la que
+importa: **la suma da exactamente el monto**. Multiplicar y redondear cada parte
+por separado deja el total unos pesos corrido, todos los meses, y el presupuesto
+no cierra sin que nadie sepa por qué.
 
 ## Sin empezar
 
