@@ -25,7 +25,21 @@ Dos ya están hechos:
   `GET /invitados/:id` y `GET /reservas/:id`, cada uno con la misma regla de
   visibilidad que su "mías". **No queda ningún rojo.**
 
-### 1. `SUSPENDIDO` existe y nadie lo verifica
+### 1. 🔴 Sin decidir: ¿Vecii recauda o solo registra?
+
+Es la decisión que más cambia el alcance de finanzas y **todavía no está
+tomada**. El modelo asume *registrar*: `MedioPago` incluye `PASARELA`, pero nadie
+mueve plata — Vecii anota.
+
+Recaudar agrega una línea de ingreso (comisión) y multiplica el alcance:
+pasarela, PSE, conciliación, retenciones, contratos con bancos y responsabilidad
+legal sobre plata ajena.
+
+**Hay que cerrarla antes de construir el registro de pagos**, que es lo que
+sigue. Los dos caminos y sus consecuencias están en
+[ADR-0008](adr/0008-cobranza.md).
+
+### 2. `SUSPENDIDO` existe y nadie lo verifica
 
 `EstadoConjunto` tiene `SUSPENDIDO`, y el comentario del schema dice
 *"Suspendido por Vecii, normalmente por cartera"*. Pero **el guard nunca consulta
@@ -40,7 +54,7 @@ a quién llamar.
 De paso deja de generar MAU, que es como se cobra el login — ver
 [ADR-0007](adr/0007-supabase-o-servidor-propio.md).
 
-### 2. Ninguna lista pagina
+### 3. Ninguna lista pagina
 
 En todo `src/` hay **un solo `take`**, y es el de notificaciones (50, tope 100).
 Todo lo demás devuelve la tabla entera:
@@ -53,7 +67,7 @@ Todo lo demás devuelve la tabla entera:
 
 En un celular con datos eso no es lento: es la pantalla congelada.
 
-### 3. Faltan los detalles por id
+### 4. Faltan los detalles por id
 
 `usuarios`, `vehiculos`, `bicicletas`, `casilleros`, `tipologias` y
 `espacios-reservables` no tienen `GET /:id`. Ninguno lo necesita para la
@@ -61,14 +75,14 @@ campanita —esos tres ya están— pero sí para cualquier pantalla de detalle.
 Cualquier pantalla de detalle hoy tendría que traer la lista completa y filtrar
 en el cliente.
 
-### 4. No se puede buscar
+### 5. No se puede buscar
 
 `GET /vehiculos?placa=` sí busca por coincidencia parcial, y está bien pensado
 —en la puerta se alcanzan a leer tres letras—. Pero no hay forma de buscar una
 **unidad** por identificador ni una **persona** por nombre o documento. Con las
 listas sin paginar, la app tendría que traerlo todo y filtrar en memoria.
 
-### 5. Cargos estándar: cada conjunto con su copia (el viejo "paso 2")
+### 6. Cargos estándar: cada conjunto con su copia (el viejo "paso 2")
 
 Los cargos estándar —`ADMIN_CONJUNTO`, `CONSEJO`, `PORTERIA`…— existen **una sola
 vez** con `conjuntoId` nulo y los comparten todos los conjuntos. Un conjunto no
@@ -93,7 +107,7 @@ reales:
 Ver [ADR-0007](adr/0007-supabase-o-servidor-propio.md) para el patrón de decidir
 con disparador en vez de por si acaso.
 
-### 6. Decisión pendiente: `POST /conjuntos` no pide permiso
+### 7. Decisión pendiente: `POST /conjuntos` no pide permiso
 
 Cualquiera con una cuenta de Supabase crea conjuntos ilimitados y queda de
 administrador de cada uno. Hoy no importa porque no hay registro abierto; el día

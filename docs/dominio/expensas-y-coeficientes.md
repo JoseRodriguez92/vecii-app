@@ -131,12 +131,12 @@ también la deuda**.
 | Necesidad | Estado |
 |---|---|
 | Coeficiente confiable por unidad | ✅ es `Decimal?` — `null` significa "no cargado", ya no se confunde con cero |
-| Que el sistema se niegue a facturar con coeficientes en `null` | ❌ es de finanzas |
-| Que los coeficientes sumen 100% | ❌ sin validar |
-| Sectores y módulos de contribución | ❌ no existen — son dos tablas, van con finanzas |
-| Presupuesto que apunte a conjunto **o** a agrupación | ❌ no existe |
-| Saldo por unidad, no por persona | ❌ no existe |
-| Sin `DELETE` en registros contables | ❌ por definir |
+| Que el sistema se niegue a facturar con coeficientes en `null` | ✅ `problemaAlRepartir`, con pruebas |
+| Que los coeficientes sumen 100% | ✅ misma función, tolerancia 0.0001 |
+| Sectores y módulos de contribución | ✅ `sectores` y `unidades_sectores` |
+| Presupuesto que apunte a conjunto **o** a agrupación | ⏸ **aplazado**: hoy el administrador manda el valor a repartir. Ver [ADR-0008](../adr/0008-cobranza.md) |
+| Saldo por unidad, no por persona | ✅ `cuentas_cobro.unidad_id`. El saldo se **deriva** |
+| Sin `DELETE` en registros contables | ✅ los pagos se **anulan** con motivo; los conceptos se desactivan |
 
 ## Dónde está la oportunidad de producto
 

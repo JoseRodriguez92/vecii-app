@@ -268,7 +268,8 @@ Lo que falta ya no son tablas sin API: son **sistemas enteros**.
 
 ## A medio construir
 
-**Finanzas.** Modelo completo, y ya se puede **facturar el mes**: generar el
+**Finanzas.** El diseño está en [ADR-0008](adr/0008-cobranza.md). Modelo
+completo, y ya se puede **facturar el mes**: generar el
 borrador, revisarlo, emitirlo y consultarlo. Falta la otra mitad —**registrar
 pagos e imputarlos**— y con ella `reglas-imputacion.ts`.
 

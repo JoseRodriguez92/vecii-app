@@ -16,6 +16,7 @@ de editar la vieja: el historial de por qué cambiamos de opinión también vale
 | [0005](0005-marketplace-saberes.md) | Marketplace de saberes entre residentes | Aceptada |
 | [0006](0006-visibilidad-marketplace.md) | Qué del marketplace se ve sin iniciar sesión | Aceptada |
 | [0007](0007-supabase-o-servidor-propio.md) | Supabase o servidor propio: los números y cuándo mudarse | Aceptada |
+| [0008](0008-cobranza.md) | Cómo se le cobra a una unidad | Aceptada |
 
 ## Estados
 
