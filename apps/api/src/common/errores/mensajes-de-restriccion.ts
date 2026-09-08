@@ -148,6 +148,11 @@ export const UNICOS: Record<string, MensajeDeRestriccion> = {
     mensaje: 'Esa unidad ya tiene cuenta de cobro para ese periodo.',
     campos: ['periodo'],
   },
+  pago_no_entra_dos_veces: {
+    mensaje:
+      'Ese pago ya esta registrado: misma referencia y mismo medio. Si de verdad son dos pagos distintos, revisa la referencia.',
+    campos: ['referencia'],
+  },
   imputaciones_pago_id_cuenta_id_key: {
     mensaje: 'Ese pago ya se imputo a esa cuenta: se suma en la misma fila, no se agrega otra.',
   },

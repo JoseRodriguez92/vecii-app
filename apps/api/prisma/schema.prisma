@@ -239,6 +239,9 @@ enum TipoNotificacion {
   /// Ya esta la cuenta del mes. Se manda al emitirla, no al generarla: el
   /// borrador no existe para el residente.
   CUENTA_EMITIDA
+  /// Le entro el pago. Confirmar que la plata llego es de lo que mas tranquiliza
+  /// a quien acaba de consignar.
+  PAGO_REGISTRADO
 }
 
 // ---------------------------------------------------------------------------
@@ -1620,6 +1623,8 @@ model Pago {
   @@index([conjuntoId, recibidoEn])
   @@index([unidadId])
   @@map("pagos")
+  // El indice de idempotencia va en la migracion: es PARCIAL (solo cuando hay
+  // referencia) y Prisma no sabe expresar eso.
 }
 
 model Imputacion {

@@ -16,7 +16,9 @@ const CON_SUS_CUENTAS = {
       concepto: { select: { id: true, nombre: true, naturaleza: true } },
     },
   },
-  imputaciones: { select: { valor: true } },
+  // Un pago anulado —un cheque que reboto— deja de contar solo. No se borran sus
+  // imputaciones: el pago existio, y quedar sin rastro es peor que anulado.
+  imputaciones: { where: { pago: { anuladoEn: null } }, select: { valor: true } },
 } as const;
 
 type CuentaLeida = {

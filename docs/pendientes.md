@@ -25,19 +25,24 @@ Dos ya están hechos:
   `GET /invitados/:id` y `GET /reservas/:id`, cada uno con la misma regla de
   visibilidad que su "mías". **No queda ningún rojo.**
 
-### 1. 🔴 Sin decidir: ¿Vecii recauda o solo registra?
+### 1. 🟡 Elegir pasarela de pagos
 
-Es la decisión que más cambia el alcance de finanzas y **todavía no está
-tomada**. El modelo asume *registrar*: `MedioPago` incluye `PASARELA`, pero nadie
-mueve plata — Vecii anota.
-
-Recaudar agrega una línea de ingreso (comisión) y multiplica el alcance:
-pasarela, PSE, conciliación, retenciones, contratos con bancos y responsabilidad
-legal sobre plata ajena.
-
-**Hay que cerrarla antes de construir el registro de pagos**, que es lo que
-sigue. Los dos caminos y sus consecuencias están en
+**Decidido**: el residente paga desde la app, pero la cuenta de la pasarela es
+**del conjunto, con su NIT**. La plata va directo del residente a la
+copropiedad; Vecii integra y anota, no recauda. Ver
 [ADR-0008](adr/0008-cobranza.md).
+
+La interfaz está escrita en `finanzas/pasarela.ts` y no hay ningún adaptador. Lo
+que falta es **elegir el primer proveedor**, y eso se decide con tres datos del
+día en que se decida:
+
+- **¿Soporta PSE?** En Colombia es la mitad de los pagos. Sin PSE no sirve.
+- Comisión por transacción.
+- En cuántos días desembolsa al conjunto.
+
+Y una tabla nueva para la configuración por conjunto: qué pasarela usa y sus
+credenciales — **cifradas, y que la API nunca las devuelva**. Se escriben, no se
+leen.
 
 ### 2. `SUSPENDIDO` existe y nadie lo verifica
 
