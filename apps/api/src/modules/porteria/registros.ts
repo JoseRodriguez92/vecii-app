@@ -16,19 +16,6 @@ import type { PrismaService } from '../../prisma/prisma.service.js';
  * hueco: se corrige una y las otras dos siguen abiertas.
  */
 
-/** Las unidades donde vive quien pregunta, en este conjunto. */
-export async function misUnidades(
-  prisma: PrismaService,
-  conjuntoId: string,
-  usuarioId: string,
-): Promise<string[]> {
-  const ocupaciones = await prisma.usuarioUnidad.findMany({
-    where: { usuarioId, unidad: { conjuntoId }, ...rolVigente() },
-    select: { unidadId: true },
-  });
-  return ocupaciones.map((o) => o.unidadId);
-}
-
 /**
  * Deja pasar si tiene el permiso amplio, o si vive en esa unidad.
  *

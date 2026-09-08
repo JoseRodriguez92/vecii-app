@@ -3,7 +3,8 @@ import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { normalizarPlaca } from '../../common/placa.js';
-import { CON_CONTEXTO, exigirAlcance, exigirPropietario, misUnidades, vigentes } from './registros.js';
+import { misUnidades } from '../../common/mis-unidades.js';
+import { CON_CONTEXTO, exigirAlcance, exigirPropietario, vigentes } from './registros.js';
 import type { ActualizarVehiculoDto, RegistrarVehiculoDto } from './dto/vehiculo.dto.js';
 
 const NO_PUEDE = 'Solo puedes registrar vehiculos en una unidad tuya';

@@ -67,6 +67,26 @@ export class ReservasController {
     return this.reservas.mias(a.conjuntoId, user.id);
   }
 
+  // Va DESPUES de 'mias', por la misma razon de arriba.
+  @Get(':id')
+  @RequierePermiso(PERMISOS.RESERVAS_LEER, PERMISOS.RESERVAS_CREAR)
+  @ApiOperation({
+    summary: 'Una reserva',
+    description:
+      'Es a donde lleva un aviso de la campanita: los avisos de reserva —por aprobar, aprobada, ' +
+      'rechazada, la que empieza en una hora— guardan `entidad: "reserva"` y su id.\n\n' +
+      'Quien administra ve cualquiera del conjunto; el residente las de sus unidades — la misma ' +
+      'regla que `GET /reservas/mias`.\n\n' +
+      'Devuelve **404 si no puedes verla**, no 403: un 403 confirmaria que el id existe.',
+  })
+  obtener(
+    @Param('id', ParseUUIDPipe) id: string,
+    @ConjuntoActivo() a: Ctx,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.reservas.obtener(a, user.id, id);
+  }
+
   @Post()
   @RequierePermiso(PERMISOS.RESERVAS_CREAR, PERMISOS.RESERVAS_ADMINISTRAR)
   @ApiOperation({

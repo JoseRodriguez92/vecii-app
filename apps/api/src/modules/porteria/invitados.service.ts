@@ -5,7 +5,8 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { TipoNotificacion } from '../../generated/prisma/enums.js';
 import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
 import { normalizarPlaca } from '../../common/placa.js';
-import { exigirAlcance, misUnidades, vigentes } from './registros.js';
+import { misUnidades } from '../../common/mis-unidades.js';
+import { exigirAlcance, vigentes } from './registros.js';
 import type { ActualizarInvitadoDto, AutorizarInvitadoDto } from './dto/invitado.dto.js';
 
 @Injectable()
@@ -43,6 +44,34 @@ export class InvitadosService {
       orderBy: [{ hasta: 'asc' }, { nombre: 'asc' }],
       include: { unidad: { select: { id: true, identificador: true } } },
     });
+  }
+
+  /**
+   * Un invitado solo, el que abre un aviso de la campanita.
+   *
+   * Quien lo puede ver es la misma pregunta que responde `mios`: porteria ve
+   * todos los del conjunto, el residente solo los de sus unidades.
+   *
+   * Si no lo puede ver responde 404 y no 403, igual que en encomiendas y
+   * reservas: un 403 confirmaria que el id existe, y con eso se puede ir
+   * probando ids hasta saber a quien recibe otra unidad.
+   */
+  async obtener(activo: ConjuntoActivo, usuarioId: string, id: string) {
+    const veTodoElConjunto = activo.permisos.has(PERMISOS.PORTERIA_LEER);
+
+    const invitado = await this.prisma.invitado.findFirst({
+      where: {
+        id,
+        conjuntoId: activo.conjuntoId,
+        ...(veTodoElConjunto
+          ? {}
+          : { unidadId: { in: await misUnidades(this.prisma, activo.conjuntoId, usuarioId) } }),
+      },
+      include: { unidad: { select: { id: true, identificador: true } } },
+    });
+
+    if (!invitado) throw new NotFoundException('Invitado no encontrado');
+    return invitado;
   }
 
   async autorizar(activo: ConjuntoActivo, autorId: string, dto: AutorizarInvitadoDto) {
@@ -93,7 +122,7 @@ export class InvitadosService {
     id: string,
     dto: ActualizarInvitadoDto,
   ) {
-    const invitado = await this.obtener(activo.conjuntoId, id);
+    const invitado = await this.exigirQueExista(activo.conjuntoId, id);
     await this.alcance(activo, autorId, invitado.unidadId);
 
     const desde = dto.desde ? new Date(dto.desde) : invitado.desde;
@@ -126,7 +155,7 @@ export class InvitadosService {
    * justo lo que se pregunta cuando algo pasa.
    */
   async revocar(activo: ConjuntoActivo, autorId: string, id: string) {
-    const invitado = await this.obtener(activo.conjuntoId, id);
+    const invitado = await this.exigirQueExista(activo.conjuntoId, id);
     await this.alcance(activo, autorId, invitado.unidadId);
 
     if (invitado.hasta && invitado.hasta <= new Date()) {
@@ -137,7 +166,12 @@ export class InvitadosService {
 
   // --- ayudas ---------------------------------------------------------------
 
-  private async obtener(conjuntoId: string, id: string) {
+  /**
+   * Trae la fila sin preguntarse de quien es: quien llama comprueba el alcance
+   * despues, con `alcance()`. El publico `obtener` es lo contrario — filtra por
+   * lo que el que pregunta puede ver.
+   */
+  private async exigirQueExista(conjuntoId: string, id: string) {
     const invitado = await this.prisma.invitado.findFirst({ where: { id, conjuntoId } });
     if (!invitado) throw new NotFoundException('Invitado no encontrado');
     return invitado;

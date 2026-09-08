@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
+import { PERMISOS } from '../../common/permisos.js';
 import { EstadoEncomienda, TipoEncomienda, TipoNotificacion } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { rolVigente } from '../../common/rol-vigente.js';
@@ -59,38 +61,73 @@ export class EncomiendasService {
     });
   }
 
+  /** Lo que le ha llegado a un residente. */
+  async misEntregas(conjuntoId: string, usuarioId: string) {
+    return this.prisma.encomienda.findMany({
+      where: { conjuntoId, ...(await this.soloLasSuyas(conjuntoId, usuarioId)) },
+      orderBy: { recibidaEn: 'desc' },
+      include: CON_DESTINO,
+    });
+  }
+
   /**
-   * Lo que le ha llegado a un residente.
+   * Una encomienda sola, la que abre un aviso de la campanita.
+   *
+   * El aviso guarda `entidad: 'encomienda'` y su id; sin este endpoint la app
+   * recibe el aviso, lo muestra, y al tocarlo no tiene a donde ir.
+   *
+   * Quien puede verla es la MISMA pregunta que responde `misEntregas`, no una
+   * regla nueva: portería ve todo lo del conjunto, y el residente ve lo suyo,
+   * lo de su torre y lo que llegó para todos. Si fueran dos definiciones, un
+   * aviso podría llevar a una pantalla que después dice "no puedes ver esto".
+   */
+  async obtener(activo: ConjuntoActivo, usuarioId: string, id: string) {
+    const { conjuntoId } = activo;
+    const veTodoElConjunto = activo.permisos.has(PERMISOS.PORTERIA_LEER);
+
+    const encomienda = await this.prisma.encomienda.findFirst({
+      where: {
+        id,
+        conjuntoId,
+        ...(veTodoElConjunto ? {} : await this.soloLasSuyas(conjuntoId, usuarioId)),
+      },
+      include: CON_DESTINO,
+    });
+
+    // 404 y no 403 a proposito: para quien no puede verla, esa encomienda no
+    // existe. Un 403 confirmaria que el id es real, y con eso se puede ir
+    // probando ids hasta mapear lo que le llega a otra unidad.
+    if (!encomienda) throw new NotFoundException('Encomienda no encontrada');
+    return encomienda;
+  }
+
+  /**
+   * El filtro de lo que le llega a una persona.
    *
    * Son tres cosas y no una, por como esta modelado el destino: sus encomiendas
-   * propias, las de su agrupacion (y las de las agrupaciones padre, porque un
+   * propias, las de su agrupacion —y las de las agrupaciones padre, porque un
    * apartamento de la Torre B de la Etapa 2 tambien recibe lo que llego "para
-   * toda la Etapa 2") y las que llegaron para el conjunto entero.
+   * toda la Etapa 2"— y las que llegaron para el conjunto entero.
    */
-  async misEntregas(conjuntoId: string, usuarioId: string) {
+  private async soloLasSuyas(conjuntoId: string, usuarioId: string) {
     const ocupaciones = await this.prisma.usuarioUnidad.findMany({
       where: { usuarioId, unidad: { conjuntoId }, ...rolVigente() },
       select: { unidadId: true, unidad: { select: { agrupacionId: true } } },
     });
 
-    const unidadIds = ocupaciones.map((o) => o.unidadId);
-    const agrupacionIds = await conAncestros(this.prisma,
+    const agrupacionIds = await conAncestros(
+      this.prisma,
       ocupaciones.map((o) => o.unidad.agrupacionId).filter((id): id is string => id !== null),
     );
 
-    return this.prisma.encomienda.findMany({
-      where: {
-        conjuntoId,
-        OR: [
-          { unidadId: { in: unidadIds } },
-          { agrupacionId: { in: agrupacionIds } },
-          // Lo que llego para todo el conjunto.
-          { unidadId: null, agrupacionId: null },
-        ],
-      },
-      orderBy: { recibidaEn: 'desc' },
-      include: CON_DESTINO,
-    });
+    return {
+      OR: [
+        { unidadId: { in: ocupaciones.map((o) => o.unidadId) } },
+        { agrupacionId: { in: agrupacionIds } },
+        // Lo que llego para todo el conjunto.
+        { unidadId: null, agrupacionId: null },
+      ],
+    };
   }
 
   async registrar(conjuntoId: string, porteroId: string, dto: RegistrarEncomiendaDto) {

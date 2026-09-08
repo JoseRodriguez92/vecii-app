@@ -45,12 +45,13 @@ de Expo es `expo lint` (ESLint 9 con `eslint-config-expo`) y **la primera vez
 se instala solo** — si ves a pnpm bajando paquetes en medio del lint, es eso y
 pasa una sola vez.
 
-En `apps/api`, `pnpm lint` corre cinco scripts propios: `verificar-schema.mjs` (campos duplicados,
+En `apps/api`, `pnpm lint` corre seis scripts propios: `verificar-schema.mjs` (campos duplicados,
 relaciones sin inversa, modelos sin `@@map`, columnas sin `@map`),
 `verificar-vocabulario.mjs` (que una misma cosa se llame igual en la tabla, la
 carpeta, la ruta, el permiso y el tag de Swagger, y que ninguna de las
 "palabras descartadas" del glosario reaparezca como nombre), `verificar-rls.mjs` (que
-ninguna tabla quede expuesta por la API de Supabase), `verificar-errores.mjs`
+ninguna tabla quede expuesta por la API de Supabase), `verificar-rutas.mjs`
+(que ninguna ruta quede tapada por otra declarada antes), `verificar-errores.mjs`
 (que toda restricción de la base tenga un mensaje en español), y `verificar-cliente.mjs`
 (que el cliente de Prisma no haya quedado viejo respecto al schema — el error que
 si no aparece como un "Unknown argument" que no dice que falta un `migrate
@@ -72,7 +73,7 @@ probarlas**, y ese es el criterio para partir un archivo — no el largo.
 
 ## Qué hay funcionando
 
-**23 rutas, 96 endpoints.** Todo con Swagger documentado.
+**23 rutas, 99 endpoints.** Todo con Swagger documentado.
 
 | módulo | rutas | qué resuelve |
 |---|---|---|
@@ -86,6 +87,13 @@ probarlas**, y ese es el criterio para partir un archivo — no el largo.
 | `notificaciones` | `/notificaciones` | la campanita: los avisos de cada persona |
 | `roles` | `/roles` `/modulos` | qué puede hacer cada cargo. **Cada conjunto crea y administra los suyos** |
 | `plataforma` | `/usuarios-plataforma` | el equipo de Vecii y su acceso a todos los conjuntos |
+
+**La campanita abre lo que anuncia.** Un aviso guarda `entidad` + `entidadId`, y
+las tres entidades que menciona —`encomienda`, `invitado`, `reserva`— tienen su
+`GET /:id`. Cada uno usa la MISMA regla de visibilidad que su "mías", no una
+nueva: si fueran dos, un aviso podría llevar a una pantalla que después dice "no
+puedes ver esto". Y responden **404 y no 403** cuando no se puede ver, porque un
+403 confirma que el id existe.
 
 **RBAC por permisos.** Módulos → permisos → roles → asignaciones. Los roles de
 propietario y residente **se derivan** de `usuarios_unidades`, no se otorgan.
@@ -271,7 +279,7 @@ coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
    no puede abrir nada, ninguna lista pagina. Ninguna es un módulo nuevo: son
    huecos que solo se ven cuando alguien va a construir pantallas encima.
 2. **La interfaz.** `apps/vecii` es la plantilla de Expo con login y una lista
-   de conjuntos. Los 88 endpoints solo se usan desde Swagger, así que ningún
+   de conjuntos. Los 99 endpoints solo se usan desde Swagger, así que ningún
    conjunto puede usar esto todavía, por bien modelado que esté.
 3. **Finanzas** — cuando el resto genere los hechos que hay que cobrar.
 4. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.

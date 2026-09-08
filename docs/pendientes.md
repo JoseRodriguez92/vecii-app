@@ -21,17 +21,11 @@ Dos ya están hechos:
 - ~~`/auth/me` devolvía roles y no permisos.~~ Ahora devuelve, por conjunto, los
   permisos ya resueltos y las unidades de la persona — calculados por el mismo
   servicio que usa el guard. Ver "Con qué arranca la app".
+- ~~La campanita no podía abrir nada.~~ `GET /encomiendas/:id`,
+  `GET /invitados/:id` y `GET /reservas/:id`, cada uno con la misma regla de
+  visibilidad que su "mías". **No queda ningún rojo.**
 
-### 1. La campanita no puede abrir nada
-
-Los avisos guardan `entidad` + `entidadId` para saber a dónde llevar al tocarlos.
-Hoy apuntan a tres cosas: `encomienda`, `invitado` y `reserva`.
-
-**Ninguna de las tres tiene `GET /:id`.** Solo existen para `conjuntos`,
-`agrupaciones`, `unidades`, `parqueaderos` y `zonas-comunes`. El aviso llega, se
-toca, y no hay a dónde ir.
-
-### 2. Ninguna lista pagina
+### 1. Ninguna lista pagina
 
 En todo `src/` hay **un solo `take`**, y es el de notificaciones (50, tope 100).
 Todo lo demás devuelve la tabla entera:
@@ -44,21 +38,22 @@ Todo lo demás devuelve la tabla entera:
 
 En un celular con datos eso no es lento: es la pantalla congelada.
 
-### 3. Faltan los detalles por id
+### 2. Faltan los detalles por id
 
-Además de los tres del punto 1: `usuarios`, `vehiculos`, `bicicletas`,
-`casilleros`, `tipologias` y `espacios-reservables` tampoco tienen `GET /:id`.
+`usuarios`, `vehiculos`, `bicicletas`, `casilleros`, `tipologias` y
+`espacios-reservables` no tienen `GET /:id`. Ninguno lo necesita para la
+campanita —esos tres ya están— pero sí para cualquier pantalla de detalle.
 Cualquier pantalla de detalle hoy tendría que traer la lista completa y filtrar
 en el cliente.
 
-### 4. No se puede buscar
+### 3. No se puede buscar
 
 `GET /vehiculos?placa=` sí busca por coincidencia parcial, y está bien pensado
 —en la puerta se alcanzan a leer tres letras—. Pero no hay forma de buscar una
 **unidad** por identificador ni una **persona** por nombre o documento. Con las
 listas sin paginar, la app tendría que traerlo todo y filtrar en memoria.
 
-### 5. Decisión pendiente: `POST /conjuntos` no pide permiso
+### 4. Decisión pendiente: `POST /conjuntos` no pide permiso
 
 Cualquiera con una cuenta de Supabase crea conjuntos ilimitados y queda de
 administrador de cada uno. Hoy no importa porque no hay registro abierto; el día

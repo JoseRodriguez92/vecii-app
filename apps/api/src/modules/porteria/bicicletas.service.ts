@@ -2,7 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
 import { PERMISOS } from '../../common/permisos.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { CON_CONTEXTO, exigirAlcance, exigirPropietario, misUnidades, vigentes } from './registros.js';
+import { misUnidades } from '../../common/mis-unidades.js';
+import { CON_CONTEXTO, exigirAlcance, exigirPropietario, vigentes } from './registros.js';
 import type { ActualizarBicicletaDto, RegistrarBicicletaDto } from './dto/bicicleta.dto.js';
 
 const NO_PUEDE = 'Solo puedes registrar bicicletas en una unidad tuya';

@@ -5,6 +5,7 @@ import { rolVigente } from '../../common/rol-vigente.js';
 import { EstadoReserva, TipoNotificacion } from '../../generated/prisma/enums.js';
 import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
 import { OCUPAN, exigirEnCurso, validarCupoLibre } from './ocupacion.js';
+import { misUnidades } from '../../common/mis-unidades.js';
 import { normalizarPlacaOpcional } from '../../common/placa.js';
 import { HORA, solapa, validarHorario, validarPolitica } from './reglas-reserva.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -56,18 +57,50 @@ export class ReservasService {
   }
 
   async mias(conjuntoId: string, usuarioId: string) {
-    const ocupaciones = await this.prisma.usuarioUnidad.findMany({
-      where: { usuarioId, unidad: { conjuntoId }, ...rolVigente() },
-      select: { unidadId: true },
-    });
     return this.prisma.reserva.findMany({
-      where: { conjuntoId, unidadId: { in: ocupaciones.map((o) => o.unidadId) } },
+      where: { conjuntoId, unidadId: { in: await misUnidades(this.prisma, conjuntoId, usuarioId) } },
       orderBy: { inicio: 'desc' },
       include: {
         espacio: { select: { id: true, nombre: true } },
         unidad: { select: { id: true, identificador: true } },
       },
     });
+  }
+
+  /**
+   * Una reserva sola, la que abre un aviso de la campanita.
+   *
+   * Los avisos de reserva —por aprobar, aprobada, rechazada, la que empieza en
+   * una hora— guardan `entidad: 'reserva'` y su id. Sin este endpoint el aviso
+   * llega, se ve, y al tocarlo no hay a donde ir.
+   *
+   * Quien la puede ver es la misma pregunta que responde `mias`: quien
+   * administra ve todas, y el residente las de sus unidades.
+   *
+   * Si no la puede ver responde 404 y no 403, igual que en encomiendas e
+   * invitados: un 403 confirmaria que el id existe.
+   */
+  async obtener(activo: ConjuntoActivo, usuarioId: string, id: string) {
+    const { conjuntoId } = activo;
+
+    const reserva = await this.prisma.reserva.findFirst({
+      where: {
+        id,
+        conjuntoId,
+        ...(this.esAdmin(activo)
+          ? {}
+          : { unidadId: { in: await misUnidades(this.prisma, conjuntoId, usuarioId) } }),
+      },
+      include: {
+        espacio: { select: { id: true, nombre: true } },
+        unidad: { select: { id: true, identificador: true } },
+        invitado: { select: { id: true, nombre: true } },
+        parqueadero: { select: { id: true, identificador: true } },
+      },
+    });
+
+    if (!reserva) throw new NotFoundException('Reserva no encontrada');
+    return reserva;
   }
 
   /**

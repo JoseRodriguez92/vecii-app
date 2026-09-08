@@ -55,6 +55,28 @@ export class EncomiendasController {
     return this.encomiendas.misEntregas(a.conjuntoId, user.id);
   }
 
+  // Va DESPUES de 'mias': Express prueba las rutas en el orden en que se
+  // declaran, y ':id' se tragaria "mias" antes de llegar a ella.
+  @Get(':id')
+  @RequierePermiso(PERMISOS.PORTERIA_LEER, PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD)
+  @ApiOperation({
+    summary: 'Una encomienda',
+    description:
+      'Es a donde lleva un aviso de la campanita: la notificacion guarda `entidad: "encomienda"` ' +
+      'y su id, y esta es la ruta que lo resuelve.\n\n' +
+      'Porteria ve cualquiera del conjunto; el residente ve las suyas, las de su torre o etapa ' +
+      'y las que llegaron para todos — la misma regla que `GET /encomiendas/mias`.\n\n' +
+      'Devuelve **404 si no puedes verla**, no 403: un 403 confirmaria que el id existe, y con ' +
+      'eso se pueden ir probando ids hasta saber que le llega a otra unidad.',
+  })
+  obtener(
+    @Param('id', ParseUUIDPipe) id: string,
+    @ConjuntoActivo() a: Ctx,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.encomiendas.obtener(a, user.id, id);
+  }
+
   @Post()
   @RequierePermiso(PERMISOS.PORTERIA_ENCOMIENDAS_REGISTRAR)
   @ApiOperation({

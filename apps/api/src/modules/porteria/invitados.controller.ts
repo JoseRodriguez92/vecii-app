@@ -49,6 +49,26 @@ export class InvitadosController {
     return this.invitados.mios(a.conjuntoId, user.id, incluirVencidos === 'true');
   }
 
+  // Va DESPUES de 'mios': ':id' se tragaria "mios" si se declarara antes.
+  @Get(':id')
+  @RequierePermiso(PERMISOS.PORTERIA_LEER, PERMISOS.PORTERIA_INVITADOS_MI_UNIDAD)
+  @ApiOperation({
+    summary: 'Un invitado',
+    description:
+      'Es a donde lleva un aviso de la campanita: la notificacion guarda ' +
+      '`entidad: "invitado"` y su id, y esta es la ruta que lo resuelve.\n\n' +
+      'Porteria ve cualquiera del conjunto; el residente solo los de sus unidades — la misma ' +
+      'regla que `GET /invitados/mios`.\n\n' +
+      'Devuelve **404 si no puedes verlo**, no 403: un 403 confirmaria que el id existe.',
+  })
+  obtener(
+    @Param('id', ParseUUIDPipe) id: string,
+    @ConjuntoActivo() a: Ctx,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.invitados.obtener(a, user.id, id);
+  }
+
   @Post()
   @RequierePermiso(PERMISOS.PORTERIA_INVITADOS_GESTIONAR, PERMISOS.PORTERIA_INVITADOS_MI_UNIDAD)
   @ApiOperation({
