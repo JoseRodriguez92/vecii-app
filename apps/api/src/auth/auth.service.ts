@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { motivoParaNoEntrar } from './conjunto-operativo.js';
 import { PermisosDelUsuarioService } from './permisos-del-usuario.service.js';
 import type { AuthUser } from './auth-user.js';
 
@@ -63,6 +64,15 @@ export class AuthService {
         const suyo = porConjunto.find((p) => p.conjuntoId === c.id);
         return {
           ...c,
+          /**
+           * Por que este conjunto no se puede abrir, o `null` si se puede.
+           *
+           * Sale de la misma funcion que usa el guard, no de leer `estado` por
+           * fuera: si la app decidiera por su cuenta, el dia que cambie la regla
+           * mostraria un conjunto que el guard rechaza —y el residente veria un
+           * error tecnico en vez de "esta suspendido, llama a la administracion".
+           */
+          motivoParaNoEntrar: suyo?.esDePlataforma ? null : motivoParaNoEntrar(c.estado),
           /** id en `usuarios_conjuntos`. Lo que va en `x-conjunto-id` es `id`, no este. */
           vinculoId: suyo?.id ?? null,
           roles: suyo?.roles ?? [],

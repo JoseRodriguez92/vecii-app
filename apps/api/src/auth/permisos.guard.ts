@@ -56,6 +56,12 @@ export class PermisosGuard implements CanActivate {
     if (resolucion.tipo === 'conjunto-no-existe') {
       throw new ForbiddenException('Ese conjunto no existe');
     }
+    // Suspendido o cancelado. El texto lo redacta el dominio; aca solo se elige
+    // que es un 403 y no un 404: el conjunto existe y la persona pertenece, lo
+    // que no puede es operar hoy.
+    if (resolucion.tipo === 'conjunto-no-operativo') {
+      throw new ForbiddenException(resolucion.motivo);
+    }
 
     const { activo } = resolucion;
     if (!requeridos.some((codigo) => activo.permisos.has(codigo))) {

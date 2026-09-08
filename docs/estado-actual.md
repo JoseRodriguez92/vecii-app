@@ -3,7 +3,7 @@
 Dónde quedó el proyecto y qué sigue. **Leer esto antes de tocar nada.**
 Se actualiza al cerrar cada sesión; si algo aquí ya no es cierto, se corrige.
 
-Última actualización: 7 de septiembre de 2026.
+Última actualización: 8 de septiembre de 2026.
 
 ---
 
@@ -294,11 +294,10 @@ Asambleas y votación por coeficiente, PQRS y cartelera, el marketplace
 
 ## Orden sugerido
 
-1. **Los dos rápidos que quedan del backend.** `SUSPENDIDO` no se verifica —la
-   palanca de cobranza está desconectada— y ninguna lista pagina. El segundo es
-   el que de verdad bloquea: cada pantalla que se haga sin paginación hay que
-   rehacerla, y encima el egress se factura. Están en
-   [`pendientes.md`](pendientes.md) con la evidencia.
+1. **Paginar las listas.** Es lo único del backend que de verdad bloquea la
+   interfaz: cada pantalla que se haga sin paginación hay que rehacerla, y
+   encima el egress se factura. Está en [`pendientes.md`](pendientes.md) con la
+   evidencia.
 2. **La interfaz.** `apps/vecii` es la plantilla de Expo con login y una lista
    de conjuntos. Los 111 endpoints solo se usan desde Swagger, así que ningún
    conjunto puede usar esto todavía, por bien modelado que esté. **Es lo único
@@ -315,6 +314,12 @@ y no existía la cobranza.
 
 ## Decisiones recientes, para no volver a discutirlas
 
+- **Un conjunto suspendido no deja entrar a su gente, pero sí a Vecii.**
+  `EstadoConjunto` existía desde el principio y nadie lo consultaba: suspender no
+  hacía nada. Ahora la regla vive en `auth/conjunto-operativo.ts` y la leen el
+  guard y `/auth/me` — la misma función, para que la app no muestre un conjunto
+  que el guard va a rechazar. La excepción del equipo de Vecii es a propósito: es
+  quien suspende, y tiene que poder mirar adentro para explicar la factura.
 - **`entregas` → `encomiendas`.** Una encomienda es lo que se le *encomienda* a
   portería. Además la tabla se llamaba igual que uno de sus propios estados.
 - **Se borró la tabla de invitaciones.** Se llamó `invitaciones`, después

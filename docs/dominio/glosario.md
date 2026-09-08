@@ -291,17 +291,29 @@ sistema. Por eso van aquí. (`DiaSemana` es la única excepción declarada, en
 | `RelacionUnidad` | `PROPIETARIO` · `ARRENDATARIO` · `RESIDENTE_AUTORIZADO` | de aquí se **derivan** los roles propietario y residente |
 | `AmbitoRol` | `PLATAFORMA` · `CONJUNTO` | **dónde** se otorga un rol. No confundir con `asignable`, que dice **si** alguien lo otorga. El default es `CONJUNTO`, el menos peligroso |
 | `TipoEncomienda` | `PAQUETE` · `CORRESPONDENCIA` · `CERTIFICADO` · `OTRO` | **no hay domicilios**: las porterías no reciben comida, y sin custodia no hay encomienda |
-| `TipoNotificacion` | `ENCOMIENDA_RECIBIDA` · `INVITADO_AUTORIZADO` · `RESERVA_POR_APROBAR` · `RESERVA_APROBADA` · `RESERVA_RECHAZADA` · `RESERVA_PROXIMA` | la lista la inventa el código, no los conjuntos: nadie necesita un aviso que Vecii no sepa producir |
+| `TipoNotificacion` | `ENCOMIENDA_RECIBIDA` · `INVITADO_AUTORIZADO` · `RESERVA_POR_APROBAR` · `RESERVA_APROBADA` · `RESERVA_RECHAZADA` · `RESERVA_PROXIMA` · `CUENTA_EMITIDA` · `PAGO_REGISTRADO` | la lista la inventa el código, no los conjuntos: nadie necesita un aviso que Vecii no sepa producir. Cada valor necesita un `GET /:id` a dónde llevar |
 | `TipoVehiculo` | `CARRO` · `MOTO` | solo lo que tiene placa. La bicicleta va en su propia tabla, y la patineta eléctrica todavía no cae en ninguna |
 | `EstadoEncomienda` | `RECIBIDA` → `NOTIFICADA` → `ENTREGADA` / `DEVUELTA` | solo estados que **el sistema provoca**. No existe `REPARTIDA` porque nadie verifica que llenaron los casilleros |
 | `EstadoReserva` | `SOLICITADA` · `CONFIRMADA` · `CANCELADA` · `CUMPLIDA` · `NO_ASISTIO` | `NO_ASISTIO` existe porque muchos reglamentos sancionan la inasistencia, y sin el dato no hay cómo aplicarlo |
 | `EstadoVinculo`… | — | *(no existe: la vigencia se dice con `desde`/`hasta`, no con un estado)* |
-| `EstadoConjunto` | `ACTIVO` · `SUSPENDIDO` | suspendido = dejó de pagar Vecii, no que el conjunto se acabó |
+| `EstadoConjunto` | `EN_IMPLEMENTACION` · `ACTIVO` · `SUSPENDIDO` · `CANCELADO` | suspendido = dejó de pagar Vecii, no que el conjunto se acabó. Es el único enum que decide si alguien entra o no — ver **conjunto operativo**, abajo |
 | `TipoDocumento` | `CC` · `CE` · `PASAPORTE` · `PPT` · `NIT` | `NIT` porque una unidad puede ser de una empresa; `PPT` es el permiso por protección temporal |
 | `CodigoConcepto` | los 3 conceptos que el sistema genera solo | los que inventa el conjunto van con `codigo` en null |
 | `NaturalezaConcepto` | si el concepto suma o resta | un descuento es `ABONO`, no un valor negativo |
 | `MedioPago` | por dónde entró la plata | `PASARELA` es el único sin persona que lo digite |
-| `TipoNotificacion` | a qué se refiere un aviso | cada valor necesita un `GET /:id` a dónde llevar |
+
+### Conjunto operativo
+
+Un conjunto es **operativo** cuando su estado deja entrar a su gente:
+`EN_IMPLEMENTACION` y `ACTIVO` sí, `SUSPENDIDO` y `CANCELADO` no. La palabra
+existe porque la pregunta se hace en dos lados —el guard, para dejar pasar una
+petición; `/auth/me`, para que la app sepa qué conjunto puede abrir— y la
+respuesta tiene que ser la misma. Vive en una sola función,
+`auth/conjunto-operativo.ts`, que además redacta el motivo que ve el residente.
+
+**El equipo de Vecii entra igual a un conjunto suspendido.** No es un descuido:
+es Vecii quien suspende, y quien tiene que poder mirar adentro para explicar la
+factura y para reactivar.
 
 ## Reglas de nombres
 

@@ -4,6 +4,7 @@ import { rolDeRelacion } from '../common/roles-derivados.js';
 import type { RelacionUnidad } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ConjuntoActivo } from './conjunto-activo.js';
+import { motivoParaNoEntrar } from './conjunto-operativo.js';
 import { PermisosDelRolService } from './permisos-del-rol.service.js';
 
 /**
@@ -60,7 +61,13 @@ export type Resolucion =
   /** Ni vinculo activo ni rol de plataforma: no tiene nada que hacer aqui. */
   | { tipo: 'sin-vinculo' }
   /** Es de plataforma, pero el conjunto de la cabecera no existe. */
-  | { tipo: 'conjunto-no-existe' };
+  | { tipo: 'conjunto-no-existe' }
+  /**
+   * El conjunto existe y la persona pertenece, pero el conjunto esta suspendido
+   * o cancelado. El `motivo` ya viene redactado: la regla de negocio la resuelve
+   * el dominio, el guard solo elige el codigo HTTP.
+   */
+  | { tipo: 'conjunto-no-operativo'; motivo: string };
 
 @Injectable()
 export class PermisosDelUsuarioService {
@@ -77,8 +84,16 @@ export class PermisosDelUsuarioService {
     // Los roles de plataforma se leen antes que el vinculo porque no dependen
     // de el. Antes STAFF_VECII se otorgaba dentro de un conjunto y por eso solo
     // servia en ese, que era el bug.
-    const [dePlataforma, vinculo, ocupaciones] = await Promise.all([
+    const [dePlataforma, conjunto, vinculo, ocupaciones] = await Promise.all([
       this.rolesDePlataforma(usuarioId),
+      // El estado del conjunto se lee siempre y en paralelo con lo demas: es una
+      // busqueda por clave primaria que no agrega latencia, y tenerla siempre
+      // resuelta evita que la regla de "suspendido no entra" dependa de por que
+      // rama de ifs paso la peticion.
+      this.prisma.conjunto.findUnique({
+        where: { id: conjuntoId },
+        select: { estado: true },
+      }),
       this.prisma.usuarioConjunto.findUnique({
         where: { usuarioId_conjuntoId: { usuarioId, conjuntoId } },
         select: {
@@ -90,17 +105,21 @@ export class PermisosDelUsuarioService {
       this.ocupaciones(usuarioId, conjuntoId),
     ]);
 
-    if (!vinculo?.activo) {
-      if (dePlataforma.length === 0) return { tipo: 'sin-vinculo' };
+    // Primero el vinculo y despues la existencia, en ese orden: a quien no
+    // pertenece se le responde lo mismo exista el conjunto o no, y asi la
+    // cabecera no sirve para averiguar que conjuntos hay.
+    if (!vinculo?.activo && dePlataforma.length === 0) return { tipo: 'sin-vinculo' };
 
-      // El conjunto tiene que existir igual: sin esta comprobacion, un id
-      // inventado en la cabecera daria un contexto valido apuntando a la nada.
-      const existe = await this.prisma.conjunto.findUnique({
-        where: { id: conjuntoId },
-        select: { id: true },
-      });
-      if (!existe) return { tipo: 'conjunto-no-existe' };
-    }
+    // Sin esta comprobacion, un id inventado en la cabecera daria un contexto
+    // valido apuntando a la nada. Solo la alcanza alguien de plataforma: si hay
+    // vinculo activo, la llave foranea garantiza que el conjunto existe.
+    if (!conjunto) return { tipo: 'conjunto-no-existe' };
+
+    // El equipo de Vecii entra a un conjunto suspendido a proposito: es Vecii
+    // quien suspende, y quien tiene que poder mirar adentro para explicar la
+    // factura y para reactivar.
+    const motivo = motivoParaNoEntrar(conjunto.estado);
+    if (motivo && dePlataforma.length === 0) return { tipo: 'conjunto-no-operativo', motivo };
 
     return {
       tipo: 'ok',

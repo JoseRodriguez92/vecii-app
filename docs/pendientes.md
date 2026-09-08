@@ -13,26 +13,11 @@ no tienen ADR propio.
 Ordenado por cuánto duele al construir pantallas. Nada de esto es un módulo
 nuevo: son huecos que solo se ven cuando alguien va a construir encima.
 
-*(De los siete que encontró la auditoría del 7 de septiembre se cerraron cinco.
+*(De los siete que encontró la auditoría del 7 de septiembre se cerraron seis.
 Lo que se cerró está en "Decisiones recientes" de
 [`estado-actual.md`](estado-actual.md); acá solo va lo que falta.)*
 
-### 1. `SUSPENDIDO` existe y nadie lo verifica
-
-`EstadoConjunto` tiene `SUSPENDIDO`, y el comentario del schema dice
-*"Suspendido por Vecii, normalmente por cartera"*. Pero **el guard nunca consulta
-`conjunto.estado`**: hoy podés marcar un conjunto como suspendido y sus 500
-residentes siguen entrando como si nada.
-
-Es la palanca de cobranza del negocio y no está conectada. Media hora: que
-`PermisosDelUsuarioService` rechace un conjunto que no esté `ACTIVO` (o
-`EN_IMPLEMENTACION`, que todavía no factura), con un mensaje que diga qué pasa y
-a quién llamar.
-
-De paso deja de generar MAU, que es como se cobra el login — ver
-[ADR-0007](adr/0007-supabase-o-servidor-propio.md).
-
-### 2. Ninguna lista pagina
+### 1. Ninguna lista pagina
 
 En todo `src/` hay **un solo `take`**, y es el de notificaciones (50, tope 100).
 Todo lo demás devuelve la tabla entera:
@@ -45,7 +30,7 @@ Todo lo demás devuelve la tabla entera:
 
 En un celular con datos eso no es lento: es la pantalla congelada.
 
-### 3. Faltan los detalles por id
+### 2. Faltan los detalles por id
 
 `usuarios`, `vehiculos`, `bicicletas`, `casilleros`, `tipologias` y
 `espacios-reservables` no tienen `GET /:id`. Ninguno lo necesita para la
@@ -53,7 +38,7 @@ campanita —esos tres ya están— pero sí para cualquier pantalla de detalle.
 Cualquier pantalla de detalle hoy tendría que traer la lista completa y filtrar
 en el cliente.
 
-### 4. No se puede buscar
+### 3. No se puede buscar
 
 `GET /vehiculos?placa=` sí busca por coincidencia parcial, y está bien pensado
 —en la puerta se alcanzan a leer tres letras—. Pero no hay forma de buscar una
@@ -65,7 +50,7 @@ listas sin paginar, la app tendría que traerlo todo y filtrar en memoria.
 No son trabajo pendiente: son cosas que hay que decidir, y decidirlas mal
 cuesta más que tardarse.
 
-### 5. Elegir pasarela de pagos
+### 4. Elegir pasarela de pagos
 
 **Decidido**: el residente paga desde la app, pero la cuenta de la pasarela es
 **del conjunto, con su NIT**. La plata va directo del residente a la
@@ -84,7 +69,7 @@ Y una tabla nueva para la configuración por conjunto: qué pasarela usa y sus
 credenciales — **cifradas, y que la API nunca las devuelva**. Se escriben, no se
 leen.
 
-### 6. Cargos estándar: cada conjunto con su copia (el viejo "paso 2")
+### 5. Cargos estándar: cada conjunto con su copia (el viejo "paso 2")
 
 Los cargos estándar —`ADMIN_CONJUNTO`, `CONSEJO`, `PORTERIA`…— existen **una sola
 vez** con `conjuntoId` nulo y los comparten todos los conjuntos. Un conjunto no
@@ -109,7 +94,7 @@ reales:
 Ver [ADR-0007](adr/0007-supabase-o-servidor-propio.md) para el patrón de decidir
 con disparador en vez de por si acaso.
 
-### 7. `POST /conjuntos` no pide permiso
+### 6. `POST /conjuntos` no pide permiso
 
 Cualquiera con una cuenta de Supabase crea conjuntos ilimitados y queda de
 administrador de cada uno. Hoy no importa porque no hay registro abierto; el día
