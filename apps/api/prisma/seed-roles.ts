@@ -30,8 +30,12 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
     PERMISOS.INSTALACIONES_LEER,
     PERMISOS.RESERVAS_LEER,
     PERMISOS.ROLES_LEER,
+    // Vigilar la plata es literalmente para lo que existe el consejo. Ve, no
+    // gestiona: quien factura y registra pagos es la administracion.
+    PERMISOS.FINANZAS_LEER,
   ],
-  ['REVISOR_FISCAL']: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER],
+  // Su trabajo ES revisar las cuentas. Sin esto el cargo no sirve de nada.
+  ['REVISOR_FISCAL']: [PERMISOS.CONJUNTOS_LEER, PERMISOS.USUARIOS_LEER, PERMISOS.FINANZAS_LEER],
   ['COMITE_CONVIVENCIA']: [PERMISOS.CONJUNTOS_LEER, PERMISOS.INSTALACIONES_LEER],
   // El portero registra lo que llega y lo que se retira, pero no toca casilleros:
   // eso es infraestructura y la define la administracion.
@@ -59,7 +63,15 @@ const PERMISOS_POR_ROL: Record<string, string[]> = {
     PERMISOS.INSTALACIONES_LEER,
     PERMISOS.RESERVAS_LEER,
     PERMISOS.RESERVAS_CREAR,
+    // Ve la cuenta de SUS unidades. La deuda es de la unidad y el propietario
+    // responde por ella.
+    PERMISOS.FINANZAS_MI_UNIDAD,
   ],
+  // Sin `finanzas.mi_unidad` A PROPOSITO. La administracion la debe la unidad y
+  // responde el propietario; mostrarle a un arrendatario la mora de su
+  // arrendador es meterlo en un asunto que no es suyo. Cuando el contrato diga
+  // que el arrendatario la paga, el conjunto le da el permiso desde la interfaz
+  // — que es justo para lo que existe el RBAC administrable.
   ['RESIDENTE']: [
     PERMISOS.CONJUNTOS_LEER,
     PERMISOS.PORTERIA_ENCOMIENDAS_MI_UNIDAD,

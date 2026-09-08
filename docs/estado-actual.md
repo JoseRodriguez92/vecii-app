@@ -31,6 +31,8 @@ manejan las migraciones desde el 7 de septiembre. Cada cambio de schema pasa por
 
 El seed **no es opcional**: la API verifica al arrancar que todo permiso
 declarado en un decorador exista sembrado, y se niega a levantar si falta uno.
+Si agregaste un permiso al código, corre `pnpm db:seed` **antes** de `pnpm
+dev:api` o no arranca — con un error que sí dice cuál falta.
 
 Antes de commitear, desde la **raíz**:
 
