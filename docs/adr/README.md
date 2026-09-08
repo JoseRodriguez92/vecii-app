@@ -15,6 +15,7 @@ de editar la vieja: el historial de por qué cambiamos de opinión también vale
 | [0004](0004-una-app-route-groups.md) | Una sola app Expo con route groups | Aceptada |
 | [0005](0005-marketplace-saberes.md) | Marketplace de saberes entre residentes | Aceptada |
 | [0006](0006-visibilidad-marketplace.md) | Qué del marketplace se ve sin iniciar sesión | Aceptada |
+| [0007](0007-supabase-o-servidor-propio.md) | Supabase o servidor propio: los números y cuándo mudarse | Aceptada |
 
 ## Estados
 
