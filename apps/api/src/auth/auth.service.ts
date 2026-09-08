@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { AlcanceService } from './alcance.service.js';
+import { PermisosDelUsuarioService } from './permisos-del-usuario.service.js';
 import type { AuthUser } from './auth-user.js';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly alcance: AlcanceService,
+    private readonly permisosDelUsuario: PermisosDelUsuarioService,
   ) {}
 
   /**
@@ -24,7 +24,8 @@ export class AuthService {
    * el codigo vuelve a nombrarlos: el resto pregunta por permisos para que un
    * conjunto pueda inventarse un "Comite de Deportes" sin tocar codigo.
    *
-   * Los permisos salen de `AlcanceService`, el mismo que usa el guard. No es
+   * Los permisos salen de `PermisosDelUsuarioService`, el mismo que usa el
+   * guard. No es
    * ahorro de lineas: si fueran dos calculos, la app dibujaria botones que el
    * guard rechaza, y eso no se descubre probando sino cuando alguien reclama.
    *
@@ -32,7 +33,7 @@ export class AuthService {
    * hace `SupabaseAuthGuard`, en cualquier ruta y no solo en esta.
    */
   async me(user: AuthUser) {
-    const [persona, alcances] = await Promise.all([
+    const [persona, porConjunto] = await Promise.all([
       this.prisma.usuario.findUniqueOrThrow({
         where: { id: user.id },
         select: {
@@ -45,11 +46,11 @@ export class AuthService {
           numeroDocumento: true,
         },
       }),
-      this.alcance.enTodosSusConjuntos(user.id),
+      this.permisosDelUsuario.enTodosSusConjuntos(user.id),
     ]);
 
     const conjuntos = await this.prisma.conjunto.findMany({
-      where: { id: { in: alcances.map((a) => a.conjuntoId) } },
+      where: { id: { in: porConjunto.map((p) => p.conjuntoId) } },
       select: { id: true, nombre: true, ciudad: true, departamento: true, estado: true },
       orderBy: { nombre: 'asc' },
     });
@@ -57,17 +58,17 @@ export class AuthService {
     return {
       ...persona,
       /** Del equipo de Vecii. Puede entrar a conjuntos que no aparecen en la lista. */
-      esDePlataforma: alcances.some((a) => a.esDePlataforma),
+      esDePlataforma: porConjunto.some((p) => p.esDePlataforma),
       conjuntos: conjuntos.map((c) => {
-        const alcance = alcances.find((a) => a.conjuntoId === c.id);
+        const suyo = porConjunto.find((p) => p.conjuntoId === c.id);
         return {
           ...c,
           /** id en `usuarios_conjuntos`. Lo que va en `x-conjunto-id` es `id`, no este. */
-          vinculoId: alcance?.id ?? null,
-          roles: alcance?.roles ?? [],
+          vinculoId: suyo?.id ?? null,
+          roles: suyo?.roles ?? [],
           // Set no sobrevive a JSON.
-          permisos: [...(alcance?.permisos ?? [])].sort(),
-          unidades: alcance?.unidades ?? [],
+          permisos: [...(suyo?.permisos ?? [])].sort(),
+          unidades: suyo?.unidades ?? [],
         };
       }),
     };

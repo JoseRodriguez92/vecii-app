@@ -4,10 +4,15 @@ import { rolDeRelacion } from '../common/roles-derivados.js';
 import type { RelacionUnidad } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ConjuntoActivo } from './conjunto-activo.js';
-import { PermisosService } from './permisos.service.js';
+import { PermisosDelRolService } from './permisos-del-rol.service.js';
 
 /**
  * Que puede hacer una persona en un conjunto. UNA sola definicion.
+ *
+ * El hermano de este archivo es `permisos-del-rol.service.ts`, que responde la
+ * otra mitad: que permisos da cada cargo. Aqui se responde que permisos tiene
+ * ESTA persona, aqui, hoy — que es la suma de sus cargos mas lo que se deriva
+ * de sus unidades.
  *
  * Lo preguntan dos lugares por razones opuestas: el guard, para dejar pasar o
  * no una peticion; y `/auth/me`, para que la app sepa que menu dibujar. Si cada
@@ -34,8 +39,8 @@ interface Ocupacion {
   principal: boolean;
 }
 
-/** Lo que se sabe de una persona en UN conjunto. */
-export interface Alcance extends ConjuntoActivo {
+/** Lo que puede una persona en UN conjunto, con las unidades que se lo dan. */
+export interface PermisosEnElConjunto extends ConjuntoActivo {
   /** Las unidades donde vive o de las que es duena, hoy, en este conjunto. */
   unidades: {
     id: string;
@@ -51,22 +56,22 @@ export interface Alcance extends ConjuntoActivo {
  * quien tiene el contexto de la peticion.
  */
 export type Resolucion =
-  | { tipo: 'ok'; alcance: Alcance }
+  | { tipo: 'ok'; activo: PermisosEnElConjunto }
   /** Ni vinculo activo ni rol de plataforma: no tiene nada que hacer aqui. */
   | { tipo: 'sin-vinculo' }
   /** Es de plataforma, pero el conjunto de la cabecera no existe. */
   | { tipo: 'conjunto-no-existe' };
 
 @Injectable()
-export class AlcanceService {
+export class PermisosDelUsuarioService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly permisos: PermisosService,
+    private readonly permisos: PermisosDelRolService,
   ) {}
 
   /**
-   * El alcance en UN conjunto, que puede no ser uno donde la persona viva:
-   * alguien de Vecii entra a cualquiera a dar soporte.
+   * Lo que puede en UN conjunto, que puede no ser uno donde viva: alguien de
+   * Vecii entra a cualquiera a dar soporte.
    */
   async enElConjunto(usuarioId: string, conjuntoId: string): Promise<Resolucion> {
     // Los roles de plataforma se leen antes que el vinculo porque no dependen
@@ -99,7 +104,7 @@ export class AlcanceService {
 
     return {
       tipo: 'ok',
-      alcance: await this.componer(
+      activo: await this.componer(
         conjuntoId,
         // Alguien de Vecii puede ademas VIVIR aqui: sus cargos y ocupaciones de
         // este conjunto se SUMAN a los de plataforma, no los reemplazan.
@@ -112,13 +117,13 @@ export class AlcanceService {
   }
 
   /**
-   * El alcance en TODOS los conjuntos donde la persona tiene vinculo activo.
+   * Lo mismo, en TODOS los conjuntos donde tiene vinculo activo.
    *
    * Es lo que responde `/auth/me`. Va en una pasada y no llamando al metodo de
    * arriba en un bucle: los roles de plataforma son los mismos para todos, y
    * las ocupaciones se traen de un solo viaje.
    */
-  async enTodosSusConjuntos(usuarioId: string): Promise<Alcance[]> {
+  async enTodosSusConjuntos(usuarioId: string): Promise<PermisosEnElConjunto[]> {
     const [dePlataforma, vinculos, todasLasOcupaciones] = await Promise.all([
       this.rolesDePlataforma(usuarioId),
       this.prisma.usuarioConjunto.findMany({
@@ -185,7 +190,7 @@ export class AlcanceService {
     ocupaciones: Ocupacion[],
     vinculoId: string | null,
     esDePlataforma: boolean,
-  ): Promise<Alcance> {
+  ): Promise<PermisosEnElConjunto> {
     // Propietario y residente no se otorgan: salen de vivir en una unidad. Por
     // eso van por codigo y no por id, y por eso quien vende su apartamento deja
     // de ser propietario solo, sin que nadie borre una fila.

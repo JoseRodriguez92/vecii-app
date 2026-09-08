@@ -5,16 +5,20 @@ import { PrismaService } from '../prisma/prisma.service.js';
 const TTL_CACHE_MS = 5 * 60 * 1000;
 
 /**
- * Resuelve que permisos dan unos roles, y verifica al arrancar que el catalogo
- * de la base cubra todo lo que el codigo declara.
+ * Que permisos da cada cargo. Ademas, verifica al arrancar que el catalogo de
+ * la base cubra todo lo que el codigo declara.
+ *
+ * Es la mitad de la pregunta. La otra —que permisos tiene ESTA persona aqui—
+ * la responde `permisos-del-usuario.service.ts`, que suma estos con los que se
+ * derivan de tener una unidad.
  *
  * El mapa rol -> permisos se cachea en memoria porque cambia poquisimo y se
  * consulta en CADA peticion. Como los roles son globales (no por conjunto), es
  * un solo mapa para toda la aplicacion.
  */
 @Injectable()
-export class PermisosService implements OnModuleInit {
-  private readonly logger = new Logger(PermisosService.name);
+export class PermisosDelRolService implements OnModuleInit {
+  private readonly logger = new Logger(PermisosDelRolService.name);
   /** rolId -> permisos. Por ID y no por codigo: dos conjuntos pueden tener
    *  cada uno su rol "COMITE_DEPORTES", y el codigo solo no los distingue. */
   private mapa = new Map<string, Set<string>>();

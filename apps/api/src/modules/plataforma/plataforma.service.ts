@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PermisosService } from '../../auth/permisos.service.js';
+import { PermisosDelRolService } from '../../auth/permisos-del-rol.service.js';
 import { Ambito, ROLES_DE_PLATAFORMA } from '../../common/roles.js';
 import { rolVigente } from '../../common/rol-vigente.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -9,7 +9,7 @@ import type { NombrarStaffDto, RetirarStaffDto } from './dto/plataforma.dto.js';
 export class PlataformaService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly permisos: PermisosService,
+    private readonly permisos: PermisosDelRolService,
   ) {}
 
   listar(incluirRetirados = false) {

@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { ConjuntoActivo } from '../../auth/conjunto-activo.js';
-import { PermisosService } from '../../auth/permisos.service.js';
+import { PermisosDelRolService } from '../../auth/permisos-del-rol.service.js';
 import { PERMISOS, PERMISOS_DE_PLATAFORMA } from '../../common/permisos.js';
 import { Ambito, CODIGOS_RESERVADOS, ROL } from '../../common/roles.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -14,7 +14,7 @@ import type {
 export class RolesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly permisos: PermisosService,
+    private readonly permisos: PermisosDelRolService,
   ) {}
 
   /**

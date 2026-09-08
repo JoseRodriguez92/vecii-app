@@ -115,7 +115,8 @@ lista vacía. Y un conjunto puede inventarse un "Comité de Deportes" y darle
 `reservas.administrar`: preguntar por rol es apostar a una lista que cambia sin
 avisar.
 
-**Por qué es el mismo cálculo que el guard.** Los dos usan `AlcanceService`. Si
+**Por qué es el mismo cálculo que el guard.** Los dos usan
+`PermisosDelUsuarioService`. Si
 fueran dos implementaciones, el día que cambie la regla la app dibujaría
 botones que el guard rechaza, o escondería cosas que sí se pueden — y eso no se
 descubre probando, se descubre cuando un usuario reclama. Lo que aparece en
@@ -124,6 +125,18 @@ descubre probando, se descubre cuando un usuario reclama. Lo que aparece en
 Los roles efectivos se suman de tres orígenes: `usuarios_plataforma` (todos los
 conjuntos), `usuario_conjunto_roles` (solo ese) y `usuarios_unidades`
 (derivados, nadie los otorga).
+
+La pregunta está partida en dos archivos que se leen como pareja:
+
+| archivo | responde |
+|---|---|
+| `permisos-del-rol.service.ts` | qué permisos da cada cargo |
+| `permisos-del-usuario.service.ts` | qué permisos tiene **esta persona**, aquí, hoy |
+
+El segundo suma el primero con lo que se deriva de tener una unidad. **Ojo con
+la palabra "alcance"**: en este repo significa otra cosa — el alcance de FILA
+(`exigirAlcance`, "¿esa unidad es tuya?"), que es más fino y lo resuelve el
+servicio, no el guard.
 
 ---
 
