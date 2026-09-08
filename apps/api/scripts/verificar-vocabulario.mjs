@@ -122,22 +122,59 @@ for (const codigo of codigosPermiso) {
   }
 }
 
-// 5. Palabras del glosario que ya nadie usa. Un glosario que solo crece se
+// 5. Las palabras DESCARTADAS no pueden reaparecer como nombre.
+//
+// El glosario tiene una tabla "Palabras descartadas" con los nombres que se
+// consideraron y se rechazaron, cada uno con su motivo. Se leen de ahi en vez
+// de repetirlos aqui: el motivo y la regla viven juntos, y quien lea el
+// glosario ve lo mismo que revisa el lint.
+//
+// Solo se miran NOMBRES —tablas, columnas, enums, carpetas, permisos, tags—.
+// En prosa la palabra es legitima: un comentario puede decir "la reserva
+// activa" sin que eso sea un campo llamado `activa`.
+const seccionDescartadas = glosario.slice(glosario.indexOf('## Palabras descartadas'));
+const descartadas = new Set(
+  [...seccionDescartadas.slice(0, seccionDescartadas.indexOf('\n## ', 5) + 1 || undefined)
+    .matchAll(/^\| `([a-z][a-z0-9_]*)` \|/gm)].map((m) => m[1]),
+);
+
+const nombres = new Set([
+  ...tablas,
+  ...[...schema.matchAll(/@map\("([a-z0-9_]+)"\)/g)].map((m) => m[1]),
+  ...[...schema.matchAll(/^(?:model|enum)\s+(\w+)/gm)].map((m) => m[1].toLowerCase()),
+  ...enums.map((e) => e.toLowerCase()),
+  ...modulos,
+  ...tags.flatMap((t) => t.split(/[^a-z]+/i).map((x) => x.toLowerCase())),
+  ...codigosPermiso.flatMap((c) => c.split(/[._]/)),
+]);
+
+for (const palabra of descartadas) {
+  if (nombres.has(palabra)) {
+    errores.push(
+      `\`${palabra}\` esta en "Palabras descartadas" del glosario y volvio a aparecer como ` +
+        'nombre. Si la decision cambio, quita la fila del glosario y explica por que',
+    );
+  }
+}
+
+// 6. Palabras del glosario que ya nadie usa. Un glosario que solo crece se
 //    vuelve un cementerio, y ahi deja de leerse.
 const fuentes = schema + leer('src/main.ts') + leer('src/common/permisos.ts');
 const enCodigo = new Set([...fuentes.matchAll(/[A-Za-z_][A-Za-z0-9_]*/g)].map((m) => m[0]));
 for (const [, palabra] of glosario.matchAll(/`([a-z][a-z0-9_]*)`/g)) {
-  if (!tablas.has(palabra) && !enCodigo.has(palabra) && !palabra.includes('.')) {
+  if (
+    !tablas.has(palabra) &&
+    !enCodigo.has(palabra) &&
+    !descartadas.has(palabra) &&
+    !palabra.includes('.')
+  ) {
     avisos.push(`\`${palabra}\` aparece en el glosario pero no en el codigo`);
   }
 }
 
 console.log(`Tablas: ${tablas.size} · enums: ${enums.length} · tags: ${tags.length} · modulos: ${modulos.length} · permisos: ${codigosPermiso.length}\n`);
 if (avisos.length) {
-  console.log(
-    `Posibles fosiles (${[...new Set(avisos)].length}) — revisar a ojo: una palabra puede`,
-  );
-  console.log('estar ahi como CONTRAEJEMPLO ("no `activa`", "no `seguridad`"), y eso esta bien.');
+  console.log(`Posibles fosiles (${[...new Set(avisos)].length}) — revisar a ojo:`);
   for (const a of [...new Set(avisos)]) console.log(`  ? ${a}`);
   console.log();
 }

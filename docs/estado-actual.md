@@ -48,7 +48,8 @@ pasa una sola vez.
 En `apps/api`, `pnpm lint` corre cinco scripts propios: `verificar-schema.mjs` (campos duplicados,
 relaciones sin inversa, modelos sin `@@map`, columnas sin `@map`),
 `verificar-vocabulario.mjs` (que una misma cosa se llame igual en la tabla, la
-carpeta, la ruta, el permiso y el tag de Swagger), `verificar-rls.mjs` (que
+carpeta, la ruta, el permiso y el tag de Swagger, y que ninguna de las
+"palabras descartadas" del glosario reaparezca como nombre), `verificar-rls.mjs` (que
 ninguna tabla quede expuesta por la API de Supabase), `verificar-errores.mjs`
 (que toda restricción de la base tenga un mensaje en español), y `verificar-cliente.mjs`
 (que el cliente de Prisma no haya quedado viejo respecto al schema — el error que

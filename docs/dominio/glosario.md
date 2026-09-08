@@ -338,6 +338,21 @@ de la cosa.
 tipo; los roles de propietario y residente salen de las ocupaciones. Guardar la
 conclusión junto al hecho es garantizar que algún día se contradigan.
 
+## Palabras descartadas
+
+Nombres que consideramos y **no** usamos. Están aquí por dos razones: para que
+nadie los vuelva a proponer sin saber que ya se discutieron, y porque
+`verificar-vocabulario.mjs` los lee de esta tabla — si alguna reaparece como
+nombre de tabla, columna, enum, carpeta, permiso o tag, el lint falla.
+
+| descartada | se usa | por qué |
+|---|---|---|
+| `visitas` | `reservas` | con el fin abierto, la reserva **es** la visita. Una tabla aparte guardaría lo mismo dos veces |
+| `inventario` | `instalaciones` | en propiedad horizontal `inventario` ya nombra otra cosa: los bienes que el administrador entrega al salir. La vamos a necesitar libre |
+| `seguridad` | `porteria` | un módulo se llama como la cosa que existe, no como la función que presta. Nadie en un conjunto dice "avisale a seguridad" |
+| `personas` | `usuarios` | sinónimo bonito de algo que ya existía. A los tres meses nadie sabe si son lo mismo |
+| `activa` | `activo` | los booleanos de estado van en masculino aunque la tabla sea femenina. El género gramatical no compensa el costo de recordar cuál lleva cuál |
+
 ## Colisiones a propósito
 
 `PORTERIA` existe como rol (la persona) y como tipo de zona común (la caseta).
