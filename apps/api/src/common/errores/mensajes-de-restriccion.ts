@@ -96,6 +96,16 @@ export const UNICOS: Record<string, MensajeDeRestriccion> = {
     campos: ['serial'],
   },
 
+  // --- reparto ---
+  sectores_conjunto_id_nombre_key: {
+    mensaje: 'Ya hay un sector con ese nombre en este conjunto.',
+    campos: ['nombre'],
+  },
+  unidades_sectores_sector_id_unidad_id_key: {
+    mensaje: 'Esa unidad ya tiene un modulo de contribucion en ese sector.',
+    campos: ['unidadId'],
+  },
+
   // --- personas y cargos ---
   usuarios_email_key: {
     mensaje: 'Ese correo ya esta registrado en Vecii.',
@@ -125,6 +135,23 @@ export const UNICOS: Record<string, MensajeDeRestriccion> = {
     campos: ['desde'],
   },
 
+  // --- cobranza ---
+  conceptos_cobro_conjunto_id_nombre_key: {
+    mensaje: 'Ya hay un concepto de cobro con ese nombre en este conjunto.',
+    campos: ['nombre'],
+  },
+  conceptos_cobro_conjunto_id_codigo_key: {
+    mensaje: 'Ese concepto del sistema ya existe en este conjunto: se edita, no se crea otro.',
+    campos: ['codigo'],
+  },
+  cuentas_cobro_unidad_id_periodo_key: {
+    mensaje: 'Esa unidad ya tiene cuenta de cobro para ese periodo.',
+    campos: ['periodo'],
+  },
+  imputaciones_pago_id_cuenta_id_key: {
+    mensaje: 'Ese pago ya se imputo a esa cuenta: se suma en la misma fila, no se agrega otra.',
+  },
+
   // --- catalogo ---
   roles_conjunto_id_codigo_key: {
     mensaje: 'Ya hay un rol con ese codigo en este conjunto.',
@@ -148,6 +175,15 @@ export const CHEQUEOS: Record<string, string> = {
   espacio_apunta_a_algo:
     'Un espacio reservable es una zona comun o un pool de parqueaderos, y tiene que ser exactamente uno de los dos.',
   rol_plataforma_sin_conjunto: 'Un rol de plataforma no puede pertenecer a ningun conjunto.',
+  concepto_del_sistema_no_se_apaga:
+    'Ese concepto lo genera el sistema y no se puede desactivar: sin el, la facturacion mensual no tendria donde poner la cuota.',
+  cobro_valor_positivo: 'Un cobro tiene que ser mayor que cero.',
+  pago_valor_positivo: 'Un pago tiene que ser mayor que cero.',
+  imputacion_valor_positivo: 'Una imputacion tiene que ser mayor que cero.',
+  anulacion_con_motivo:
+    'Para anular un pago hace falta el motivo, y un pago con motivo tiene que estar anulado.',
+  modulo_es_una_fraccion:
+    'El modulo de contribucion es una fraccion entre 0 y 1. Un 1.25% se escribe 0.0125, no 1.25.',
   unidad_no_es_accesoria_de_si_misma:
     'Una unidad no puede ser accesoria de si misma. El parqueadero cuelga del apartamento, no de si mismo.',
 };
@@ -169,6 +205,10 @@ export const INTERNAS: Record<string, string> = {
   parqueaderos_id_conjunto_id_key: 'destino de una FK compuesta; el id es unico por si solo',
   espacios_reservables_id_conjunto_id_key:
     'destino de una FK compuesta; el id es unico por si solo',
+  sectores_id_conjunto_id_key: 'destino de una FK compuesta; el id es unico por si solo',
+  conceptos_cobro_id_conjunto_id_key: 'destino de una FK compuesta; el id es unico por si solo',
+  cuentas_cobro_id_conjunto_id_key: 'destino de una FK compuesta; el id es unico por si solo',
+  pagos_id_conjunto_id_key: 'destino de una FK compuesta; el id es unico por si solo',
   casilleros_id_conjunto_id_key: 'destino de una FK compuesta; el id es unico por si solo',
   invitados_id_conjunto_id_key: 'destino de una FK compuesta; el id es unico por si solo',
   politicas_reserva_espacio_id_conjunto_id_key:

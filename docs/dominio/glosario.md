@@ -15,6 +15,13 @@ dos veces la misma cosa creyendo que son distintas.
 | Cómo se subdivide el conjunto | **agrupación** | `agrupaciones` | no "torre" — torre es solo un *tipo* de agrupación |
 | Propiedad privada con coeficiente | **unidad** | `unidades` | no "apartamento" — apartamento es un *tipo* de unidad |
 | Planta repetida (65 m², 2 hab) | **tipología** | `tipologias` | no "modelo", no "molde" |
+| Grupo de unidades que comparte un gasto que las demás no pagan | **sector** | `sectores` | no "agrupación" — la agrupación es física, el sector es de reparto y puede cruzarlas |
+| Cuánto le toca a una unidad dentro de un sector | **módulo de contribución** | `unidades_sectores` | no "coeficiente" — son **dos repartos distintos** que conviven |
+| Lo que se le puede cobrar a una unidad. El catálogo | **concepto** | `conceptos_cobro` | no "cobro" — el concepto es el tipo, el cobro es la ocurrencia |
+| La cuenta del mes de una unidad. **Es lo que se paga** | **cuenta de cobro** | `cuentas_cobro` | no "factura" — no es un documento fiscal |
+| Una línea de esa cuenta | **cobro** | `cobros` | no "cuota" — la cuota es *un* concepto entre varios |
+| Plata que entró | **pago** | `pagos` | no "abono" — abono significa además *parcial*, y confunde |
+| Qué cuenta cubrió un pago, y por cuánto | **imputación** | `imputaciones` | no "aplicación", no "saliente" — no sale plata, es una anotación |
 | Bien común: piscina, salón, gym | **zona común** | `zonas_comunes` | nunca "unidad" — no tiene dueño ni coeficiente |
 | Franja en que abre una zona común | **horario** | `horarios_zona_comun` | no "agenda" — se guarda en minutos desde medianoche |
 | Cupo de parqueadero, como cosa física | **parqueadero** | `parqueaderos` | no "puesto", no "celda" |
@@ -235,6 +242,23 @@ no pueden usar.
 `coeficiente` sí existe hoy, en `unidades`. Los módulos no —van con finanzas, y
 son dos tablas, no una columna—. Ver
 [`expensas-y-coeficientes.md`](expensas-y-coeficientes.md).
+### Cómo se guardan
+
+El **coeficiente** vive en `unidades.coeficiente`: uno por unidad, y suman 1 en
+todo el conjunto.
+
+El **módulo de contribución** vive en `unidades_sectores.modulo`: uno por unidad
+**por sector**, y suman 1 dentro de cada sector.
+
+Una unidad puede estar en varios sectores a la vez —"Torres con ascensor" y
+"Zona húmeda"— con un módulo distinto en cada uno. Por eso es una tabla aparte y
+no una columna más de `unidades`.
+
+Un `sector` no es una `agrupacion`. La agrupación es física (Torre 1, Etapa 2);
+el sector es de reparto y **puede cruzar agrupaciones**: "las torres 1 y 2
+comparten el ascensor" es un sector con unidades de dos torres. Casi siempre
+coinciden, pero cuando no coinciden es justo cuando importa.
+
 
 ## La familia de la propiedad
 
@@ -274,6 +298,9 @@ sistema. Por eso van aquí. (`DiaSemana` es la única excepción declarada, en
 | `EstadoVinculo`… | — | *(no existe: la vigencia se dice con `desde`/`hasta`, no con un estado)* |
 | `EstadoConjunto` | `ACTIVO` · `SUSPENDIDO` | suspendido = dejó de pagar Vecii, no que el conjunto se acabó |
 | `TipoDocumento` | `CC` · `CE` · `PASAPORTE` · `PPT` · `NIT` | `NIT` porque una unidad puede ser de una empresa; `PPT` es el permiso por protección temporal |
+| `CodigoConcepto` | los 3 conceptos que el sistema genera solo | los que inventa el conjunto van con `codigo` en null |
+| `NaturalezaConcepto` | si el concepto suma o resta | un descuento es `ABONO`, no un valor negativo |
+| `MedioPago` | por dónde entró la plata | `PASARELA` es el único sin persona que lo digite |
 
 ## Reglas de nombres
 
@@ -337,6 +364,47 @@ de la cosa.
 **Lo derivable se deriva, no se guarda.** La categoría de una unidad sale de su
 tipo; los roles de propietario y residente salen de las ocupaciones. Guardar la
 conclusión junto al hecho es garantizar que algún día se contradigan.
+
+## Cómo se cobra
+
+Cinco tablas, y **ninguna guarda un total, un saldo ni un estado.**
+
+```
+conceptos_cobro  →  cobros  →  cuentas_cobro  ←  imputaciones  ←  pagos
+   (el catálogo)    (líneas)   (lo que se paga)   (qué cubrió qué)  (lo que entró)
+```
+
+**El concepto no es el cobro.** Es la misma diferencia que hay entre `tipologias`
+y `unidades`: el catálogo tiene cinco filas para siempre, los cobros crecen todos
+los meses. Y por eso el cobro guarda **el valor que se cobró**, no una referencia
+al precio de hoy: si mañana sube el salón, la cuenta de septiembre sigue diciendo
+lo que se cobró.
+
+**La cuenta nace al empezar el mes y va recibiendo cobros** —el salón el día 12,
+la multa el 20—; al cierre el proceso mensual le agrega la administración
+calculada y el administrador la emite. No se "agrupa al final".
+
+**Se paga la cuenta, no la línea.** Nadie elige pagar solo el parqueadero: si se
+dejara elegir, todos pagarían lo nuevo y la deuda vieja envejecería sola. Por eso
+la imputación es a nivel de cuenta, y la regla es **la más vieja primero**.
+
+**Una imputación no es plata que sale.** Es la anotación de a qué deuda se aplicó
+la que entró. Hace falta porque un pago casi nunca corresponde a una sola cuenta:
+quien se pone al día cubre julio, agosto y parte de septiembre con un solo pago.
+
+### Lo que NO se guarda, y por qué
+
+| pregunta | cómo se responde |
+|---|---|
+| ¿cuánto vale la cuenta? | se suman sus cobros |
+| ¿cuánto debe? | cobros − imputaciones |
+| ¿está en borrador? | `emitida_en` es null |
+| ¿está vencida? | `vence_el` < hoy **y** saldo > 0 |
+| ¿está pagada? | saldo = 0 |
+
+Un `pagado: boolean` se contradice solo en cuanto llega un abono parcial, un pago
+cubre tres meses, o rebota un cheque. Es la misma razón por la que se borró
+`zonas_comunes.reservable`.
 
 ## Palabras descartadas
 

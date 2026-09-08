@@ -276,6 +276,13 @@ model Conjunto {
   vehiculos    Vehiculo[]
   bicicletas   Bicicleta[]
   notificaciones Notificacion[]
+  sectores       Sector[]
+  unidadSectores UnidadSector[]
+  conceptosCobro ConceptoCobro[]
+  cuentasCobro   CuentaCobro[]
+  cobros         Cobro[]
+  pagos          Pago[]
+  imputaciones   Imputacion[]
 
   @@map("conjuntos")
 }
@@ -396,6 +403,9 @@ model Unidad {
   /// esto NO impide dos "101" con agrupacionId nulo (un edificio sin torres).
   /// Ahi seria un error de digitacion. Ya esta cerrado con un indice parcial,
   /// `unidad_identificador_sin_agrupacion`, en la migracion de restricciones.
+  sectores      UnidadSector[]
+  cuentasCobro  CuentaCobro[]
+  pagos         Pago[]
   @@unique([conjuntoId, agrupacionId, identificador])
   /// Habilita las FK compuestas desde Casillero y Encomienda (mismo patron que
   /// Agrupacion): apuntan a la PAREJA (unidad, conjunto), no solo a la unidad.
@@ -854,6 +864,7 @@ model Usuario {
   notificaciones        Notificacion[]
   vehiculos             Vehiculo[]           @relation("VehiculosPropios")
   bicicletas            Bicicleta[]          @relation("BicicletasPropias")
+  pagosRegistrados   Pago[]
 
   @@unique([tipoDocumento, numeroDocumento])
   @@map("usuarios")
@@ -1436,4 +1447,191 @@ model UsuarioPlataforma {
   @@unique([usuarioId, rolId, desde])
   @@index([usuarioId, hasta])
   @@map("usuarios_plataforma")
+}
+
+/// Un grupo de unidades que comparte un gasto que las demas no pagan.
+///
+/// La Ley 675 lo exige en conjuntos de uso comercial o mixto (art. 31): los
+/// locales no tienen por que pagar el ascensor de las torres, ni las torres la
+/// vitrina de los locales. En residenciales tambien aparece: dos torres con
+/// ascensor y una sin el.
+///
+/// NO es lo mismo que una `Agrupacion`, aunque casi siempre coincidan. La
+/// agrupacion es fisica —Torre 1, Etapa 2—; el sector es de REPARTO, y puede
+/// cruzar agrupaciones: "las torres 1 y 2 comparten el ascensor" es un sector
+/// con unidades de dos torres.
+model Sector {
+  id         String  @id @default(uuid()) @db.Uuid
+  conjuntoId String  @map("conjunto_id") @db.Uuid
+  /// Como lo llama el reglamento: "Comercio", "Torres con ascensor".
+  nombre     String
+  /// Que gasto reparte. Lo escribe el administrador, sale del reglamento.
+  descripcion String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  conjunto Conjunto        @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  unidades UnidadSector[]
+
+  @@unique([conjuntoId, nombre])
+  /// Habilita la FK compuesta desde UnidadSector.
+  @@unique([id, conjuntoId])
+  @@index([conjuntoId])
+  @@map("sectores")
+}
+
+/// Cuanto le toca a una unidad DENTRO de un sector.
+///
+/// Es el segundo reparto del sistema, y no reemplaza al coeficiente: son dos
+/// indices distintos que conviven. El coeficiente de copropiedad reparte lo de
+/// todos y ademas pesa el voto en asamblea; el modulo de contribucion solo
+/// reparte el gasto de este sector. Ver docs/dominio/expensas-y-coeficientes.md
+///
+/// Los modulos de un sector suman 1 (100%), igual que los coeficientes del
+/// conjunto. Que sumen es una regla de negocio, no una restriccion de la base:
+/// cruza filas y ningun CHECK la ve. La revisa el servicio, como
+/// `salud-coeficientes`.
+model UnidadSector {
+  id       String  @id @default(uuid()) @db.Uuid
+  conjuntoId String @map("conjunto_id") @db.Uuid
+  sectorId String  @map("sector_id") @db.Uuid
+  unidadId String  @map("unidad_id") @db.Uuid
+  /// Ej: 0.012500 = 1.25% del gasto de ESTE sector. Nullable por la misma razon
+  /// que el coeficiente: null es "no se cargo", cero es cero, y confundirlos
+  /// produce recibos mudos.
+  modulo   Decimal? @db.Decimal(9, 6)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  conjunto Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  sector   Sector   @relation(fields: [sectorId, conjuntoId], references: [id, conjuntoId], onDelete: Cascade, onUpdate: NoAction)
+  unidad   Unidad   @relation(fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: Cascade, onUpdate: NoAction)
+
+  /// Una unidad aparece una sola vez en cada sector.
+  @@unique([sectorId, unidadId])
+  @@index([conjuntoId])
+  @@index([unidadId])
+  @@map("unidades_sectores")
+}
+
+enum CodigoConcepto {
+  ADMINISTRACION
+  INTERES_MORA
+  CUOTA_EXTRAORDINARIA
+}
+
+enum NaturalezaConcepto {
+  CARGO
+  ABONO
+}
+
+enum MedioPago {
+  EFECTIVO
+  CONSIGNACION
+  TRANSFERENCIA
+  PASARELA
+}
+
+model ConceptoCobro {
+  id         String             @id @default(uuid()) @db.Uuid
+  conjuntoId String             @map("conjunto_id") @db.Uuid
+  nombre     String
+  codigo     CodigoConcepto?
+  naturaleza NaturalezaConcepto @default(CARGO)
+  tarifa     Decimal?           @db.Decimal(14, 2)
+  activo     Boolean            @default(true)
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+
+  conjunto Conjunto @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  cobros   Cobro[]
+
+  @@unique([conjuntoId, nombre])
+  @@unique([conjuntoId, codigo])
+  @@unique([id, conjuntoId])
+  @@index([conjuntoId])
+  @@map("conceptos_cobro")
+}
+
+model CuentaCobro {
+  id         String    @id @default(uuid()) @db.Uuid
+  conjuntoId String    @map("conjunto_id") @db.Uuid
+  unidadId   String    @map("unidad_id") @db.Uuid
+  periodo    DateTime  @db.Date
+  emitidaEn  DateTime? @map("emitida_en")
+  venceEl    DateTime? @map("vence_el") @db.Date
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  conjunto     Conjunto     @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  unidad       Unidad       @relation(fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  cobros       Cobro[]
+  imputaciones Imputacion[]
+
+  @@unique([unidadId, periodo])
+  @@unique([id, conjuntoId])
+  @@index([conjuntoId, venceEl])
+  @@index([unidadId])
+  @@map("cuentas_cobro")
+}
+
+model Cobro {
+  id         String   @id @default(uuid()) @db.Uuid
+  conjuntoId String   @map("conjunto_id") @db.Uuid
+  cuentaId   String   @map("cuenta_id") @db.Uuid
+  conceptoId String   @map("concepto_id") @db.Uuid
+  valor      Decimal  @db.Decimal(14, 2)
+  detalle    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  conjunto Conjunto      @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  cuenta   CuentaCobro   @relation(fields: [cuentaId, conjuntoId], references: [id, conjuntoId], onDelete: Cascade, onUpdate: NoAction)
+  concepto ConceptoCobro @relation(fields: [conceptoId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([cuentaId])
+  @@index([conceptoId])
+  @@map("cobros")
+}
+
+model Pago {
+  id              String    @id @default(uuid()) @db.Uuid
+  conjuntoId      String    @map("conjunto_id") @db.Uuid
+  unidadId        String    @map("unidad_id") @db.Uuid
+  valor           Decimal   @db.Decimal(14, 2)
+  recibidoEn      DateTime  @map("recibido_en")
+  medio           MedioPago
+  referencia      String?
+  registradoPorId String?   @map("registrado_por_id") @db.Uuid
+  anuladoEn       DateTime? @map("anulado_en")
+  motivoAnulacion String?   @map("motivo_anulacion")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  conjunto      Conjunto     @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  unidad        Unidad       @relation(fields: [unidadId, conjuntoId], references: [id, conjuntoId], onDelete: NoAction, onUpdate: NoAction)
+  registradoPor Usuario?     @relation(fields: [registradoPorId], references: [id], onDelete: SetNull)
+  imputaciones  Imputacion[]
+
+  @@unique([id, conjuntoId])
+  @@index([conjuntoId, recibidoEn])
+  @@index([unidadId])
+  @@map("pagos")
+}
+
+model Imputacion {
+  id         String   @id @default(uuid()) @db.Uuid
+  conjuntoId String   @map("conjunto_id") @db.Uuid
+  pagoId     String   @map("pago_id") @db.Uuid
+  cuentaId   String   @map("cuenta_id") @db.Uuid
+  valor      Decimal  @db.Decimal(14, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  conjunto Conjunto    @relation(fields: [conjuntoId], references: [id], onDelete: Cascade)
+  pago     Pago        @relation(fields: [pagoId, conjuntoId], references: [id, conjuntoId], onDelete: Cascade, onUpdate: NoAction)
+  cuenta   CuentaCobro @relation(fields: [cuentaId, conjuntoId], references: [id, conjuntoId], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([pagoId, cuentaId])
+  @@index([cuentaId])
+  @@map("imputaciones")
 }
