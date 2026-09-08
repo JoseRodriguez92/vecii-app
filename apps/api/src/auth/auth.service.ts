@@ -1,38 +1,75 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { rolVigente } from '../common/rol-vigente.js';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AlcanceService } from './alcance.service.js';
 import type { AuthUser } from './auth-user.js';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly alcance: AlcanceService,
+  ) {}
 
   /**
-   * El perfil de quien entro, con sus conjuntos.
+   * Quien entro, donde puede entrar, y que puede hacer en cada lado.
    *
-   * Ya no sincroniza nada: crear la persona a partir de la cuenta lo hace
-   * `SupabaseAuthGuard`, y lo hace para cualquier ruta y no solo para esta.
+   * Es la primera llamada de la app y de ella sale todo lo demas: con que
+   * conjunto trabajar, que menu dibujar y cual es "mi apartamento".
    *
-   * Tampoco aplica ningun tramite pendiente: cuando el administrador registra a
-   * alguien, sus vinculos con el conjunto y sus unidades se crean en ese
-   * momento. Entrar por primera vez no cambia nada, solo lo lee.
+   * Devuelve **permisos**, no solo roles, y esa es la parte que importa. Antes
+   * devolvia los roles otorgados, y con eso la app no podia armar nada:
+   * propietario y residente no se otorgan —se derivan de tener una unidad— asi
+   * que un propietario, que es justo quien mas va a usar la app, llegaba con la
+   * lista vacia. Y preguntar por cargos seria el unico lugar del sistema donde
+   * el codigo vuelve a nombrarlos: el resto pregunta por permisos para que un
+   * conjunto pueda inventarse un "Comite de Deportes" sin tocar codigo.
+   *
+   * Los permisos salen de `AlcanceService`, el mismo que usa el guard. No es
+   * ahorro de lineas: si fueran dos calculos, la app dibujaria botones que el
+   * guard rechaza, y eso no se descubre probando sino cuando alguien reclama.
+   *
+   * No sincroniza nada. Crear la persona a partir de la cuenta de Supabase lo
+   * hace `SupabaseAuthGuard`, en cualquier ruta y no solo en esta.
    */
-  async syncAndGetProfile(user: AuthUser) {
-    return this.prisma.usuario.findUniqueOrThrow({
-      where: { id: user.id },
-      include: {
-        conjuntos: {
-          where: { activo: true },
-          select: {
-            id: true,
-            roles: { where: rolVigente(), select: { rol: { select: { codigo: true, nombre: true } } } },
-            conjunto: { select: { id: true, nombre: true, ciudad: true } },
-          },
+  async me(user: AuthUser) {
+    const [persona, alcances] = await Promise.all([
+      this.prisma.usuario.findUniqueOrThrow({
+        where: { id: user.id },
+        select: {
+          id: true,
+          nombres: true,
+          apellidos: true,
+          email: true,
+          celular: true,
+          tipoDocumento: true,
+          numeroDocumento: true,
         },
-      },
-    });
-  }
+      }),
+      this.alcance.enTodosSusConjuntos(user.id),
+    ]);
 
+    const conjuntos = await this.prisma.conjunto.findMany({
+      where: { id: { in: alcances.map((a) => a.conjuntoId) } },
+      select: { id: true, nombre: true, ciudad: true, departamento: true, estado: true },
+      orderBy: { nombre: 'asc' },
+    });
+
+    return {
+      ...persona,
+      /** Del equipo de Vecii. Puede entrar a conjuntos que no aparecen en la lista. */
+      esDePlataforma: alcances.some((a) => a.esDePlataforma),
+      conjuntos: conjuntos.map((c) => {
+        const alcance = alcances.find((a) => a.conjuntoId === c.id);
+        return {
+          ...c,
+          /** id en `usuarios_conjuntos`. Lo que va en `x-conjunto-id` es `id`, no este. */
+          vinculoId: alcance?.id ?? null,
+          roles: alcance?.roles ?? [],
+          // Set no sobrevive a JSON.
+          permisos: [...(alcance?.permisos ?? [])].sort(),
+          unidades: alcance?.unidades ?? [],
+        };
+      }),
+    };
+  }
 }

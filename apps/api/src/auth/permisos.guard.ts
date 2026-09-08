@@ -7,33 +7,29 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import type { CodigoPermiso } from '../common/permisos.js';
 import { PERMISOS_KEY } from '../common/decorators/requiere-permiso.decorator.js';
-import { rolDeRelacion } from '../common/roles-derivados.js';
-import { rolVigente } from '../common/rol-vigente.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import type { CodigoPermiso } from '../common/permisos.js';
+import { AlcanceService } from './alcance.service.js';
 import type { AuthUser } from './auth-user.js';
 import type { ConjuntoActivo } from './conjunto-activo.js';
-import { PermisosService } from './permisos.service.js';
 
 const CONJUNTO_HEADER = 'x-conjunto-id';
 
 /**
- * Autorizacion. Resuelve, para el conjunto que indica `x-conjunto-id`:
+ * Autorizacion.
  *
- *   1. los roles OTORGADOS al usuario (vigentes hoy)
- *   2. mas los roles DERIVADOS de sus unidades (propietario, residente)
- *   3. los permisos que dan esos roles
- *   4. y comprueba si alguno satisface lo que el endpoint exige
+ * QUE puede hacer la persona lo resuelve `AlcanceService`, que es el mismo que
+ * responde `/auth/me`: si la interfaz y el guard no leyeran la misma regla, la
+ * app dibujaria botones que el guard rechaza.
  *
- * Deja todo en `request.conjuntoActivo`.
+ * Aqui solo queda lo que es de esta peticion: leer la cabecera, comparar contra
+ * lo que el endpoint exige, y elegir el codigo HTTP.
  */
 @Injectable()
 export class PermisosGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly prisma: PrismaService,
-    private readonly permisos: PermisosService,
+    private readonly alcance: AlcanceService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -53,74 +49,20 @@ export class PermisosGuard implements CanActivate {
     const conjuntoId = request.header(CONJUNTO_HEADER);
     if (!conjuntoId) throw new BadRequestException(`Falta la cabecera ${CONJUNTO_HEADER}`);
 
-    // Los roles de PLATAFORMA se leen antes que el vinculo, porque no dependen
-    // de el: alguien de Vecii entra a cualquier conjunto para dar soporte sin
-    // vivir ahi. Antes STAFF_VECII se otorgaba dentro de un conjunto y por eso
-    // solo servia en ese, que era el bug.
-    const dePlataforma = await this.prisma.usuarioPlataforma.findMany({
-      where: { usuarioId: user.id, ...rolVigente() },
-      select: { rol: { select: { id: true, codigo: true } } },
-    });
-
-    const vinculo = await this.prisma.usuarioConjunto.findUnique({
-      where: { usuarioId_conjuntoId: { usuarioId: user.id, conjuntoId } },
-      select: {
-        id: true,
-        conjuntoId: true,
-        activo: true,
-        roles: { where: rolVigente(), select: { rol: { select: { id: true, codigo: true } } } },
-      },
-    });
-
-    // Sin vinculo solo pasa quien es de la plataforma. El conjunto tiene que
-    // existir igual: sin esa comprobacion, un id inventado en la cabecera daria
-    // un contexto valido apuntando a la nada.
-    if (!vinculo || !vinculo.activo) {
-      if (dePlataforma.length === 0) {
-        throw new ForbiddenException('No perteneces a este conjunto');
-      }
-      const existe = await this.prisma.conjunto.findUnique({
-        where: { id: conjuntoId },
-        select: { id: true },
-      });
-      if (!existe) throw new ForbiddenException('Ese conjunto no existe');
+    const resolucion = await this.alcance.enElConjunto(user.id, conjuntoId);
+    if (resolucion.tipo === 'sin-vinculo') {
+      throw new ForbiddenException('No perteneces a este conjunto');
+    }
+    if (resolucion.tipo === 'conjunto-no-existe') {
+      throw new ForbiddenException('Ese conjunto no existe');
     }
 
-    // Alguien de Vecii puede ademas VIVIR en este conjunto: sus ocupaciones y
-    // sus cargos de aca se suman a los de plataforma, no se reemplazan.
-    const ocupaciones = await this.prisma.usuarioUnidad.findMany({
-      where: {
-        usuarioId: user.id,
-        unidad: { conjuntoId },
-        OR: [{ hasta: null }, { hasta: { gt: new Date() } }],
-      },
-      select: { relacion: true },
-      distinct: ['relacion'],
-    });
-
-    const asignados = [...dePlataforma, ...(vinculo?.roles ?? [])].map((a) => a.rol);
-    const derivados = ocupaciones.map((o) => rolDeRelacion(o.relacion) as string);
-    const roles = [...new Set([...asignados.map((r) => r.codigo as string), ...derivados])];
-
-    // Se resuelve por ID: dos conjuntos pueden tener un rol con el mismo codigo.
-    // Los derivados van por codigo porque son globales.
-    const permisos = await this.permisos.permisosDe(
-      asignados.map((r) => r.id),
-      derivados,
-    );
-    if (!requeridos.some((codigo) => permisos.has(codigo))) {
+    const { alcance } = resolucion;
+    if (!requeridos.some((codigo) => alcance.permisos.has(codigo))) {
       throw new ForbiddenException('No tienes permisos para esta accion');
     }
 
-    request.conjuntoActivo = {
-      // `id` es el del vinculo, y no lo hay cuando entra alguien de Vecii que no
-      // vive aca. Quien lo use tiene que contar con eso.
-      id: vinculo?.id ?? null,
-      conjuntoId,
-      roles,
-      permisos,
-      esDePlataforma: dePlataforma.length > 0,
-    };
+    request.conjuntoActivo = alcance;
     return true;
   }
 }

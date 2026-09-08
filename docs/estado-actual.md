@@ -55,10 +55,11 @@ ninguna tabla quede expuesta por la API de Supabase), `verificar-errores.mjs`
 si no aparece como un "Unknown argument" que no dice que falta un `migrate
 dev`).
 
-`pnpm test` corre Vitest. Hoy son **59 pruebas** y todas son de **dominio puro**:
+`pnpm test` corre Vitest. Hoy son **62 pruebas** y todas son de **dominio puro**:
 la matriz de qué origen de derecho admite cada naturaleza de cupo (28), las
 reglas de una reserva —política, horario, solapamiento— (16), la traducción de
-los errores de la base (12) y la normalización de placa (3). Ese es el criterio para las que vengan: se prueba
+los errores de la base (12), la normalización de placa (3) y el rol que se
+deriva de tener una unidad (3). Ese es el criterio para las que vengan: se prueba
 lo que ninguna restricción de base puede cuidar, no que Prisma guarde ni que
 Nest enrute.
 
@@ -74,7 +75,7 @@ probarlas**, y ese es el criterio para partir un archivo — no el largo.
 
 | módulo | rutas | qué resuelve |
 |---|---|---|
-| `auth` | `/auth` | JWT asimétrico de Supabase verificado por JWKS |
+| `auth` | `/auth` | JWT asimétrico por JWKS, y `/auth/me`: con qué arranca la app |
 | `conjuntos` | `/conjuntos` | la copropiedad y su configuración |
 | `estructura` | `/agrupaciones` `/tipologias` `/unidades` | torres y etapas anidadas, plantas, unidades con carga masiva y chequeo de coeficientes |
 | `usuarios` | `/usuarios` | registrar personas, quién vive dónde, cerrar vínculos |
@@ -90,6 +91,39 @@ propietario y residente **se derivan** de `usuarios_unidades`, no se otorgan.
 
 **Concurrencia resuelta en reservas.** `pg_advisory_xact_lock` por espacio, dentro
 de la misma transacción que inserta.
+
+---
+
+## Con qué arranca la app
+
+`GET /auth/me` es la primera llamada y **no lleva `x-conjunto-id`** — es la que
+dice cuáles hay. Devuelve la persona y, por cada conjunto donde tiene vínculo
+activo:
+
+| campo | para qué |
+|---|---|
+| `id` | lo que va en la cabecera `x-conjunto-id` |
+| `permisos` | **con esto se arma el menú**. Ya resueltos, ordenados |
+| `roles` | solo para mostrarlos ("Consejo", "Portería"). No se decide nada con ellos |
+| `unidades` | "mi apartamento" en ese conjunto, hoy, con la relación |
+| `vinculoId` | el id en `usuarios_conjuntos`. Casi nunca hace falta |
+
+**Por qué permisos y no roles.** Propietario y residente no se otorgan: se
+derivan de tener una unidad. Antes `/auth/me` devolvía los roles otorgados, así
+que un propietario —que es justo quien más va a usar la app— llegaba con la
+lista vacía. Y un conjunto puede inventarse un "Comité de Deportes" y darle
+`reservas.administrar`: preguntar por rol es apostar a una lista que cambia sin
+avisar.
+
+**Por qué es el mismo cálculo que el guard.** Los dos usan `AlcanceService`. Si
+fueran dos implementaciones, el día que cambie la regla la app dibujaría
+botones que el guard rechaza, o escondería cosas que sí se pueden — y eso no se
+descubre probando, se descubre cuando un usuario reclama. Lo que aparece en
+`/auth/me` es exactamente lo que la API va a dejar pasar.
+
+Los roles efectivos se suman de tres orígenes: `usuarios_plataforma` (todos los
+conjuntos), `usuario_conjunto_roles` (solo ese) y `usuarios_unidades`
+(derivados, nadie los otorga).
 
 ---
 
