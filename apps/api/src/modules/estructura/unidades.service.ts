@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { categoriaDe } from './categoria-unidad.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { problemaAlColgar } from './reglas-unidad-accesoria.js';
 import type { ActualizarUnidadDto, CrearUnidadDto } from './dto/unidad.dto.js';
 
 /** Lo que devuelve el chequeo de salud de los coeficientes. */
@@ -81,24 +82,45 @@ export class UnidadesService {
    * misma lo impide un CHECK; se validan igual para que el error salga como un
    * 400 con nombre propio y no como el 500 de una llave foranea.
    */
+  /**
+   * Lee los hechos; quien decide es `problemaAlColgar`, que es puro y tiene
+   * pruebas. Aqui solo se traduce a HTTP.
+   */
   private async validarPrincipal(conjuntoId: string, principalId?: string, idActual?: string) {
     if (!principalId) return;
-    if (principalId === idActual) {
-      throw new BadRequestException('Una unidad no se vende consigo misma');
-    }
-    const principal = await this.prisma.unidad.findFirst({
-      where: { id: principalId, conjuntoId },
-      select: { id: true, identificador: true, unidadPrincipalId: true },
+
+    const [principal, laQueSeCuelga] = await Promise.all([
+      this.prisma.unidad.findFirst({
+        where: { id: principalId, conjuntoId },
+        select: { id: true, identificador: true, unidadPrincipalId: true },
+      }),
+      // La que se va a colgar, con cuantas cuelgan HOY de ella. Se trae el
+      // identificador y no el id porque el mensaje lo lee una persona. Al crear
+      // no hay `idActual`: todavia no cuelga nadie de ella.
+      idActual
+        ? this.prisma.unidad.findFirst({
+            where: { id: idActual, conjuntoId },
+            select: {
+              identificador: true,
+              _count: { select: { accesorias: true } },
+            },
+          })
+        : null,
+    ]);
+
+    const problema = problemaAlColgar({
+      identificador: laQueSeCuelga?.identificador ?? 'Esta unidad',
+      accesorias: laQueSeCuelga?._count.accesorias ?? 0,
+      principal: principal
+        ? {
+            identificador: principal.identificador,
+            yaEsAccesoria: principal.unidadPrincipalId !== null,
+            esLaMisma: principal.id === idActual,
+          }
+        : null,
     });
-    if (!principal) {
-      throw new BadRequestException('Esa unidad principal no existe en este conjunto');
-    }
-    if (principal.unidadPrincipalId) {
-      throw new BadRequestException(
-        `La unidad "${principal.identificador}" ya es accesoria de otra. Apunta a la principal ` +
-          'directamente: las accesorias van en un solo nivel.',
-      );
-    }
+
+    if (problema) throw new BadRequestException(problema);
   }
 
   async eliminar(conjuntoId: string, id: string) {

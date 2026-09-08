@@ -57,11 +57,11 @@ ninguna tabla quede expuesta por la API de Supabase), `verificar-rutas.mjs`
 si no aparece como un "Unknown argument" que no dice que falta un `migrate
 dev`).
 
-`pnpm test` corre Vitest. Hoy son **62 pruebas** y todas son de **dominio puro**:
+`pnpm test` corre Vitest. Hoy son **68 pruebas** y todas son de **dominio puro**:
 la matriz de qué origen de derecho admite cada naturaleza de cupo (28), las
 reglas de una reserva —política, horario, solapamiento— (16), la traducción de
-los errores de la base (12), la normalización de placa (3) y el rol que se
-deriva de tener una unidad (3). Ese es el criterio para las que vengan: se prueba
+los errores de la base (12), colgar una unidad de otra (6), la normalización de
+placa (3) y el rol que se deriva de tener una unidad (3). Ese es el criterio para las que vengan: se prueba
 lo que ninguna restricción de base puede cuidar, no que Prisma guarde ni que
 Nest enrute.
 
@@ -338,6 +338,12 @@ Asambleas y votación por coeficiente, PQRS y cartelera, el marketplace
   impidiera —cruza dos tablas, ningún CHECK lo ve—. El seed lo mostraba en vivo:
   un Salón Social con `reservable: true` y sin espacio. Ahora la pregunta "¿se
   aparta?" tiene una sola respuesta: si trae espacio.
+- **El árbol de unidades accesorias tiene exactamente dos niveles.** Una unidad
+  es principal o accesoria, nunca las dos: un parqueadero no tiene depósito
+  propio. Se valida en las **dos direcciones** — no colgarse de una que ya
+  cuelga, y no colgar una que ya tiene cosas colgando—. Faltaba la segunda, y
+  sin ella quedaba `P-34 → 501 → 302`: al facturar, el 501 y su parqueadero se
+  quedaban sin recibo y nadie se enteraba.
 - **Vehículos y bicicletas no comparten clase base.** Repiten la forma pero no
   las reglas: la placa es obligatoria y única, el serial es opcional. Una clase
   genérica con banderas obliga a leer dos archivos para entender uno. Lo que sí
