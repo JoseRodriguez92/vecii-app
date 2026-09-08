@@ -8,24 +8,64 @@ no tienen ADR propio.
 
 ---
 
-## 🔴 Lo que le falta al backend ANTES de la interfaz
+## Lo que queda del backend
 
-Auditado el 7 de septiembre leyendo el código, no los documentos. Ordenado por
-cuánto duele al construir pantallas.
+Ordenado por cuánto duele al construir pantallas. Nada de esto es un módulo
+nuevo: son huecos que solo se ven cuando alguien va a construir encima.
 
-Dos ya están hechos:
+*(De los siete que encontró la auditoría del 7 de septiembre se cerraron cinco.
+Lo que se cerró está en "Decisiones recientes" de
+[`estado-actual.md`](estado-actual.md); acá solo va lo que falta.)*
 
-- ~~Todo error de base llegaba como 500.~~ Hay un `ErroresFilter` global y un
-  diccionario de restricciones que el lint mantiene vivo. Ver "Cuando algo
-  falla" en [`estado-actual.md`](estado-actual.md).
-- ~~`/auth/me` devolvía roles y no permisos.~~ Ahora devuelve, por conjunto, los
-  permisos ya resueltos y las unidades de la persona — calculados por el mismo
-  servicio que usa el guard. Ver "Con qué arranca la app".
-- ~~La campanita no podía abrir nada.~~ `GET /encomiendas/:id`,
-  `GET /invitados/:id` y `GET /reservas/:id`, cada uno con la misma regla de
-  visibilidad que su "mías". **No queda ningún rojo.**
+### 1. `SUSPENDIDO` existe y nadie lo verifica
 
-### 1. 🟡 Elegir pasarela de pagos
+`EstadoConjunto` tiene `SUSPENDIDO`, y el comentario del schema dice
+*"Suspendido por Vecii, normalmente por cartera"*. Pero **el guard nunca consulta
+`conjunto.estado`**: hoy podés marcar un conjunto como suspendido y sus 500
+residentes siguen entrando como si nada.
+
+Es la palanca de cobranza del negocio y no está conectada. Media hora: que
+`PermisosDelUsuarioService` rechace un conjunto que no esté `ACTIVO` (o
+`EN_IMPLEMENTACION`, que todavía no factura), con un mensaje que diga qué pasa y
+a quién llamar.
+
+De paso deja de generar MAU, que es como se cobra el login — ver
+[ADR-0007](adr/0007-supabase-o-servidor-propio.md).
+
+### 2. Ninguna lista pagina
+
+En todo `src/` hay **un solo `take`**, y es el de notificaciones (50, tope 100).
+Todo lo demás devuelve la tabla entera:
+
+- `GET /usuarios` es el peor: trae los vínculos de todo el conjunto con sus roles
+  anidados **y** una segunda consulta con todas sus ocupaciones. En un conjunto
+  de 400 unidades son ~600 personas en un solo JSON.
+- `GET /encomiendas` crece para siempre: nada las poda.
+- `GET /unidades`, `GET /invitados`, `GET /reservas`, igual.
+
+En un celular con datos eso no es lento: es la pantalla congelada.
+
+### 3. Faltan los detalles por id
+
+`usuarios`, `vehiculos`, `bicicletas`, `casilleros`, `tipologias` y
+`espacios-reservables` no tienen `GET /:id`. Ninguno lo necesita para la
+campanita —esos tres ya están— pero sí para cualquier pantalla de detalle.
+Cualquier pantalla de detalle hoy tendría que traer la lista completa y filtrar
+en el cliente.
+
+### 4. No se puede buscar
+
+`GET /vehiculos?placa=` sí busca por coincidencia parcial, y está bien pensado
+—en la puerta se alcanzan a leer tres letras—. Pero no hay forma de buscar una
+**unidad** por identificador ni una **persona** por nombre o documento. Con las
+listas sin paginar, la app tendría que traerlo todo y filtrar en memoria.
+
+## Decisiones abiertas
+
+No son trabajo pendiente: son cosas que hay que decidir, y decidirlas mal
+cuesta más que tardarse.
+
+### 5. Elegir pasarela de pagos
 
 **Decidido**: el residente paga desde la app, pero la cuenta de la pasarela es
 **del conjunto, con su NIT**. La plata va directo del residente a la
@@ -43,49 +83,6 @@ día en que se decida:
 Y una tabla nueva para la configuración por conjunto: qué pasarela usa y sus
 credenciales — **cifradas, y que la API nunca las devuelva**. Se escriben, no se
 leen.
-
-### 2. `SUSPENDIDO` existe y nadie lo verifica
-
-`EstadoConjunto` tiene `SUSPENDIDO`, y el comentario del schema dice
-*"Suspendido por Vecii, normalmente por cartera"*. Pero **el guard nunca consulta
-`conjunto.estado`**: hoy podés marcar un conjunto como suspendido y sus 500
-residentes siguen entrando como si nada.
-
-Es la palanca de cobranza del negocio y no está conectada. Media hora: que
-`PermisosDelUsuarioService` rechace un conjunto que no esté `ACTIVO` (o
-`EN_IMPLEMENTACION`, que todavía no factura), con un mensaje que diga qué pasa y
-a quién llamar.
-
-De paso deja de generar MAU, que es como se cobra el login — ver
-[ADR-0007](adr/0007-supabase-o-servidor-propio.md).
-
-### 3. Ninguna lista pagina
-
-En todo `src/` hay **un solo `take`**, y es el de notificaciones (50, tope 100).
-Todo lo demás devuelve la tabla entera:
-
-- `GET /usuarios` es el peor: trae los vínculos de todo el conjunto con sus roles
-  anidados **y** una segunda consulta con todas sus ocupaciones. En un conjunto
-  de 400 unidades son ~600 personas en un solo JSON.
-- `GET /encomiendas` crece para siempre: nada las poda.
-- `GET /unidades`, `GET /invitados`, `GET /reservas`, igual.
-
-En un celular con datos eso no es lento: es la pantalla congelada.
-
-### 4. Faltan los detalles por id
-
-`usuarios`, `vehiculos`, `bicicletas`, `casilleros`, `tipologias` y
-`espacios-reservables` no tienen `GET /:id`. Ninguno lo necesita para la
-campanita —esos tres ya están— pero sí para cualquier pantalla de detalle.
-Cualquier pantalla de detalle hoy tendría que traer la lista completa y filtrar
-en el cliente.
-
-### 5. No se puede buscar
-
-`GET /vehiculos?placa=` sí busca por coincidencia parcial, y está bien pensado
-—en la puerta se alcanzan a leer tres letras—. Pero no hay forma de buscar una
-**unidad** por identificador ni una **persona** por nombre o documento. Con las
-listas sin paginar, la app tendría que traerlo todo y filtrar en memoria.
 
 ### 6. Cargos estándar: cada conjunto con su copia (el viejo "paso 2")
 
@@ -112,7 +109,7 @@ reales:
 Ver [ADR-0007](adr/0007-supabase-o-servidor-propio.md) para el patrón de decidir
 con disparador en vez de por si acaso.
 
-### 7. Decisión pendiente: `POST /conjuntos` no pide permiso
+### 7. `POST /conjuntos` no pide permiso
 
 Cualquiera con una cuenta de Supabase crea conjuntos ilimitados y queda de
 administrador de cada uno. Hoy no importa porque no hay registro abierto; el día
@@ -130,61 +127,30 @@ auditado —quién suplantó a quién y cuándo— y probablemente limitado a
 
 ---
 
-## 🔴 Antes de facturar a alguien de verdad
-
-**Nadie se niega a facturar una unidad sin coeficiente**
-La mitad ya está: la columna pasó de `@default(0)` a `Decimal?`, así que `null`
-ya significa "no se ha cargado" y no se confunde con un cero de verdad. Falta la
-otra mitad, y es de finanzas: negarse a generar la cuota si algún coeficiente del
-conjunto está en null. Sin eso, un cargue a medias produce recibos en cero y
-nadie se entera hasta que no llega la plata.
-
-**Nadie valida que los coeficientes sumen 100%**
-Si suman 99.87%, el conjunto recauda menos de lo presupuestado todos los meses.
-No se puede hacer con una restricción de base (cruza filas): va en el servicio,
-y como chequeo de salud visible del conjunto.
-
-**Faltan los sectores y sus módulos de contribución**
-Se dice **módulo de contribución**, no "coeficiente sectorial" — así lo llama la
-Ley 675 y así hay que decírselo a un administrador. Es el segundo reparto: el
-mantenimiento de los dos ascensores de la Torre B lo pagan solo las unidades de
-esa torre, y no las casas que no pueden usarlos.
-
-Y **no es una columna más en `unidades`**: una misma unidad puede estar en varios
-módulos a la vez —el ascensor de su torre *y* la piscina de su etapa— así que una
-segunda columna solo aguantaría uno. Son dos tablas: los sectores que definió el
-reglamento, y cuánto le toca a cada unidad en cada uno.
-
-Como son tablas nuevas y no cambian ninguna existente, **no bloquean nada**: van
-con finanzas, que es quien las va a usar.
-Ver [`dominio/expensas-y-coeficientes.md`](dominio/expensas-y-coeficientes.md).
-
----
-
-## 🟡 Modelo de datos
-
-**Parqueadero pegado a un apartamento**
-En Colombia se compra el apto 501 *y* el parqueadero 34, que es unidad privada
-con coeficiente propio pero nunca se vende aparte. Hoy quedan sin relación: dos
-recibos, y al vender hay que acordarse de cambiar el dueño del parqueadero.
-→ `unidadPrincipalId` opcional en `Unidad`.
-
-**Parqueadero: bien privado vs. bien común de uso exclusivo**
-Son cosas legalmente distintas. El primero tiene matrícula y coeficiente; el
-segundo es del conjunto, solo está asignado, y no paga aparte. Hoy solo se
-representa el primero. Afecta directamente quién paga qué.
+## 🟢 Modelo de datos
 
 **`barrio` y `localidad` en `Conjunto`**
 Para el marketplace, `ciudad = "Bogotá"` son ocho millones de personas. Las
 coordenadas resuelven "a 5 km" pero no el filtro que la gente usa: "en mi
 localidad". Ver [ADR-0006](adr/0006-visibilidad-marketplace.md).
 
-**`EstadoConjunto` solo tiene `ACTIVO` y `SUSPENDIDO`**
-Falta distinguir el ciclo de vida comercial de Vecii: en implementación (cargando
-datos, todavía no factura), activo, suspendido, cancelado.
-
 **`Tipologia.banos` es entero**
 En Colombia se dice "2 baños y medio". Decidir si importa.
+
+**`bloqueaConMora` no lo lee nadie**
+Está en `politicas_reserva` y en el DTO, y ninguna regla lo consulta. Hoy un
+administrador lo prende y no pasa nada, que es peor que no tenerlo. Ya se puede
+implementar: el saldo de una unidad se calcula en `finanzas/saldo.ts`.
+
+**`usuarios_conjuntos.activo` rompe la regla de la casa**
+Todo el modelo usa `desde`/`hasta` —cerrar, no borrar— menos este, que es un
+booleano. No se sabe *cuándo* dejó de pertenecer al conjunto, y eso hace falta
+justo para saber a quién le tocaba la cuota de marzo.
+
+**Zonas comunes sin mantenimiento ni festivos**
+`zonas_comunes.activo` es todo o nada: cerrar la piscina del 5 al 12 significa
+apagarla y acordarse de prenderla. Y los horarios son por día de semana, así que
+el 20 de julio el salón abre como un lunes cualquiera.
 
 ---
 
@@ -333,28 +299,9 @@ la relación (`ParqueaderoEsUnidad`) y un comentario, pero un comentario no es u
 nombre. Candidato: renombrar el de `parqueaderos`.
 
 
-**Ciclos en la jerarquía de agrupaciones**
-Nada impide hoy que A sea padre de B y B padre de A. Postgres lo acepta, y a
-partir de ahí cualquier recorrido del árbol entra en bucle infinito.
-
-**Profundidad máxima del árbol**
-Estructuralmente es infinito; en la práctica tres niveles cubren todo. Poner tope
-para que la interfaz no termine siendo un explorador de archivos.
-
 ---
 
 ## 🟡 API
-
-**Filtro de excepciones de Prisma**
-Hoy un error de llave foránea sale como **HTTP 500**, que es mentira: el servidor
-está bien, el dato es el equivocado. Unas 40 líneas que sirven para todos los
-módulos:
-
-| Código | Debería ser |
-|---|---|
-| `P2002` | 409 — "Ya existe una unidad 101 en la Torre A" |
-| `P2003` | 400 — "La agrupación no pertenece a este conjunto" |
-| `P2025` | 404 — "No existe ese conjunto" |
 
 **Custom Access Token Hook de Supabase**
 Meter las membresías en el JWT para que la API deje de consultar Postgres en cada
@@ -364,15 +311,18 @@ petición. Es la tarea 1 del [ADR-0001](adr/0001-autenticacion-supabase.md).
 
 ## 🟡 Restricciones que Prisma no expresa
 
-Las cinco que sí caben en la base ya están puestas, en la migración
-`20260907010000_restricciones`: el índice parcial de `unidades`, el destino único
-de `encomiendas`, el `espacio_apunta_a_algo`, y las dos de `roles`.
+Hay **10 CHECK** puestos, y `verificar-errores.mjs` exige que cada uno tenga su
+mensaje en español.
 
-Lo que queda es lo que **cruza tablas**, y por eso no puede ser un CHECK:
+Lo que no cabe en la base es lo que **cruza filas**, y va en el servicio. Lo que
+queda por hacer:
 
-**El casillero tiene que ser de la misma unidad a la que va la encomienda.** Hoy se
-puede guardar el paquete del 501 en el casillero del 302 sin que nada chille. Va
-en el servicio.
+**La suma de imputaciones de un pago no puede pasar del valor del pago.** Hoy lo
+cuida `reglas-imputacion.ts`, que nunca aplica de más — pero si algún día se
+escriben imputaciones por otro camino, nada lo impide.
+
+**Los módulos de un sector tienen que sumar 100%**, igual que los coeficientes
+del conjunto. Falta el chequeo de salud, como `salud-coeficientes`.
 
 ---
 
