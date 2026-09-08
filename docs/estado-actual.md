@@ -74,7 +74,7 @@ probarlas**, y ese es el criterio para partir un archivo — no el largo.
 
 ## Qué hay funcionando
 
-**23 rutas, 99 endpoints.** Todo con Swagger documentado.
+**26 rutas, 111 endpoints.** Todo con Swagger documentado.
 
 | módulo | rutas | qué resuelve |
 |---|---|---|
@@ -239,7 +239,7 @@ Y lo que se unificó porque estaba escrito dos y tres veces:
 
 ## El hueco se cerró
 
-**Las 26 tablas del núcleo tienen API.** Ya no queda nada que solo se pueda cargar a mano en
+**Las 33 tablas tienen API.** Ya no queda nada que solo se pueda cargar a mano en
 DBeaver, que fue el estado del proyecto durante casi toda su vida.
 
 Lo último en entrar fueron los parqueaderos y sus asignaciones, con la regla que
@@ -262,7 +262,12 @@ Lo que falta ya no son tablas sin API: son **sistemas enteros**.
 - **Ninguna reserva se marca `CUMPLIDA`** salvo las de parqueadero al salir.
 - **Sin control de ingreso**, el sistema conoce las reservas pero no la ocupación
   real: un carro que entró sin reservar es invisible.
-- **No hay tarifas**, así que todavía nadie paga nada.
+- **La plata no entra por la app.** La cobranza funciona —se factura, se emite,
+  se registra el pago y se aplica solo— pero el pago lo digita el administrador
+  del extracto. La interfaz de la pasarela está escrita y no hay ningún
+  adaptador; falta elegir proveedor.
+- **No se cobran intereses de mora.** El concepto existe y nadie lo genera:
+  necesita la tasa de la Superfinanciera, que cambia cada mes.
 
 ---
 
@@ -287,17 +292,22 @@ Asambleas y votación por coeficiente, PQRS y cartelera, el marketplace
 
 ## Orden sugerido
 
-1. **Cerrar el backend para la interfaz.** Son siete cosas, y están en
-   [`pendientes.md`](pendientes.md) con la evidencia de cada una: los errores
-   llegan como 500, `/auth/me` no dice qué puede hacer la persona, la campanita
-   no puede abrir nada, ninguna lista pagina. Ninguna es un módulo nuevo: son
-   huecos que solo se ven cuando alguien va a construir pantallas encima.
+1. **Los dos rápidos que quedan del backend.** `SUSPENDIDO` no se verifica —la
+   palanca de cobranza está desconectada— y ninguna lista pagina. El segundo es
+   el que de verdad bloquea: cada pantalla que se haga sin paginación hay que
+   rehacerla, y encima el egress se factura. Están en
+   [`pendientes.md`](pendientes.md) con la evidencia.
 2. **La interfaz.** `apps/vecii` es la plantilla de Expo con login y una lista
-   de conjuntos. Los 99 endpoints solo se usan desde Swagger, así que ningún
-   conjunto puede usar esto todavía, por bien modelado que esté.
-3. **Finanzas** — cuando el resto genere los hechos que hay que cobrar.
-4. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
-5. **Asambleas** — es para lo que existen los coeficientes, junto con cobrar.
+   de conjuntos. Los 111 endpoints solo se usan desde Swagger, así que ningún
+   conjunto puede usar esto todavía, por bien modelado que esté. **Es lo único
+   que hoy no tiene sustituto.**
+3. **Control de ingreso** — un botón, no hardware. Desbloquea el cobro real.
+4. **Asambleas** — es para lo que existen los coeficientes, junto con cobrar.
+
+De los siete huecos que encontró la auditoría del 7 de septiembre ya se cerraron
+cinco: los errores llegaban como 500, `/auth/me` devolvía roles en vez de
+permisos, la campanita no podía abrir nada, faltaban los módulos de contribución
+y no existía la cobranza.
 
 ---
 

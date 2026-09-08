@@ -34,9 +34,12 @@ vecii/
   código se porte bien: las llaves foráneas son **compuestas** —apuntan a la pareja
   (cosa, conjunto)— así que una unidad de un conjunto colgada de una torre de otro es
   imposible de escribir, venga del API, de un importador o de SQL a mano.
-- **Datos:** Postgres de Supabase, accedido **solo** desde la API vía Prisma. Las 26
+- **Datos:** Postgres de Supabase, accedido **solo** desde la API vía Prisma. Las 33
   tablas tienen RLS habilitado sin políticas, así que la API REST de Supabase no las
   expone: la puerta está cerrada con llave, no con portero.
+- **Lo derivable se deriva.** Un saldo, un total, un "pagado" o un "reservable" no se
+  guardan: se calculan. Guardar una conclusión al lado del hecho es garantizar que algún
+  día se contradigan.
 
 Los porqués están en [`docs/adr/`](docs/adr/) y el vocabulario en
 [`docs/dominio/glosario.md`](docs/dominio/glosario.md). **Léelos antes de proponer un
@@ -73,40 +76,53 @@ decorador exista sembrado, y se niega a levantar si falta uno.
 
 ```bash
 cd apps/api
-pnpm lint          # oxlint + los cuatro verificadores
+pnpm lint          # oxlint + los seis verificadores
 npx tsc --noEmit
 pnpm test
 ```
 
-Los cuatro verificadores son propios y valen más de lo que parecen:
+Los seis verificadores son propios y valen más de lo que parecen — entre todos han
+atrapado relaciones sin inversa, tablas sin RLS, restricciones sin mensaje y rutas
+tapadas, todo antes de llegar a producción:
 
 | script | qué impide |
 |---|---|
 | `verificar-schema` | campos duplicados, relaciones sin inversa, tablas o columnas fuera de snake_case |
-| `verificar-vocabulario` | que una misma cosa se llame distinto en la tabla, la carpeta, la ruta, el permiso y el tag de Swagger |
+| `verificar-vocabulario` | que una misma cosa se llame distinto en la tabla, la carpeta, la ruta, el permiso y el tag de Swagger — y que reaparezca una palabra descartada |
 | `verificar-rls` | que una tabla nueva quede expuesta por la API de Supabase |
+| `verificar-rutas` | que `@Get(':id')` tape a `@Get('mias')` y el cliente reciba un 400 que no dice nada |
+| `verificar-errores` | que una restricción de la base no tenga cómo explicarse en español |
 | `verificar-cliente` | que el cliente de Prisma haya quedado viejo respecto al schema |
 
 ## Estado
 
-**26 tablas, 23 rutas, 96 endpoints.** Todo con Swagger documentado.
+**33 tablas, 26 rutas, 111 endpoints, 97 pruebas.** Todo con Swagger documentado.
 
 - [x] Identidad y acceso — JWT por JWKS, persona separada de cuenta, staff de plataforma aparte
 - [x] Permisos — RBAC administrable, cada conjunto crea sus propios cargos
 - [x] La copropiedad — conjuntos, agrupaciones anidadas, tipologías, unidades con carga masiva
+- [x] Los dos repartos — coeficiente de copropiedad y módulos de contribución por sector
 - [x] Instalaciones — zonas comunes con horarios, parqueaderos y asignaciones
 - [x] Reservas — espacios, políticas y reservas, con candado de concurrencia
 - [x] Portería — casilleros, encomiendas, invitados, vehículos y bicicletas
 - [x] Notificaciones — la campanita, con recordatorios programados
-- [x] Migraciones versionadas y RLS en las 26 tablas
-- [ ] **La interfaz** — hoy los 96 endpoints solo se usan desde Swagger
+- [x] Cobranza — facturar el mes, emitirlo, registrar pagos y aplicarlos
+- [x] Migraciones versionadas y RLS en las 33 tablas
+- [ ] **La interfaz** — hoy los 111 endpoints solo se usan desde Swagger
+- [ ] Pasarela de pagos — la interfaz está escrita, falta elegir proveedor
+- [ ] Interés de mora
 - [ ] Ingreso por OTP al celular
-- [ ] Finanzas — cuotas, pagos, estado de cuenta, mora
 - [ ] Asambleas y votación por coeficiente
 - [ ] Push y tiempo real (SSE)
 - [ ] Control de ingreso en portería
 - [ ] PQRS y cartelera
+- [ ] Marketplace de saberes — diseñado en los ADR 0005 y 0006, sin construir
 - [ ] CI/CD y despliegue
+
+Las pruebas son todas de **dominio puro** — reglas que ninguna restricción de base puede
+cuidar, sin base de datos ni mocks. La que más vale: el reparto de la cuota **suma
+exactamente el monto**, porque multiplicar y redondear de a una deja el total corrido
+unos pesos todos los meses.
 
 Lo que falta, con el motivo de cada cosa, está en
 [`docs/pendientes.md`](docs/pendientes.md). Dónde quedó todo, en
