@@ -68,7 +68,32 @@ en el cliente.
 **unidad** por identificador ni una **persona** por nombre o documento. Con las
 listas sin paginar, la app tendría que traerlo todo y filtrar en memoria.
 
-### 5. Decisión pendiente: `POST /conjuntos` no pide permiso
+### 5. Cargos estándar: cada conjunto con su copia (el viejo "paso 2")
+
+Los cargos estándar —`ADMIN_CONJUNTO`, `CONSEJO`, `PORTERIA`…— existen **una sola
+vez** con `conjuntoId` nulo y los comparten todos los conjuntos. Un conjunto no
+los puede ajustar: si quiere que su portería además registre vehículos, tiene que
+crear un cargo propio desde cero y reasignárselo a sus porteros.
+
+No está roto —recibe un mensaje claro— pero es incómodo.
+
+**Aplazado a propósito.** Copiar los estándar a cada conjunto es fácil (el gancho
+ya existe: `modules/conjuntos/siembra.ts`, que es donde se siembran los conceptos
+de cobro). Lo que falta es decidir dos cosas, y para eso hacen falta clientes
+reales:
+
+1. **Qué pasa cuando Vecii mejora un cargo.** Hoy el cambio llega a todos al
+   instante; con copias, ya no.
+2. **`PROPIETARIO` y `RESIDENTE` no se pueden copiar sin más.** No se otorgan, se
+   derivan, y `permisos-del-rol.service.ts` los resuelve **por código** porque
+   asume que son globales. Copiarlos obliga a rehacer ese camino — aunque también
+   habilitaría algo deseable: que cada conjunto decida qué puede ver un
+   propietario.
+
+Ver [ADR-0007](adr/0007-supabase-o-servidor-propio.md) para el patrón de decidir
+con disparador en vez de por si acaso.
+
+### 6. Decisión pendiente: `POST /conjuntos` no pide permiso
 
 Cualquiera con una cuenta de Supabase crea conjuntos ilimitados y queda de
 administrador de cada uno. Hoy no importa porque no hay registro abierto; el día

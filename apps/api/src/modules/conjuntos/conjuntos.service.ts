@@ -6,6 +6,7 @@ import type { AuthUser } from '../../auth/auth-user.js';
 import type { CreateConjuntoDto } from './dto/create-conjunto.dto.js';
 import type { UpdateConjuntoDto } from './dto/update-conjunto.dto.js';
 import { ROL } from '../../common/roles.js';
+import { sembrarConjunto } from './siembra.js';
 
 @Injectable()
 export class ConjuntosService {
@@ -31,10 +32,15 @@ export class ConjuntosService {
   }
 
   /**
-   * Crea un conjunto y deja al creador como administrador.
+   * Crea un conjunto, deja al creador como administrador y lo siembra.
    *
-   * TODO (paso 2 de roles por conjunto): aqui va la siembra de los roles propios
-   * del conjunto, en esta misma transaccion. Hoy se conecta al rol global.
+   * Todo en una transaccion: un conjunto sin sus conceptos de cobro no puede
+   * facturar, y nadie se entera hasta fin de mes. Que arranque completo o que no
+   * arranque.
+   *
+   * Con que arranca vive en `siembra.ts`, no aqui. Es donde entrarian tambien
+   * los cargos propios del conjunto el dia que se decida — hoy se conecta al rol
+   * estandar, que es compartido (ver ADR-0007).
    */
   async create(dto: CreateConjuntoDto, user: AuthUser) {
     // `connect` por codigo ya no sirve: la unicidad es (conjuntoId, codigo) y
@@ -44,16 +50,21 @@ export class ConjuntosService {
       select: { id: true },
     });
 
-    return this.prisma.conjunto.create({
-      data: {
-        ...dto,
-        usuarios: {
-          create: {
-            usuarioId: user.id,
-            roles: { create: { rolId: rolAdmin.id } },
+    return this.prisma.$transaction(async (tx) => {
+      const conjunto = await tx.conjunto.create({
+        data: {
+          ...dto,
+          usuarios: {
+            create: {
+              usuarioId: user.id,
+              roles: { create: { rolId: rolAdmin.id } },
+            },
           },
         },
-      },
+      });
+
+      await sembrarConjunto(tx, conjunto.id);
+      return conjunto;
     });
   }
 

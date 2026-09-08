@@ -95,6 +95,16 @@ export const PERMISOS = {
   /// Aprobar, rechazar, cancelar la de otro y marcar que no asistio.
   RESERVAS_ADMINISTRAR: 'reservas.administrar',
 
+  // --- modulo: finanzas ---
+  /// Ver las cuentas y los pagos de TODO el conjunto. Es del administrador, del
+  /// consejo y del revisor fiscal.
+  FINANZAS_LEER: 'finanzas.leer',
+  /// Definir conceptos, emitir las cuentas del mes y registrar pagos.
+  FINANZAS_GESTIONAR: 'finanzas.gestionar',
+  /// Ver LO SUYO: la cuenta de su unidad y lo que ha pagado. Es el permiso que
+  /// tiene el residente, y por si solo no deja ver nada de otra unidad.
+  FINANZAS_MI_UNIDAD: 'finanzas.mi_unidad',
+
   // --- modulo: roles ---
   ROLES_LEER: 'roles.leer',
   /// Editar la matriz de que puede hacer cada rol. Es el permiso mas peligroso
@@ -161,6 +171,17 @@ export const MODULOS: ModuloDeclarado[] = [
     ambito: Ambito.PLATAFORMA,
     permisos: [
       { codigo: PERMISOS.PLATAFORMA_STAFF_GESTIONAR, nombre: 'Nombrar y quitar staff de Vecii' },
+    ],
+  },
+  {
+    codigo: 'finanzas',
+    nombre: 'Finanzas',
+    descripcion: 'Que se le cobra a cada unidad y con que plata se cubrio.',
+    orden: 45,
+    permisos: [
+      { codigo: PERMISOS.FINANZAS_LEER, nombre: 'Ver cuentas y pagos del conjunto' },
+      { codigo: PERMISOS.FINANZAS_GESTIONAR, nombre: 'Definir conceptos, emitir cuentas y registrar pagos' },
+      { codigo: PERMISOS.FINANZAS_MI_UNIDAD, nombre: 'Ver la cuenta de mis unidades' },
     ],
   },
   {

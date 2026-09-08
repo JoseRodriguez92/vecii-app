@@ -39,8 +39,10 @@ export class CargosService {
     });
     if (!vinculo) throw new NotFoundException('Esa persona no pertenece a este conjunto');
 
-    // TODO (paso 2): cuando los roles sean por conjunto, `conjuntoId: null` pasa
-    // a ser el conjunto activo. Hoy todos los roles son globales.
+    // `conjuntoId: null` es un cargo ESTANDAR, compartido por todos los
+    // conjuntos. Un conjunto no puede ajustarlos: si necesita algo distinto
+    // crea el suyo. Copiarselos a cada uno esta evaluado y aplazado a
+    // proposito, con los numeros, en docs/adr/0007 y en pendientes.md.
     // Un cargo estandar (sin conjunto) o uno que este conjunto invento. Los de
     // OTRO conjunto no existen para el.
     const rol = await this.prisma.rol.findFirst({

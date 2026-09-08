@@ -225,8 +225,10 @@ export class RolesService {
   }
 
   private async obtener(codigo: string) {
-    // TODO (paso 2): cuando los roles sean por conjunto, `conjuntoId: null` pasa
-    // a ser el conjunto activo. Hoy todos los roles son globales.
+    // `conjuntoId: null` es un cargo ESTANDAR, compartido por todos los
+    // conjuntos. Un conjunto no puede ajustarlos: si necesita algo distinto
+    // crea el suyo. Copiarselos a cada uno esta evaluado y aplazado a
+    // proposito, con los numeros, en docs/adr/0007 y en pendientes.md.
     const rol = await this.prisma.rol.findFirst({ where: { codigo, conjuntoId: null } });
     if (!rol) throw new NotFoundException(`No existe el rol ${codigo}`);
     return rol;

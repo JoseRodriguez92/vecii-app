@@ -85,6 +85,7 @@ probarlas**, y ese es el criterio para partir un archivo — no el largo.
 | `porteria` | `/casilleros` `/encomiendas` `/invitados` `/vehiculos` `/bicicletas` | la casilla de cada unidad, lo que llega y quién lo retira, a quién autorizó cada unidad |
 | `reservas` | `/espacios-reservables` `/politicas-reserva` `/reservas` | qué se puede apartar, con qué reglas, y quién apartó |
 | `notificaciones` | `/notificaciones` | la campanita: los avisos de cada persona |
+| `finanzas` | `/conceptos-cobro` | qué se le puede cobrar a una unidad. **Recién empezado** |
 | `roles` | `/roles` `/modulos` | qué puede hacer cada cargo. **Cada conjunto crea y administra los suyos** |
 | `plataforma` | `/usuarios-plataforma` | el equipo de Vecii y su acceso a todos los conjuntos |
 
@@ -237,7 +238,7 @@ Y lo que se unificó porque estaba escrito dos y tres veces:
 
 ## El hueco se cerró
 
-**Las 26 tablas tienen API.** Ya no queda nada que solo se pueda cargar a mano en
+**Las 26 tablas del núcleo tienen API.** Ya no queda nada que solo se pueda cargar a mano en
 DBeaver, que fue el estado del proyecto durante casi toda su vida.
 
 Lo último en entrar fueron los parqueaderos y sus asignaciones, con la regla que
@@ -264,10 +265,17 @@ Lo que falta ya no son tablas sin API: son **sistemas enteros**.
 
 ---
 
+## A medio construir
+
+**Finanzas.** El modelo está completo —`sectores`, `unidades_sectores`,
+`conceptos_cobro`, `cuentas_cobro`, `cobros`, `pagos`, `imputaciones`— y el
+catálogo de conceptos ya tiene API. Falta lo que lo usa: emitir las cuentas del
+mes, registrar pagos e imputarlos, y `reglas-imputacion.ts`.
+
 ## Sin empezar
 
-Finanzas (tarifas, cuotas, pagos, estado de cuenta), asambleas y votación por
-coeficiente, PQRS y cartelera, el marketplace, y las apps de Expo.
+Asambleas y votación por coeficiente, PQRS y cartelera, el marketplace
+(diseñado en los ADR 0005 y 0006), y las apps de Expo.
 
 ---
 
